@@ -225,21 +225,35 @@ CI の `figma` ジョブが**実際に Figma API を叩いて検品している*
 `--loop-accent-primary` / `--brand-accent-primary` / `--color-accent-primary` のように、
 **コレクション名を接頭辞に入れる。** これは `CLAUDE.md` の規約に上げた。
 
-### 未解決1 — `app/design-tokens.css` はまだ作れていない
+### `app/design-tokens.css` を作った（9モード × 8変数）
 
-9モード × 8変数の**実際の色の値**が手元に無い。理由は2つ。
+値は天真が Plugin API で読み出して渡したもの。**実測値で、推測値はひとつも無い。**
+72件すべてを渡された表と機械的に突き合わせ、不一致0件を確認してから commit した。
 
-1. Variables REST API はトークンのスコープ不足で 403（`file_variables:read` が無い）
-2. **`Loop Theme` は現時点でどこにも使われていない**（UTUTU 全ページを走査して適用数0件）。
-   ノードに当たっていないので、`get_variable_defs` など「ノード経由で変数を読む」経路も使えない
+- **切り替え方式は `data-loop-theme` 属性**。`<html data-loop-theme="restaurant">` で全体、
+  `<div data-loop-theme="clinic">` で一部だけ切り替わる（入れ子も効く）。
+  CSS変数の再定義だけで完結するので JS が要らず、SSR でも初回描画で色がちらつかない
+- 属性が無いときは **Clinic**。`Loop Theme` の先頭モードだからで、
+  「クリニックを主力業態と決めた」という意味ではない。変えるならセレクタ1行
+- Figma のモード名 `Lodging/Sauna` は、CSS では `lodging-sauna` に正規化した
+- `app/layout.tsx` で `globals.css` より先に読み込んでいる
+- ⚠ `*-on-primary`（その上に乗る文字の色）は**業態ごとに黒と白が入れ替わる**。
+  accent が黒文字なのは Fitness / School、cta が黒文字なのは
+  Clinic / Beauty / Seikotsuin / Fitness / Pet / Lodging-Sauna。**一律に実装しないこと**
 
-値を推測して置くことはしない（`CLAUDE.md` 3章・4章に反する）。
-先に進めるには、次のどちらかが要る。
+**このファイルは Figma からの写しであって、source of truth ではない。**
+手で書き換えて Figma と食い違わせないこと。値が変わったら丸ごと作り直す。
 
-- **案A**: `file_content:read` ＋ `file_variables:read` の2スコープでトークンを発行し直す
-  → 以後 AI が機械的に同期できる。`~/.zshrc` と GitHub シークレットの両方を更新すること
-- **案B**: 天真がプラグインで 9モード × 8変数の HEX を書き出して渡す
-  → 今回は早いが、値が変わるたびに人手が要る
+### 保留 — Figma トークンのスコープ不足（急がない）
+
+現行トークンには `file_variables:read` が無く、Variables REST API は 403 で落ちる。
+今後 AI が変数を機械的に同期するには必要だが、**上記のとおり値は手渡しで足りたので急がない。**
+
+**再発行するのは `Loop Theme` の値が実際に変わったときでよい。**
+
+> ⚠ 再発行するときは **`~/.zshrc` と GitHub のシークレットの2か所を必ず同時に更新すること。**
+> 片方だけだと、ローカルは通るのに CI が古いトークンで落ちる（またはその逆）という
+> 原因の分かりにくい状態になる。
 
 ### 未解決2 — LOOP のデザイン実体が検品対象と一致していない
 
@@ -261,11 +275,10 @@ CI の `figma` ジョブが**実際に Figma API を叩いて検品している*
 
 ## 次にやること
 
-1. **天真の判断** — `Loop Theme` の値をどう取るか（上の未解決1、案A / 案B）
-2. **天真の判断** — LOOP のデザインをどちらの Figma ファイルに集約するか（上の未解決2）
-3. 値が手に入ったら `app/design-tokens.css` を作る。CSS変数名は `--loop-` 接頭辞
-4. 天真が Supabase / Sentry のプロジェクトを作成し、環境変数を登録する
-5. `GOOD LOOP` / `GOOD LOOP LP` ページにデザインを作る。
+1. **天真の判断** — LOOP のデザインをどちらの Figma ファイルに集約するか（上の未解決2）
+2. 天真が Supabase / Sentry のプロジェクトを作成し、環境変数を登録する
+3. `GOOD LOOP` / `GOOD LOOP LP` ページにデザインを作る。
    その際 `scripts/check-figma.mjs` の `SCREEN_PAGES` にページ名を足す
    （＝セクションに `PC` / `SP` の対を必須にする）
-6. 画面の実装に着手する
+4. 画面の実装に着手する。`data-loop-theme` をどこで付けるか（テナントの業態から引く）は
+   Supabase のスキーマが決まってから
