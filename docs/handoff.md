@@ -45,7 +45,7 @@ GOOD LOOP では中身が無いうちにハーネスを入れたので、この�
 ここを増やすのは、返済されない負債を増やすということ。安易に `--update-baseline` を使わないこと。
 
 > **その後（同日）：検品対象を LOOP 専用ファイルに移した結果、既存の生フレーム54件を
-> 登録した。0件では無くなっている。台帳は下の「Figma の負債台帳」。**
+> 登録した。その後30件が返済され、現在は24件。台帳は下の「Figma の負債台帳」。**
 
 ### GOOD ORDER から持ってきたもの
 
@@ -61,7 +61,7 @@ GOOD ORDER 側のファイルは**一切変更していない**（読み取り�
 | 項目 | 変更 |
 |---|---|
 | Figma file key | `KGPuY4YVRQW6BMRrulBaFN` → `i7z9wGL6BpFoC2kwlGA1lV`（同日中に往復した。最終的にこの値。経緯は後述） |
-| ベースライン | 空（0件）で新規作成。GOOD ORDER の51件は持ち込んでいない（同日中に54件を登録。後述の台帳を参照） |
+| ベースライン | 空（0件）で新規作成。GOOD ORDER の51件は持ち込んでいない（同日中に54件を登録し、30件返済して現在24件。後述の台帳を参照） |
 | セクション色 | 大枠 `#7E7E7E` / 中枠 `#444444` を機械チェックに追加 |
 | `SCREEN_PAGES` | 空。画面制作ページを作ったら `scripts/check-figma.mjs` に足すこと |
 | デザイントークン | `app/design-tokens.css` が未作成でも通るようにした（Figma 同期前のため） |
@@ -356,35 +356,67 @@ LP をセクションで包んだ結果、`SP セクションがありません`
 
 ## Figma の負債台帳（2026-08-04 時点）
 
-**生フレーム54件をベースラインに登録した。「直したから0件」ではない。
-`npm run design:figma` は緑だが、それは「未返済の負債が54件ある」ことを意味する。**
+**現在の台帳は 24件 / 13種類。** `npm run design:figma` は緑だが、
+それは「未返済の負債が24件ある」ことを意味する。
 
 ベースラインは**「今より増えた分だけを落とす」ための基準線**であって、
 返済の完了を意味しない。緑を見て「Figma はきれい」と読まないこと。
 
-### 台帳に載っている54件
+### 返済の記録：54件 → 24件（-30件）
 
-| ページ | セクション | ノード名 | 件数 |
-|---|---|---|---|
-| App Design Master | `02-A  Clinic / クリニック（緑・清潔）` | `CTA Block` | 2 |
-| App Design Master | `02-B  Restaurant / 飲食店（バーミリオン・食欲）` | `CTA Block` | 2 |
-| App Design Master | `02-C  Salon / 美容室（ブラス・上質）` | `CTA Block` | 2 |
-| App Design Master | `02-D  Beauty / エステ・美容（ローズ・やわらか）` | `CTA Block` | 2 |
-| App Design Master | `02-E  Seikotsuin / 整骨院（ネイビー・信頼）` | `CTA Block` | 2 |
-| App Design Master | `02-F  Fitness / フィットネス（ボルト・活力）` | `CTA Block` | 2 |
-| App Design Master | `02-G  School / スクール（アンバー・親しみ）` | `CTA Block` | 2 |
-| App Design Master | `02-H  Pet / ペット（スカイ・やさしい）` | `CTA Block` | 2 |
-| App Design Master | `02-I  Lodging & Sauna / 宿泊・サウナ（常緑・整い）` | `CTA Block` | 2 |
-| App Design Master | `06 Dashboard / 全店一覧 3案 / PC` | `Chip / 直近7日` `直近14日` `今月` `直近3ヶ月`（各3）＋`変化順` `レビュー増加順` `送客率順`（各1） | 15 |
-| App Design Master | `06 Dashboard / 全店一覧 3案 / SP` | 同上 | 15 |
-| Web Design Master | `01 LP / GOOD LOOP / PC` | `Hero CTAs` `btn-primary`×3 `Final CTA` `final-ctas` | 6 |
+天真がダッシュボードのフィルターチップ30個をコンポーネント化した。
+`Loop / Segment Chip`（`State=Active|Inactive` ＋ `Label` テキストプロパティ、高さ44px固定）を
+新設し、PC・SP の生フレーム30個をすべてインスタンスに置き換えた。
 
-**違反の種類は54件すべて「生のフレームで作られている」**（＝既存コンポーネントを使っていない）。
-1行ずつの明細は PR #4 の本文にある。返済するときはそれを作業リストとして使う。
+**この30件はベースラインで黙らせたのではなく、直したもの。**
+検品も「返済が進んだもの（14種類）」として検出している。
+
+あわせて、LOOP専用ファイルのデザインが**削除済みの UTUTU 側 `Loop Theme` を参照したままだった**
+問題も修正された（塗り729件・モード指定29件をローカルの `Loop Theme` に付け替え）。
+9業態それぞれの accent 色が期待値と一致することを確認済み。
+**`app/design-tokens.css` の値に変更はない。**
+
+### 台帳に残っている24件
+
+| ページ | セクション | ノード名 | 件数 | 実体 |
+|---|---|---|---|---|
+| App Design Master | `02-A  Clinic / クリニック（緑・清潔）` | `CTA Block` | 2 | 誤検知 |
+| App Design Master | `02-B  Restaurant / 飲食店（バーミリオン・食欲）` | `CTA Block` | 2 | 誤検知 |
+| App Design Master | `02-C  Salon / 美容室（ブラス・上質）` | `CTA Block` | 2 | 誤検知 |
+| App Design Master | `02-D  Beauty / エステ・美容（ローズ・やわらか）` | `CTA Block` | 2 | 誤検知 |
+| App Design Master | `02-E  Seikotsuin / 整骨院（ネイビー・信頼）` | `CTA Block` | 2 | 誤検知 |
+| App Design Master | `02-F  Fitness / フィットネス（ボルト・活力）` | `CTA Block` | 2 | 誤検知 |
+| App Design Master | `02-G  School / スクール（アンバー・親しみ）` | `CTA Block` | 2 | 誤検知 |
+| App Design Master | `02-H  Pet / ペット（スカイ・やさしい）` | `CTA Block` | 2 | 誤検知 |
+| App Design Master | `02-I  Lodging & Sauna / 宿泊・サウナ（常緑・整い）` | `CTA Block` | 2 | 誤検知 |
+| Web Design Master | `01 LP / GOOD LOOP / PC` | `Hero CTAs` | 1 | 誤検知 |
+| Web Design Master | `01 LP / GOOD LOOP / PC` | `Final CTA` | 1 | 誤検知 |
+| Web Design Master | `01 LP / GOOD LOOP / PC` | `final-ctas` | 1 | 誤検知 |
+| Web Design Master | `01 LP / GOOD LOOP / PC` | `btn-primary` | 3 | **本物の生フレーム** |
+
+### ⚠ 24件のうち21件は検品スクリプトの誤検知
+
+**`CTA Block` / `Hero CTAs` / `final-ctas` / `Final CTA` はいずれも「容器」であって、
+ボタンそのものではない。** 中にコンポーネントのインスタンスを持っている。
+検品が名前だけを見て「ボタンっぽい名前なのに生のフレーム」と判定してしまっている。
+
+**本物の生フレームは LP のスマホモックアップ内の `btn-primary` 3件だけ。**
+
+台帳に24件載っているが、**返済すべき実体は3件**である。この区別を忘れないこと。
 
 > **2026-08-04 追記：ベースラインを件数つき形式に変更した。
 > 同じ違反が増えたことも検出できるようになった。** 詳細は下の「ベースラインの仕組み」。
-> 台帳の中身（54件 / 27種類）は移行の前後で1件も変わっていない。
+
+### 未解決 — 誤検知21件は判定ロジックの修正で解消する（3リポジトリ同時に）
+
+`scripts/check-figma.mjs` の「生のフレーム」判定に、次の2条件を足して解消する。
+
+1. **中にコンポーネントのインスタンスを含むフレームは「容器」とみなす**（ボタンではない）
+2. **幅400px または 高さ200px を超えるフレームはボタンとみなさない**
+
+**この修正は ORDER のベースライン移行が終わってから、3リポジトリ同時に行う。**
+`good-loop` / `good-order` / `good-order` の `harness/`（移植キット）。
+バラバラに直すと、どれが最新か分からなくなる。
 
 ### タップ領域15件は凍結していない。Figma 側で修正済み
 
@@ -420,8 +452,9 @@ LP をセクションで包んだ結果、`SP セクションがありません`
 
 ## 次にやること
 
-1. **負債の返済** — 生フレーム54件を既存コンポーネントに置き換える（Figma 側の作業）
-2. LP の SP版を作り、`PAIR_EXEMPT_SECTIONS` から `01 LP / GOOD LOOP` を外す
-3. 天真が Supabase / Sentry のプロジェクトを作成し、環境変数を登録する
-4. 画面の実装に着手する。`data-loop-theme` をどこで付けるか（テナントの業態から引く）は
+1. **判定ロジックの誤検知21件を解消する** — 3リポジトリ同時（ORDER のベースライン移行後）
+2. **負債の返済** — 本物の生フレームは LP の `btn-primary` 3件だけ（Figma 側の作業）
+3. LP の SP版を作り、`PAIR_EXEMPT_SECTIONS` から `01 LP / GOOD LOOP` を外す
+4. 天真が Supabase / Sentry のプロジェクトを作成し、環境変数を登録する
+5. 画面の実装に着手する。`data-loop-theme` をどこで付けるか（テナントの業態から引く）は
    Supabase のスキーマが決まってから
