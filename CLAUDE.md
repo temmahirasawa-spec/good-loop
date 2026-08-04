@@ -152,10 +152,26 @@ Figma でデザイン作業を行う場合は、着手前に必ず `docs/specs/d
 
 - `app/design-tokens.css` が実装側の参照先。**source of truth は Figma Variables**
   （変数コレクション `Loop Theme` ＝9モード）。Figma で値が変わったらこのファイルを同期する
-- ⚠ **`Loop Theme` がどちらの Figma ファイルにあるかは未確定です。**
-  検品対象は `KGPuY4YVRQW6BMRrulBaFN` に決めましたが、9業態のデザイン実体は
-  旧・専用ファイル `i7z9wGL6BpFoC2kwlGA1lV` に残っています（Variables API は 403 で機械確認できない）。
-  **トークン同期に着手する前に天真に確認すること。** 経緯は `docs/handoff.md`
+
+**`Loop Theme` の所在（2026-08-04 確定。Figma Plugin API `getLocalVariableCollectionsAsync` で実測）**
+
+| 項目 | 値 |
+|---|---|
+| ファイル | **`KGPuY4YVRQW6BMRrulBaFN`（UTUTU 共有ファイル）** |
+| コレクション ID | `VariableCollectionId:978:8248` |
+| コレクション key | `2beb5cc98edc5a6cd9cfba2f7a0b78e2124fe429` |
+| `remote` | `false`（＝このファイルが持ち主。他ファイルからの読み込みではない） |
+| モード（9業態） | Clinic / Restaurant / Salon / Beauty / Seikotsuin / Fitness / School / Pet / Lodging-Sauna |
+| 変数（8） | `accent/primary` `accent/light` `accent/action` `accent/wash` `accent/on-primary` `cta/primary` `cta/action` `cta/on-primary` |
+
+**検品対象ファイルとトークンの供給元は同じ UTUTU です。分離していません。**
+旧・専用ファイル `i7z9wGL6BpFoC2kwlGA1lV` にはありません。
+
+- **CSS変数名には必ず `--loop-` の接頭辞を付ける。**
+  変数名が3コレクションで重複しているため、変数名からそのまま生成すると衝突する。
+  - `accent/primary` … `Color` / `Brand Product` / `Loop Theme` の3つに存在
+  - `accent/light` `accent/action` `accent/wash` … `Brand Product` / `Loop Theme` の2つに存在
+  - 例: `--loop-accent-primary` / `--brand-accent-primary` / `--color-accent-primary`
 - **業態別テーマはモード切替で成立させる。** 9業態それぞれに別の実装を書かない。
   CSS変数の値が差し替わるだけで全画面の色が変わる構造を壊さないこと
 - 新規JSXでは `p-[var(--space-16)]` `rounded-[var(--radius-xl)]` のような任意値記法、
@@ -181,6 +197,12 @@ Figma でデザイン作業を行う場合は、着手前に必ず `docs/specs/d
 - `scripts/figma-check-baseline.json` は「既存分として見逃す違反」の一覧。
   **GOOD LOOP はゼロ件で開始しています。** ここを増やすのは、返済されない負債を増やすということ。
   検品が落ちたときに `--update-baseline` へ逃げないこと
+- **⚠ 現行トークンには `file_variables:read` スコープがありません。**
+  そのため Variables API（`/v1/files/:key/variables/local`）は 403 で落ちます。
+  プランの制限ではなく**スコープの不足**です（`Invalid scope(s): file_content:read.`）。
+  変数の値を機械的に取りたい場合は、`file_content:read` ＋ `file_variables:read` の
+  2スコープでトークンを発行し直すこと。**発行し直したら GitHub のシークレットも更新する**
+  （`~/.zshrc` だけ直すと CI 側が古いトークンのままになる）
 - **⚠ Figma のパーソナルアクセストークンの有効期限は 2026-11-01 です。**
   切れると `npm run design:figma` が **403** で落ちます。スクリプトのバグではありません。
   Figma で発行し直して `~/.zshrc` の `export FIGMA_TOKEN="figd_..."` を更新してください。
