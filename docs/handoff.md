@@ -184,22 +184,88 @@ production として扱うため。設定ミスではない。
 `scripts/figma-check-baseline.json` は0件のままにしてある。
 （対象ページが空である以上、`--update-baseline` を打っても0件のまま変わらない）
 
-### 未解決 — `Loop Theme` はどちらのファイルにあるか
+### `Loop Theme` はどちらのファイルにあるか → 決着済み（下の節を参照）
 
-変数コレクション `Loop Theme`（9業態モード）の所在が確定していない。
-Figma の Variables API（`/v1/files/:key/variables/local`）は**両ファイルとも 403** で、
-機械的に確認できなかった（Enterprise プラン限定のエンドポイントのため）。
+Figma の Variables API（`/v1/files/:key/variables/local`）は**両ファイルとも 403** だった。
 
-`app/design-tokens.css` への同期に着手する前に、天真に確認すること。
+> **訂正（同日）：この 403 は Enterprise プランの制限ではなく、トークンのスコープ不足だった。**
+> 返ってきていたのは `Invalid scope(s): file_content:read. This endpoint requires the
+> file_variables:read scope`。現行トークンは `file_content:read` だけで発行されている。
+
+---
+
+## 2026-08-04（3回目） — `Loop Theme` の所在が確定した
+
+先に済んだこと：PR #1 / #2 はマージ済み。GitHub の `FIGMA_TOKEN` も登録済みで、
+CI の `figma` ジョブが**実際に Figma API を叩いて検品している**ことを再実行で確認した
+（「未登録のためスキップ」ではない）。Vercel の production も `main` から出るようになった。
+
+
+天真が Figma Plugin API（`getLocalVariableCollectionsAsync`）で UTUTU ファイルを直接読んで確認。
+**推測ではなく実測値。**
+
+| 項目 | 値 |
+|---|---|
+| ファイル | **`KGPuY4YVRQW6BMRrulBaFN`（UTUTU 共有ファイル）** |
+| コレクション ID | `VariableCollectionId:978:8248` |
+| コレクション key | `2beb5cc98edc5a6cd9cfba2f7a0b78e2124fe429` |
+| `remote` | `false`（＝このファイルが持ち主。他ファイルからの読み込みではない） |
+| モード（9業態） | Clinic / Restaurant / Salon / Beauty / Seikotsuin / Fitness / School / Pet / Lodging-Sauna |
+| 変数（8） | `accent/primary` `accent/light` `accent/action` `accent/wash` `accent/on-primary` `cta/primary` `cta/action` `cta/on-primary` |
+
+**検品対象ファイルとトークンの供給元は同じ UTUTU。分離していない。**
+旧・専用ファイル `i7z9wGL6BpFoC2kwlGA1lV` には無い。
+
+### 変数名が3コレクションで重複している → CSS変数には `--loop-` を必ず付ける
+
+- `accent/primary` … `Color` / `Brand Product` / `Loop Theme` の3つに存在
+- `accent/light` `accent/action` `accent/wash` … `Brand Product` / `Loop Theme` の2つに存在
+
+変数名からそのまま CSS変数名を生成すると衝突する。
+`--loop-accent-primary` / `--brand-accent-primary` / `--color-accent-primary` のように、
+**コレクション名を接頭辞に入れる。** これは `CLAUDE.md` の規約に上げた。
+
+### 未解決1 — `app/design-tokens.css` はまだ作れていない
+
+9モード × 8変数の**実際の色の値**が手元に無い。理由は2つ。
+
+1. Variables REST API はトークンのスコープ不足で 403（`file_variables:read` が無い）
+2. **`Loop Theme` は現時点でどこにも使われていない**（UTUTU 全ページを走査して適用数0件）。
+   ノードに当たっていないので、`get_variable_defs` など「ノード経由で変数を読む」経路も使えない
+
+値を推測して置くことはしない（`CLAUDE.md` 3章・4章に反する）。
+先に進めるには、次のどちらかが要る。
+
+- **案A**: `file_content:read` ＋ `file_variables:read` の2スコープでトークンを発行し直す
+  → 以後 AI が機械的に同期できる。`~/.zshrc` と GitHub シークレットの両方を更新すること
+- **案B**: 天真がプラグインで 9モード × 8変数の HEX を書き出して渡す
+  → 今回は早いが、値が変わるたびに人手が要る
+
+### 未解決2 — LOOP のデザイン実体が検品対象と一致していない
+
+**検品対象（UTUTU）とデザインの実体（旧・専用ファイル）が別々の場所にある。**
+
+| 場所 | 中身 |
+|---|---|
+| UTUTU `GOOD LOOP` ページ | 0件 |
+| UTUTU `GOOD LOOP LP` ページ | フォント見本 1枚だけ |
+| 旧・専用 `i7z9wGL6BpFoC2kwlGA1lV` | 3,716ノード。9業態テーマ・評価UI 5案・全店一覧3案・コンポーネント一式 |
+
+このままだと **`npm run design:figma` は永久に「空振りの緑」**になる。
+検品が緑でも、実際のデザインは1つも見ていない。
+
+**デザインをどちらに集約するかは天真の判断待ち。** AI は決めないこと。
+（`Loop Theme` が UTUTU にあり、そこにデザインが無い、という食い違いでもある）
 
 ---
 
 ## 次にやること
 
-1. **天真の手作業** — GitHub に `FIGMA_TOKEN` をシークレット登録する（手順は PR #2 の本文）
-2. 天真が Supabase / Sentry のプロジェクトを作成し、環境変数を登録する
-3. `Loop Theme` の所在を確定させ、`app/design-tokens.css` に同期する
-4. `GOOD LOOP` / `GOOD LOOP LP` ページにデザインを作る。
+1. **天真の判断** — `Loop Theme` の値をどう取るか（上の未解決1、案A / 案B）
+2. **天真の判断** — LOOP のデザインをどちらの Figma ファイルに集約するか（上の未解決2）
+3. 値が手に入ったら `app/design-tokens.css` を作る。CSS変数名は `--loop-` 接頭辞
+4. 天真が Supabase / Sentry のプロジェクトを作成し、環境変数を登録する
+5. `GOOD LOOP` / `GOOD LOOP LP` ページにデザインを作る。
    その際 `scripts/check-figma.mjs` の `SCREEN_PAGES` にページ名を足す
    （＝セクションに `PC` / `SP` の対を必須にする）
-5. 画面の実装に着手する
+6. 画面の実装に着手する
