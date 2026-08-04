@@ -1,18 +1,25 @@
 /*
  * GOOD LOOP デザイントークン — 業態別テーマ
  *
- * 出典: UTUTU ファイル `KGPuY4YVRQW6BMRrulBaFN` / 変数コレクション `Loop Theme`
- *       （VariableCollectionId:978:8248） / 2026-08-04 時点の値
+ * 出典: GOOD LOOP 専用ファイル `i7z9wGL6BpFoC2kwlGA1lV` / 変数コレクション `Loop Theme`
+ *       （VariableCollectionId:29:812 / key 704fe2858d736c9a125b703d0c58a53ff0737812）
+ *       2026-08-04 時点の値。
  *       Figma Plugin API `getLocalVariableCollectionsAsync` による実測値。推測値は無い。
+ *
+ * `Loop Theme` は同日 UTUTU から LOOP 専用ファイルへ移設された。**値は72個とも変わっていない。**
+ * UTUTU は共通ライブラリ（色・余白・角丸・サイズ・文字・共通コンポーネント）、
+ * LOOP 専用ファイルは LOOP のデザイン実体と LOOP専用トークン、という役割分担。
  *
  * source of truth は Figma。**このファイルを手で書き換えて Figma と食い違わせないこと。**
  * Figma で値が変わったら、このファイルを丸ごと作り直す。
  *
  * ── 命名 ────────────────────────────────────────────────
- * CSS変数名には `--loop-` 接頭辞を必ず付ける。
- * `accent/primary` は `Color` / `Brand Product` / `Loop Theme` の3コレクションに
- * 存在するため、接頭辞なしでは衝突する。スラッシュはハイフンに変換する。
+ * CSS変数名には `--loop-` 接頭辞を必ず付ける。スラッシュはハイフンに変換する。
  *   accent/primary → --loop-accent-primary
+ *
+ * UTUTU 側が `product/accent-primary` 等に改名されたので、名前の衝突はもう起きない。
+ * それでも接頭辞を付けるのは、**LOOP専用トークンと、将来 UTUTU から読み込む
+ * 共通トークンを CSS上で見分けるため。**
  *
  * ── 切り替え方 ──────────────────────────────────────────
  * `data-loop-theme` 属性で9業態を切り替える。値はモード名を小文字化したもの。
