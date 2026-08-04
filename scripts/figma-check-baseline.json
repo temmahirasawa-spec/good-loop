@@ -1,19 +1,7 @@
 {
-  "total": 24,
-  "keys": 13,
+  "total": 3,
+  "keys": 1,
   "counts": {
-    "App Design Master / 02-A  Clinic / クリニック（緑・清潔） :: 「CTA Block」が生のフレームで作られています。既存のコンポーネントを使ってください": 2,
-    "App Design Master / 02-B  Restaurant / 飲食店（バーミリオン・食欲） :: 「CTA Block」が生のフレームで作られています。既存のコンポーネントを使ってください": 2,
-    "App Design Master / 02-C  Salon / 美容室（ブラス・上質） :: 「CTA Block」が生のフレームで作られています。既存のコンポーネントを使ってください": 2,
-    "App Design Master / 02-D  Beauty / エステ・美容（ローズ・やわらか） :: 「CTA Block」が生のフレームで作られています。既存のコンポーネントを使ってください": 2,
-    "App Design Master / 02-E  Seikotsuin / 整骨院（ネイビー・信頼） :: 「CTA Block」が生のフレームで作られています。既存のコンポーネントを使ってください": 2,
-    "App Design Master / 02-F  Fitness / フィットネス（ボルト・活力） :: 「CTA Block」が生のフレームで作られています。既存のコンポーネントを使ってください": 2,
-    "App Design Master / 02-G  School / スクール（アンバー・親しみ） :: 「CTA Block」が生のフレームで作られています。既存のコンポーネントを使ってください": 2,
-    "App Design Master / 02-H  Pet / ペット（スカイ・やさしい） :: 「CTA Block」が生のフレームで作られています。既存のコンポーネントを使ってください": 2,
-    "App Design Master / 02-I  Lodging & Sauna / 宿泊・サウナ（常緑・整い） :: 「CTA Block」が生のフレームで作られています。既存のコンポーネントを使ってください": 2,
-    "Web Design Master / 01 LP / GOOD LOOP / PC :: 「Final CTA」が生のフレームで作られています。既存のコンポーネントを使ってください": 1,
-    "Web Design Master / 01 LP / GOOD LOOP / PC :: 「Hero CTAs」が生のフレームで作られています。既存のコンポーネントを使ってください": 1,
-    "Web Design Master / 01 LP / GOOD LOOP / PC :: 「btn-primary」が生のフレームで作られています。既存のコンポーネントを使ってください": 3,
-    "Web Design Master / 01 LP / GOOD LOOP / PC :: 「final-ctas」が生のフレームで作られています。既存のコンポーネントを使ってください": 1
+    "Web Design Master / 01 LP / GOOD LOOP / PC :: 「btn-primary」が生のフレームで作られています。既存のコンポーネントを使ってください": 3
   }
 }
