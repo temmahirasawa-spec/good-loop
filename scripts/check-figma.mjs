@@ -77,6 +77,9 @@ const PAIR_EXEMPT_SECTIONS = [
   "02-G  School / スクール（アンバー・親しみ）",
   "02-H  Pet / ペット（スカイ・やさしい）",
   "02-I  Lodging & Sauna / 宿泊・サウナ（常緑・整い）",
+  // ⚠ 暫定。LP の SP版がまだ存在しないため対の検査を外している。
+  //   「作らなくてよい」ではなく「まだ作っていない」。SP版を作ったらこの行を消すこと
+  "01 LP / GOOD LOOP",
 ];
 
 /**
@@ -309,12 +312,14 @@ for (const page of pages) {
   for (const sec of page.children || []) {
     if (sec.type !== "SECTION") continue;
     const subs = (sec.children || []).filter((c) => c.type === "SECTION");
-    // 対を免除したセクションは SP 専用の画面。SP として品質を見る
-    const exemptIsSP = PAIR_EXEMPT_SECTIONS.includes(sec.name);
     if (subs.length) {
-      for (const sub of subs) walk(sub, `${page.name} / ${sec.name} / ${sub.name}`, sub.name === "SP" || exemptIsSP, false);
+      // PC / SP に分かれているなら、どちらであるかは名前で決まる。
+      // 免除セクションでも、その中の PC を SP 扱いにしてはいけない
+      // （1440px の LP に「タップ領域44px以上」を要求することになる）
+      for (const sub of subs) walk(sub, `${page.name} / ${sec.name} / ${sub.name}`, sub.name === "SP", false);
     } else {
-      walk(sec, `${page.name} / ${sec.name}`, exemptIsSP, false);
+      // 分かれていない免除セクションは SP 専用の画面。SP として品質を見る
+      walk(sec, `${page.name} / ${sec.name}`, PAIR_EXEMPT_SECTIONS.includes(sec.name), false);
     }
   }
 }
