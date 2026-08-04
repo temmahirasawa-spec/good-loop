@@ -3,8 +3,10 @@
 GOOD LOOP の Figma 作業で、AI と天真の間で必ず守るルール。
 **このファイルに書かれていることは「お願い」ではなく前提条件。** 破った成果物は納品扱いにしない。
 
-対象ファイル：fileKey `KGPuY4YVRQW6BMRrulBaFN`（UTUTU の共有ファイル）
-対象ページ：`GOOD LOOP` / `GOOD LOOP LP` の2ページだけ。他プロダクトのページには触らない
+対象ファイル：fileKey `i7z9wGL6BpFoC2kwlGA1lV`（GOOD LOOP 専用ファイル）
+対象ページ：このファイルの全ページ（`scripts/check-figma.mjs` の `SKIP_PAGES` を除く）
+共通の色・余白・コンポーネントは UTUTU（`KGPuY4YVRQW6BMRrulBaFN`）のライブラリにある。
+UTUTU 側は共通ライブラリなので、LOOP の都合で勝手に書き換えない
 
 ---
 

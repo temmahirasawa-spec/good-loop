@@ -153,25 +153,34 @@ Figma でデザイン作業を行う場合は、着手前に必ず `docs/specs/d
 - `app/design-tokens.css` が実装側の参照先。**source of truth は Figma Variables**
   （変数コレクション `Loop Theme` ＝9モード）。Figma で値が変わったらこのファイルを同期する
 
-**`Loop Theme` の所在（2026-08-04 確定。Figma Plugin API `getLocalVariableCollectionsAsync` で実測）**
+**`Loop Theme` の所在（2026-08-04 時点。Figma Plugin API `getLocalVariableCollectionsAsync` で実測）**
 
 | 項目 | 値 |
 |---|---|
-| ファイル | **`KGPuY4YVRQW6BMRrulBaFN`（UTUTU 共有ファイル）** |
-| コレクション ID | `VariableCollectionId:978:8248` |
-| コレクション key | `2beb5cc98edc5a6cd9cfba2f7a0b78e2124fe429` |
-| `remote` | `false`（＝このファイルが持ち主。他ファイルからの読み込みではない） |
-| モード（9業態） | Clinic / Restaurant / Salon / Beauty / Seikotsuin / Fitness / School / Pet / Lodging-Sauna |
+| ファイル | **`i7z9wGL6BpFoC2kwlGA1lV`（GOOD LOOP 専用ファイル）** |
+| コレクション ID | `VariableCollectionId:29:812` |
+| コレクション key | `704fe2858d736c9a125b703d0c58a53ff0737812` |
+| モード（9業態） | Clinic / Restaurant / Salon / Beauty / Seikotsuin / Fitness / School / Pet / Lodging/Sauna |
 | 変数（8） | `accent/primary` `accent/light` `accent/action` `accent/wash` `accent/on-primary` `cta/primary` `cta/action` `cta/on-primary` |
 
-**検品対象ファイルとトークンの供給元は同じ UTUTU です。分離していません。**
-旧・専用ファイル `i7z9wGL6BpFoC2kwlGA1lV` にはありません。
+> **同日中に UTUTU から LOOP 専用ファイルへ移設された。値は72個とも変わっていない。**
+> UTUTU 側の `Loop Theme` は削除済み。UTUTU に残っているのは
+> `Spacing` / `Radius` / `Size` / `Color` / `Brand Core` / `Brand Product` の6コレクション。
+
+**ファイルの役割分担（2026-08-04 に決定）**
+
+| ファイル | 役割 |
+|---|---|
+| `KGPuY4YVRQW6BMRrulBaFN`（UTUTU） | **共通ライブラリ。** 色・余白・角丸・サイズ・文字・共通コンポーネント。ライブラリとして公開する |
+| `i7z9wGL6BpFoC2kwlGA1lV`（GOOD LOOP） | **LOOP のデザイン実体 ＋ LOOP専用トークン（`Loop Theme`）** |
+
+GOOD ORDER も他サービスも同じ形にする（基本＝UTUTU、専用＝各プロダクトのファイル）。
 
 - **CSS変数名には必ず `--loop-` の接頭辞を付ける。**
-  変数名が3コレクションで重複しているため、変数名からそのまま生成すると衝突する。
-  - `accent/primary` … `Color` / `Brand Product` / `Loop Theme` の3つに存在
-  - `accent/light` `accent/action` `accent/wash` … `Brand Product` / `Loop Theme` の2つに存在
-  - 例: `--loop-accent-primary` / `--brand-accent-primary` / `--color-accent-primary`
+  UTUTU の `Brand Product` 側が `product/accent-primary` 等に改名されたため、
+  **名前の衝突はもう起きない。** それでも接頭辞を付けるのは、
+  **LOOP専用トークンと、将来 UTUTU から読み込む共通トークンを CSS上で見分けるため。**
+  - 例: `--loop-accent-primary`（LOOP専用） / `--product-accent-primary`（UTUTU 由来）
 - **業態別テーマはモード切替で成立させる。** 9業態それぞれに別の実装を書かない。
   CSS変数の値が差し替わるだけで全画面の色が変わる構造を壊さないこと
 - 新規JSXでは `p-[var(--space-16)]` `rounded-[var(--radius-xl)]` のような任意値記法、
@@ -188,14 +197,19 @@ Figma でデザイン作業を行う場合は、着手前に必ず `docs/specs/d
 
 ### Figma
 
-- ファイルキーは **`KGPuY4YVRQW6BMRrulBaFN`**（UTUTU の共有ファイル）
-- **検品対象は `GOOD LOOP` と `GOOD LOOP LP` の2ページだけ。**
-  このファイルには GOOD ORDER など他プロダクトのページが同居しているため、
-  `scripts/check-figma.mjs` の `TARGET_PAGES` を許可リストにしてある。
-  GOOD LOOP のページを増やしたら、そこに足すこと
+- ファイルキーは **`i7z9wGL6BpFoC2kwlGA1lV`**（GOOD LOOP 専用ファイル）
+- **検品対象はこのファイルの全ページ**（`scripts/check-figma.mjs` の `SKIP_PAGES` を除く）。
+  ファイルの中身がすべて LOOP のものなので**除外リスト方式**にしてある。
+  新しくページを作ったら、登録しなくても自動で検品の対象に入る
+- `SCREEN_PAGES` は「全セクションに PC / SP の対を要求するページ」＝画面制作のページ。
+  `App Design Master` と `Web Design Master`。`Components` は画面ではないので入れない
+- `PAIR_EXEMPT_SECTIONS` は「SP しか作らないセクション」＝来店客側の画面。
+  対を免除するかわりに**SP 扱いになり、タップ領域44px以上の検査対象になる**
+- 設定に書いたページ名・セクション名が Figma に実在しないと、検品はエラーで落ちる。
+  名前を変えたときに「見ているつもりで見ていない」状態にならないための仕掛け
 - 検品は `npm run design:figma`。判定基準は `docs/specs/design-rules.md`
 - `scripts/figma-check-baseline.json` は「既存分として見逃す違反」の一覧。
-  **GOOD LOOP はゼロ件で開始しています。** ここを増やすのは、返済されない負債を増やすということ。
+  ここを増やすのは、返済されない負債を増やすということ。
   検品が落ちたときに `--update-baseline` へ逃げないこと
 - **⚠ 現行トークンには `file_variables:read` スコープがありません。**
   そのため Variables API（`/v1/files/:key/variables/local`）は 403 で落ちます。

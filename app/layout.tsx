@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+// 業態別テーマの CSS変数。globals.css より先に読む（Tailwind の宣言より前に置くため）
+import "./design-tokens.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

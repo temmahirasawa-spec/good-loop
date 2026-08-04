@@ -10,38 +10,78 @@
  *   ~/.zshrc に  export FIGMA_TOKEN="figd_..."  と書く。リポジトリには絶対に置かない。
  *   （現行トークンの有効期限は 2026-11-01。切れると 403 で落ちる ── CLAUDE.md 4章参照）
  *
- * 対象: UTUTU ファイル内の GOOD LOOP のページだけ（TARGET_PAGES）。
- *   このファイルは GOOD ORDER など他プロダクトのページと同居している。
- *   許可リスト方式にして、他プロダクトのページを巻き込んで落とさないようにしている。
+ * 対象: GOOD LOOP 専用ファイルの全ページ（SKIP_PAGES に書いたものを除く）。
+ *   このファイルの中身はすべて LOOP のもの。だから除外リスト方式にしてある
+ *   （新しいページを作ったら、登録しなくても自動的に検品の対象に入る）。
+ *   共通トークンと共通コンポーネントは UTUTU 側のライブラリにあり、ここでは見ない。
  *   セクションを使っていないページは構造チェックをスキップする（作りかけ・素材置き場のため）。
  *
  * 考え方:
  *   scripts/figma-check-baseline.json は「既存分として見逃す違反」の一覧。
- *   GOOD LOOP は**ゼロ件で開始する**。ここが増えるのは、返済されない負債が増えたということ。
+ *   2026-08-04 に生フレーム54件を登録した（＝未返済の負債が54件ある）。
+ *   ここが増えるのは、返済されない負債がさらに増えたということ。台帳は docs/handoff.md。
  *   構造・パディング・セクション色は、ベースラインに関係なく必ず落とす。
  */
 
 import fs from "node:fs";
 import path from "node:path";
 
-// UTUTU の共有ファイル。GOOD ORDER のページと同居している
-const FILE_KEY = "KGPuY4YVRQW6BMRrulBaFN";
+// GOOD LOOP 専用ファイル。このファイルの中身はすべて LOOP のもの
+// （共通トークンとコンポーネントは UTUTU 側のライブラリに置く）
+const FILE_KEY = "i7z9wGL6BpFoC2kwlGA1lV";
 
 /**
- * 検品するページ（許可リスト）。
- * ここに書いたページだけを見る。GOOD LOOP のページを増やしたらここに足すこと。
+ * 検品しないページ（除外リスト）。
+ *
+ * このファイルは LOOP 専用なので、**除外リスト方式**にしてある。
+ * 新しく作ったページは、何もしなくても検品の対象に入る。
+ * 許可リスト方式だと、ページを足した人が登録を忘れた分が黙って見逃される。
+ *
+ * `---` はページ一覧の見た目を区切るためだけの空ページ。
  */
-const TARGET_PAGES = ["GOOD LOOP", "GOOD LOOP LP"];
+const SKIP_PAGES = ["---"];
 
 /**
  * 全セクションに PC / SP の対を要求するページ（画面制作のページ）。
  * ここに無いページでも、サブセクションを作った時点で PC / SP の対が必須になる。
  * 画面制作ページを作ったら、このリストに足すこと。
+ *
+ * `Components` は入れない。コンポーネントの置き場であって画面ではないため
+ * （PC版のボタン・SP版のボタン、という作り分けはしない）。
  */
-const SCREEN_PAGES = [];
+const SCREEN_PAGES = ["App Design Master", "Web Design Master"];
 
-/** PC / SP の対を要求しないセクション（片側しか存在しない画面） */
-const PAIR_EXEMPT_SECTIONS = [];
+/**
+ * PC / SP の対を要求しないセクション（片側しか存在しない画面）。
+ *
+ * 来店客は卓上POPのQRから開くので、**お客様side の画面は SP しか作らない**
+ * （CLAUDE.md 4章「来店客側はスマホが主」）。実測でも、以下のセクションの中身は
+ * すべて 390px 幅のフレームだけだった。ここに PC を要求しても、作る意味のない
+ * PC版を9業態ぶん作らせるだけになる。
+ *
+ * 逆に `06 Dashboard`（店舗側の管理画面）は PC が主なので、ここには入れない。
+ *
+ * **このリストに入れたセクションは、タップ領域44px以上の検査対象になる**（＝SP扱い）。
+ * 対を免除するかわりに、SPとしての品質は見る。
+ *
+ * ページ名やセクション名を変えたら、ここも直すこと。
+ * 実在しない名前が残っていたら、下の実行部で落ちる。
+ */
+const PAIR_EXEMPT_SECTIONS = [
+  "01 Rating UI Exploration / 評価UI 5案（A=デフォルト）",
+  "02-A  Clinic / クリニック（緑・清潔）",
+  "02-B  Restaurant / 飲食店（バーミリオン・食欲）",
+  "02-C  Salon / 美容室（ブラス・上質）",
+  "02-D  Beauty / エステ・美容（ローズ・やわらか）",
+  "02-E  Seikotsuin / 整骨院（ネイビー・信頼）",
+  "02-F  Fitness / フィットネス（ボルト・活力）",
+  "02-G  School / スクール（アンバー・親しみ）",
+  "02-H  Pet / ペット（スカイ・やさしい）",
+  "02-I  Lodging & Sauna / 宿泊・サウナ（常緑・整い）",
+  // ⚠ 暫定。LP の SP版がまだ存在しないため対の検査を外している。
+  //   「作らなくてよい」ではなく「まだ作っていない」。SP版を作ったらこの行を消すこと
+  "01 LP / GOOD LOOP",
+];
 
 /**
  * セクションの色（docs/specs/design-rules.md 3章）。
@@ -247,13 +287,23 @@ function walk(node, secLabel, isSP, insideInstance) {
 
 // ── 実行 ──────────────────────────────────────────────
 const file = await fetchFile();
-const pages = (file.document.children || []).filter((p) => TARGET_PAGES.includes(p.name));
+const pages = (file.document.children || []).filter((p) => !SKIP_PAGES.includes(p.name));
 
-// 許可リストに書いたページがファイルに無い＝ページ名が変わったか消えた。黙って0件で通さない
-for (const want of TARGET_PAGES) {
-  if (!pages.some((p) => p.name === want)) {
-    console.error(`ページ「${want}」が Figma ファイルに見つかりません。`);
-    console.error("ページ名が変わったか削除された可能性があります。scripts/check-figma.mjs の TARGET_PAGES を確認してください。");
+// 設定に書いた名前が Figma に実在するかを先に照合する。
+// 名前を変えたときに、設定だけ古いまま「見ているつもりで見ていない」状態になるのを防ぐ。
+{
+  const pageNames = new Set(pages.map((p) => p.name));
+  const sectionNames = new Set(
+    pages.flatMap((p) => (p.children || []).filter((c) => c.type === "SECTION").map((c) => c.name))
+  );
+  const stale = [
+    ...SCREEN_PAGES.filter((n) => !pageNames.has(n)).map((n) => `SCREEN_PAGES のページ「${n}」`),
+    ...PAIR_EXEMPT_SECTIONS.filter((n) => !sectionNames.has(n)).map((n) => `PAIR_EXEMPT_SECTIONS のセクション「${n}」`),
+  ];
+  if (stale.length) {
+    console.error("scripts/check-figma.mjs の設定が Figma と食い違っています。\n");
+    for (const s of stale) console.error(`  ・${s} が見つかりません`);
+    console.error("\n名前が変わったか削除された可能性があります。設定を直してください。");
     process.exit(1);
   }
 }
@@ -264,9 +314,13 @@ for (const page of pages) {
     if (sec.type !== "SECTION") continue;
     const subs = (sec.children || []).filter((c) => c.type === "SECTION");
     if (subs.length) {
-      for (const sub of subs) walk(sub, `${page.name} / ${sec.name} / ${sub.name}`, sub.name === "SP" || PAIR_EXEMPT_SECTIONS.includes(sec.name), false);
+      // PC / SP に分かれているなら、どちらであるかは名前で決まる。
+      // 免除セクションでも、その中の PC を SP 扱いにしてはいけない
+      // （1440px の LP に「タップ領域44px以上」を要求することになる）
+      for (const sub of subs) walk(sub, `${page.name} / ${sec.name} / ${sub.name}`, sub.name === "SP", false);
     } else {
-      walk(sec, `${page.name} / ${sec.name}`, false, false);
+      // 分かれていない免除セクションは SP 専用の画面。SP として品質を見る
+      walk(sec, `${page.name} / ${sec.name}`, PAIR_EXEMPT_SECTIONS.includes(sec.name), false);
     }
   }
 }

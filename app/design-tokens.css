@@ -1,0 +1,169 @@
+/*
+ * GOOD LOOP デザイントークン — 業態別テーマ
+ *
+ * 出典: GOOD LOOP 専用ファイル `i7z9wGL6BpFoC2kwlGA1lV` / 変数コレクション `Loop Theme`
+ *       （VariableCollectionId:29:812 / key 704fe2858d736c9a125b703d0c58a53ff0737812）
+ *       2026-08-04 時点の値。
+ *       Figma Plugin API `getLocalVariableCollectionsAsync` による実測値。推測値は無い。
+ *
+ * `Loop Theme` は同日 UTUTU から LOOP 専用ファイルへ移設された。**値は72個とも変わっていない。**
+ * UTUTU は共通ライブラリ（色・余白・角丸・サイズ・文字・共通コンポーネント）、
+ * LOOP 専用ファイルは LOOP のデザイン実体と LOOP専用トークン、という役割分担。
+ *
+ * source of truth は Figma。**このファイルを手で書き換えて Figma と食い違わせないこと。**
+ * Figma で値が変わったら、このファイルを丸ごと作り直す。
+ *
+ * ── 命名 ────────────────────────────────────────────────
+ * CSS変数名には `--loop-` 接頭辞を必ず付ける。スラッシュはハイフンに変換する。
+ *   accent/primary → --loop-accent-primary
+ *
+ * UTUTU 側が `product/accent-primary` 等に改名されたので、名前の衝突はもう起きない。
+ * それでも接頭辞を付けるのは、**LOOP専用トークンと、将来 UTUTU から読み込む
+ * 共通トークンを CSS上で見分けるため。**
+ *
+ * ── 切り替え方 ──────────────────────────────────────────
+ * `data-loop-theme` 属性で9業態を切り替える。値はモード名を小文字化したもの。
+ * Figma のモード名 `Lodging/Sauna` はスラッシュを含むので `lodging-sauna` に正規化する。
+ *
+ *   <html data-loop-theme="restaurant">     ページ全体を飲食店テーマにする
+ *   <div data-loop-theme="clinic">          一部だけ別テーマにする（入れ子も効く）
+ *
+ * この方式にした理由:
+ *   1. CSS変数の再定義だけで完結する。JSもクラス名の付け替えも要らないので、
+ *      SSR でも初回描画時に色がちらつかない
+ *   2. 属性1つで9業態すべてを表せる。9業態それぞれに別の実装を書かない
+ *      （CLAUDE.md 4章「業態別テーマはモード切替で成立させる」）
+ *   3. 入れ子が効くので、多店舗の管理画面で店舗カードごとに業態色を出せる
+ *
+ * 属性が無いときは Clinic になる。`Loop Theme` の先頭モードだからで、
+ * 「クリニックを主力業態と決めた」という意味ではない。変えるならこのファイルの
+ * 最初のセレクタ1行だけを直せばよい。
+ *
+ * ── 変数の意味 ──────────────────────────────────────────
+ * accent は業態そのものの色、cta は行動を促すボタンの色。別系統なので混ぜない。
+ *
+ *   --loop-accent-primary     業態の主色              FRAME_FILL / SHAPE_FILL / TEXT_FILL / STROKE_COLOR
+ *   --loop-accent-light       主色の明るい版          FRAME_FILL / SHAPE_FILL / STROKE_COLOR
+ *   --loop-accent-action      押したとき・強調        FRAME_FILL / SHAPE_FILL / TEXT_FILL / STROKE_COLOR
+ *   --loop-accent-wash        背景に敷く極薄の面      FRAME_FILL / SHAPE_FILL
+ *   --loop-accent-on-primary  accent の上に乗る文字   SHAPE_FILL / TEXT_FILL
+ *   --loop-cta-primary        CTAボタンの地色         FRAME_FILL / SHAPE_FILL / STROKE_COLOR
+ *   --loop-cta-action         CTAを押したとき         FRAME_FILL / SHAPE_FILL / TEXT_FILL / STROKE_COLOR
+ *   --loop-cta-on-primary     cta の上に乗る文字      SHAPE_FILL / TEXT_FILL
+ *
+ * （スコープは Figma 上でその変数が出てくるプロパティ。実装での使い分けの目安）
+ *
+ * ⚠ `*-on-primary` は「その上に乗る文字の色」で、業態ごとに黒と白が入れ替わる。
+ *   下地が明るい業態は黒文字になる。**一律に白（または黒）で実装しないこと。**
+ *     accent が黒文字 … Fitness / School
+ *     cta が黒文字   … Clinic / Beauty / Seikotsuin / Fitness / Pet / Lodging-Sauna
+ */
+
+/* Clinic / クリニック（緑・清潔）— 属性が無いときの既定 */
+:root,
+[data-loop-theme="clinic"] {
+  --loop-accent-primary: #00C471;
+  --loop-accent-light: #34E39A;
+  --loop-accent-action: #008F53;
+  --loop-accent-wash: #DFF9EC;
+  --loop-accent-on-primary: #FFFFFF;
+  --loop-cta-primary: #E7A23C;
+  --loop-cta-action: #9C6109;
+  --loop-cta-on-primary: #1A1A1A;
+}
+
+/* Restaurant / 飲食店（バーミリオン・食欲） */
+[data-loop-theme="restaurant"] {
+  --loop-accent-primary: #E0552B;
+  --loop-accent-light: #F08A63;
+  --loop-accent-action: #A93B17;
+  --loop-accent-wash: #FCEEE7;
+  --loop-accent-on-primary: #FFFFFF;
+  --loop-cta-primary: #1D7168;
+  --loop-cta-action: #14544D;
+  --loop-cta-on-primary: #FFFFFF;
+}
+
+/* Salon / 美容室（ブラス・上質） */
+[data-loop-theme="salon"] {
+  --loop-accent-primary: #A98A5C;
+  --loop-accent-light: #C9AE85;
+  --loop-accent-action: #7A6134;
+  --loop-accent-wash: #F8F2E8;
+  --loop-accent-on-primary: #FFFFFF;
+  --loop-cta-primary: #3E7C74;
+  --loop-cta-action: #2A5751;
+  --loop-cta-on-primary: #FFFFFF;
+}
+
+/* Beauty / エステ・美容（ローズ・やわらか） */
+[data-loop-theme="beauty"] {
+  --loop-accent-primary: #DB6E8C;
+  --loop-accent-light: #EFA3B7;
+  --loop-accent-action: #A84462;
+  --loop-accent-wash: #FCEDF1;
+  --loop-accent-on-primary: #FFFFFF;
+  --loop-cta-primary: #D9A441;
+  --loop-cta-action: #8E640F;
+  --loop-cta-on-primary: #1A1A1A;
+}
+
+/* Seikotsuin / 整骨院（ネイビー・信頼） */
+[data-loop-theme="seikotsuin"] {
+  --loop-accent-primary: #2C6FB5;
+  --loop-accent-light: #7BAADF;
+  --loop-accent-action: #1D4E80;
+  --loop-accent-wash: #E8F1FA;
+  --loop-accent-on-primary: #FFFFFF;
+  --loop-cta-primary: #E7A23C;
+  --loop-cta-action: #9C6109;
+  --loop-cta-on-primary: #1A1A1A;
+}
+
+/* Fitness / フィットネス（ボルト・活力）— accent が明るいので accent 上は黒文字 */
+[data-loop-theme="fitness"] {
+  --loop-accent-primary: #93C90F;
+  --loop-accent-light: #BCE355;
+  --loop-accent-action: #4E6D02;
+  --loop-accent-wash: #F2FBDD;
+  --loop-accent-on-primary: #1A1A1A;
+  --loop-cta-primary: #FF6B2C;
+  --loop-cta-action: #B33F06;
+  --loop-cta-on-primary: #1A1A1A;
+}
+
+/* School / スクール（アンバー・親しみ）— accent が明るいので accent 上は黒文字 */
+[data-loop-theme="school"] {
+  --loop-accent-primary: #EFA71E;
+  --loop-accent-light: #F8C868;
+  --loop-accent-action: #97600A;
+  --loop-accent-wash: #FEF4E0;
+  --loop-accent-on-primary: #1A1A1A;
+  --loop-cta-primary: #1D7168;
+  --loop-cta-action: #14544D;
+  --loop-cta-on-primary: #FFFFFF;
+}
+
+/* Pet / ペット（スカイ・やさしい） */
+[data-loop-theme="pet"] {
+  --loop-accent-primary: #1FA5D6;
+  --loop-accent-light: #6FCBEB;
+  --loop-accent-action: #0F6689;
+  --loop-accent-wash: #E4F5FC;
+  --loop-accent-on-primary: #FFFFFF;
+  --loop-cta-primary: #F0A63C;
+  --loop-cta-action: #9C6109;
+  --loop-cta-on-primary: #1A1A1A;
+}
+
+/* Lodging & Sauna / 宿泊・サウナ（常緑・整い）— Figma のモード名は `Lodging/Sauna` */
+[data-loop-theme="lodging-sauna"] {
+  --loop-accent-primary: #2F6B54;
+  --loop-accent-light: #6FA890;
+  --loop-accent-action: #1E4A39;
+  --loop-accent-wash: #E8F1ED;
+  --loop-accent-on-primary: #FFFFFF;
+  --loop-cta-primary: #D98324;
+  --loop-cta-action: #8A520C;
+  --loop-cta-on-primary: #1A1A1A;
+}
