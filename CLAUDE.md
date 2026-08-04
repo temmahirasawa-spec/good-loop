@@ -151,8 +151,11 @@ Figma でデザイン作業を行う場合は、着手前に必ず `docs/specs/d
 ### デザイントークン
 
 - `app/design-tokens.css` が実装側の参照先。**source of truth は Figma Variables**
-  （file key `i7z9wGL6BpFoC2kwlGA1lV`、変数コレクション `Loop Theme` ＝9モード）。
-  Figma で値が変わったらこのファイルを同期する
+  （変数コレクション `Loop Theme` ＝9モード）。Figma で値が変わったらこのファイルを同期する
+- ⚠ **`Loop Theme` がどちらの Figma ファイルにあるかは未確定です。**
+  検品対象は `KGPuY4YVRQW6BMRrulBaFN` に決めましたが、9業態のデザイン実体は
+  旧・専用ファイル `i7z9wGL6BpFoC2kwlGA1lV` に残っています（Variables API は 403 で機械確認できない）。
+  **トークン同期に着手する前に天真に確認すること。** 経緯は `docs/handoff.md`
 - **業態別テーマはモード切替で成立させる。** 9業態それぞれに別の実装を書かない。
   CSS変数の値が差し替わるだけで全画面の色が変わる構造を壊さないこと
 - 新規JSXでは `p-[var(--space-16)]` `rounded-[var(--radius-xl)]` のような任意値記法、
@@ -169,7 +172,11 @@ Figma でデザイン作業を行う場合は、着手前に必ず `docs/specs/d
 
 ### Figma
 
-- ファイルキーは **`i7z9wGL6BpFoC2kwlGA1lV`**
+- ファイルキーは **`KGPuY4YVRQW6BMRrulBaFN`**（UTUTU の共有ファイル）
+- **検品対象は `GOOD LOOP` と `GOOD LOOP LP` の2ページだけ。**
+  このファイルには GOOD ORDER など他プロダクトのページが同居しているため、
+  `scripts/check-figma.mjs` の `TARGET_PAGES` を許可リストにしてある。
+  GOOD LOOP のページを増やしたら、そこに足すこと
 - 検品は `npm run design:figma`。判定基準は `docs/specs/design-rules.md`
 - `scripts/figma-check-baseline.json` は「既存分として見逃す違反」の一覧。
   **GOOD LOOP はゼロ件で開始しています。** ここを増やすのは、返済されない負債を増やすということ。

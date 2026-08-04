@@ -10,7 +10,9 @@
  *   ~/.zshrc に  export FIGMA_TOKEN="figd_..."  と書く。リポジトリには絶対に置かない。
  *   （現行トークンの有効期限は 2026-11-01。切れると 403 で落ちる ── CLAUDE.md 4章参照）
  *
- * 対象: ファイル内の全ページ。
+ * 対象: UTUTU ファイル内の GOOD LOOP のページだけ（TARGET_PAGES）。
+ *   このファイルは GOOD ORDER など他プロダクトのページと同居している。
+ *   許可リスト方式にして、他プロダクトのページを巻き込んで落とさないようにしている。
  *   セクションを使っていないページは構造チェックをスキップする（作りかけ・素材置き場のため）。
  *
  * 考え方:
@@ -22,10 +24,14 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const FILE_KEY = "i7z9wGL6BpFoC2kwlGA1lV";
+// UTUTU の共有ファイル。GOOD ORDER のページと同居している
+const FILE_KEY = "KGPuY4YVRQW6BMRrulBaFN";
 
-/** 検品しないページ（素材置き場・アーカイブなど） */
-const SKIP_PAGES = ["---", "_Archive", "参考サイト"];
+/**
+ * 検品するページ（許可リスト）。
+ * ここに書いたページだけを見る。GOOD LOOP のページを増やしたらここに足すこと。
+ */
+const TARGET_PAGES = ["GOOD LOOP", "GOOD LOOP LP"];
 
 /**
  * 全セクションに PC / SP の対を要求するページ（画面制作のページ）。
@@ -241,7 +247,16 @@ function walk(node, secLabel, isSP, insideInstance) {
 
 // ── 実行 ──────────────────────────────────────────────
 const file = await fetchFile();
-const pages = (file.document.children || []).filter((p) => !SKIP_PAGES.includes(p.name));
+const pages = (file.document.children || []).filter((p) => TARGET_PAGES.includes(p.name));
+
+// 許可リストに書いたページがファイルに無い＝ページ名が変わったか消えた。黙って0件で通さない
+for (const want of TARGET_PAGES) {
+  if (!pages.some((p) => p.name === want)) {
+    console.error(`ページ「${want}」が Figma ファイルに見つかりません。`);
+    console.error("ページ名が変わったか削除された可能性があります。scripts/check-figma.mjs の TARGET_PAGES を確認してください。");
+    process.exit(1);
+  }
+}
 
 for (const page of pages) {
   checkPage(page);
