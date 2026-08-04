@@ -1,0 +1,84 @@
+# GitHub Actions ── リモート側のゲート
+#
+# ローカルの Stop hook（.claude/hooks/require-check.sh）と同じ `npm run check` を、
+# GitHub 上でも走らせる。hook は天真さんの Mac でしか効かないが、こちらは
+# どの環境から来た変更にも必ず適用される。main のブランチ保護と組み合わせて
+# 「CIが通らない限りマージできない」という制約にする。
+#
+# public リポジトリなので GitHub Actions の実行時間は無料。
+
+name: check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# 同じブランチに続けて push したとき、古い実行を止めて最新だけ走らせる
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # package-lock.json のとおりに厳密インストール（npm install ではなく ci）
+      - name: 依存をインストール
+        run: npm ci
+
+      # typecheck → lint → secrets → tenant → design → build
+      # 秘密情報検出は git のファイル一覧を使うので、checkout 済みであることが前提。
+      - name: npm run check
+        run: npm run check
+
+  # Figma の検品は別ジョブにしてある。理由は2つ。
+  #   1. ネットワークと FIGMA_TOKEN が要るので、check の純粋さを保ちたい
+  #   2. **デザインは別セッションが並行して編集していることがある。**
+  #      その最中は検品が一時的に落ちる。それでコードのPRを止めるのは筋が違う
+  #
+  # よって continue-on-error: true（＝落ちてもマージを妨げない・結果は見える）。
+  # 落ちていたら、まず Figma 側が編集中でないかを疑うこと。
+  # **勝手に scripts/figma-check-baseline.json へ登録して黙らせないこと。**
+  #
+  # Figma の構造違反が返済され、安定して通るようになったら
+  # continue-on-error を外して必須チェックに昇格させる。
+  figma:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    env:
+      # 未登録のときは空文字になる。その場合はスキップする（下の if）。
+      FIGMA_TOKEN: ${{ secrets.FIGMA_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: 依存をインストール
+        run: npm ci
+
+      - name: Figma 検品（FIGMA_TOKEN が登録されているときだけ）
+        if: env.FIGMA_TOKEN != ''
+        run: npm run design:figma
+
+      - name: FIGMA_TOKEN 未登録
+        if: env.FIGMA_TOKEN == ''
+        run: |
+          echo "FIGMA_TOKEN が GitHub のシークレットに未登録のため、Figma 検品はスキップしました。"
+          echo "登録すると PR ごとにデザインの構造・パディング・セクション色を検品します。"
+          echo "（トークンの有効期限は 2026-11-01）"
