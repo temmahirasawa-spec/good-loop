@@ -3,7 +3,8 @@
 GOOD LOOP の Figma 作業で、AI と天真の間で必ず守るルール。
 **このファイルに書かれていることは「お願い」ではなく前提条件。** 破った成果物は納品扱いにしない。
 
-対象ファイル：fileKey `i7z9wGL6BpFoC2kwlGA1lV`
+対象ファイル：fileKey `KGPuY4YVRQW6BMRrulBaFN`（UTUTU の共有ファイル）
+対象ページ：`GOOD LOOP` / `GOOD LOOP LP` の2ページだけ。他プロダクトのページには触らない
 
 ---
 
