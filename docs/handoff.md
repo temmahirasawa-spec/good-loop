@@ -135,6 +135,16 @@ GOOD ORDER 側のファイルは**一切変更していない**（読み取り�
 - `vercel link` が生成した `.env.local`（`VERCEL_OIDC_TOKEN` 入り）はローカルのみ。
   `.gitignore` 済みで、`npm run secrets` でも検出されないことを確認した
 
+**注意：プロジェクト作成後の「最初の1回」だけ、feature ブランチが production 扱いでデプロイされる。**
+
+Production Branch を `main` に設定してあるにもかかわらず、
+`chore/vercel-and-figma-qa` からの初回デプロイが `target: production` になった。
+これは Vercel が「まだ production デプロイが1つも無いプロジェクト」の最初のデプロイを
+production として扱うため。設定ミスではない。
+
+`main` に何か入った時点で production は `main` の内容に置き換わる。
+2回目以降の feature ブランチへの push は、正しく preview になることを確認済み。
+
 ### Figma 検品の対象ファイルを変更した
 
 **`i7z9wGL6BpFoC2kwlGA1lV`（GOOD LOOP 専用ファイル）→ `KGPuY4YVRQW6BMRrulBaFN`（UTUTU 共有ファイル）**
