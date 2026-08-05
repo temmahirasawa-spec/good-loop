@@ -7,15 +7,16 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
  * （YORKYS BRUNCH）を暫定表示している。ログイン中の運営者が持つ店舗一覧に応じて
  * 出し分ける実装は、Supabase Authが入るセッションで行うこと。
  *
- * ⚠ PC専用（1440幅）。SP版（ドロワー展開含む）はFigmaに存在するが、
- * 時間の都合で今回は実装していない。次のセッションで着手すること。
+ * SP対応（2026-08-05）：PCはサイドバー常設、SPはハンバーガー+ドロワー
+ * （`components/admin/AdminMobileNav.tsx`）。各ページの先頭で
+ * `<AdminMobileTopBar>` を呼び出している。
  */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-dvh w-full items-start" style={{ backgroundColor: "var(--product-color-bg-primary)" }}>
       <AdminSidebar storeName="YORKYS BRUNCH" />
       <div
-        className="flex h-full flex-1 flex-col items-start gap-6 overflow-auto px-8 pb-10 pt-8"
+        className="flex h-full flex-1 flex-col items-start gap-4 overflow-auto px-4 pb-8 pt-6 md:gap-6 md:px-8 md:pb-10 md:pt-8"
         style={{ backgroundColor: "var(--product-color-bg-secondary)" }}
       >
         {children}

@@ -16,7 +16,7 @@ export function AdminSidebar({ storeName }: { storeName: string }) {
 
   return (
     <div
-      className="flex h-full w-[228px] shrink-0 flex-col items-start gap-1 px-4 pb-6 pt-7"
+      className="hidden h-full w-[228px] shrink-0 flex-col items-start gap-1 px-4 pb-6 pt-7 md:flex"
       style={{ backgroundColor: "var(--product-color-surface-white)", borderRight: `1px solid var(--product-color-border-divider)` }}
     >
       <p className="whitespace-nowrap text-base font-bold tracking-[0.64px]" style={{ color: "var(--product-color-text-primary)" }}>

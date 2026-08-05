@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminMobileTopBar } from "@/components/admin/AdminMobileNav";
 import { KpiCard } from "@/components/admin/KpiCard";
 import { PeriodSegment } from "@/components/admin/PeriodSegment";
 import { TrendChart } from "@/components/admin/TrendChart";
@@ -6,7 +7,7 @@ import { ResponseCard } from "@/components/admin/ResponseCard";
 import { LoopButton } from "@/components/rating-flow/Button";
 import { getStore, RESPONSES, TREND_WEEK_LABELS } from "@/lib/admin/mock-data";
 
-/** Dashboard / 店舗詳細（Figma node 53:905） */
+/** Dashboard / 店舗詳細（Figma node 53:905 PC / 54:926 SP） */
 export default function AdminStoreDetailPage({ params }: { params: { storeId: string } }) {
   const store = getStore(params.storeId);
   const recentResponses = RESPONSES.filter((r) => r.storeId === store.id).slice(0, 2);
@@ -14,8 +15,10 @@ export default function AdminStoreDetailPage({ params }: { params: { storeId: st
 
   return (
     <>
+      <AdminMobileTopBar title={store.name} storeName="YORKYS BRUNCH" backHref="/admin" />
+
       <div
-        className="flex w-full shrink-0 items-center justify-between rounded-2xl px-6 py-5"
+        className="hidden w-full shrink-0 items-center justify-between rounded-2xl px-6 py-5 md:flex"
         style={{ backgroundColor: "var(--product-color-surface-white)" }}
       >
         <div className="flex flex-col items-start gap-2">
@@ -33,8 +36,17 @@ export default function AdminStoreDetailPage({ params }: { params: { storeId: st
           <PeriodSegment />
         </div>
       </div>
+      <div
+        className="flex w-full shrink-0 flex-col items-start gap-2 rounded-2xl p-4 md:hidden"
+        style={{ backgroundColor: "var(--product-color-surface-white)" }}
+      >
+        <p className="whitespace-nowrap text-[11px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
+          期間
+        </p>
+        <PeriodSegment />
+      </div>
 
-      <div className="flex w-full shrink-0 items-start gap-4">
+      <div className="flex w-full shrink-0 flex-col items-start gap-2 md:flex-row md:gap-4">
         <KpiCard label="Googleレビュー増加" value={`${store.reviewIncrease > 0 ? "+" : ""}${store.reviewIncrease}`} prevLabel={`前期 +${store.reviewIncreasePrev}件`} />
         <KpiCard
           label="Googleへ送客（誘導数）"
@@ -46,11 +58,11 @@ export default function AdminStoreDetailPage({ params }: { params: { storeId: st
       </div>
 
       <div
-        className="flex w-full shrink-0 flex-col items-start gap-4 rounded-2xl p-6"
+        className="flex w-full shrink-0 flex-col items-start gap-4 rounded-2xl p-4 md:p-6"
         style={{ backgroundColor: "var(--product-color-surface-white)" }}
       >
         <div className="flex w-full items-baseline gap-2">
-          <p className="text-[17px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+          <p className="text-[15px] font-bold md:text-[17px]" style={{ color: "var(--product-color-text-primary)" }}>
             この店舗のGoogleレビュー増加数の推移
           </p>
           <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
@@ -60,8 +72,9 @@ export default function AdminStoreDetailPage({ params }: { params: { storeId: st
         <TrendChart values={store.trend} labels={TREND_WEEK_LABELS} />
       </div>
 
+      {/* PC: 横並び */}
       <div
-        className="flex w-full shrink-0 items-center justify-between rounded-2xl px-6 py-5"
+        className="hidden w-full shrink-0 items-center justify-between rounded-2xl px-6 py-5 md:flex"
         style={{ backgroundColor: "var(--product-color-surface-white)" }}
       >
         <div className="flex flex-col items-start gap-2">
@@ -81,6 +94,29 @@ export default function AdminStoreDetailPage({ params }: { params: { storeId: st
           </p>
         </div>
         <div className="w-fit">
+          <LoopButton variant="primary">この店舗の二次元コードを表示</LoopButton>
+        </div>
+      </div>
+      {/* SP: 縦積み（Figma node 54:1121） */}
+      <div
+        className="flex w-full shrink-0 flex-col items-start gap-3 rounded-2xl p-4 md:hidden"
+        style={{ backgroundColor: "var(--product-color-surface-white)" }}
+      >
+        <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+          二次元コードの読み取り
+        </p>
+        <div className="flex items-baseline gap-2">
+          <p className="text-[28px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+            {qrReads}
+          </p>
+          <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            回
+          </p>
+          <p className="text-[11.5px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
+            前期 63回
+          </p>
+        </div>
+        <div className="w-full">
           <LoopButton variant="primary">この店舗の二次元コードを表示</LoopButton>
         </div>
       </div>

@@ -25,6 +25,7 @@ function QrPlaceholder() {
   );
 }
 
+/** PC版（Figma node 56:957） */
 export function QrCard({
   storeName,
   reads,
@@ -36,7 +37,7 @@ export function QrCard({
 }) {
   return (
     <div
-      className="flex w-[371px] shrink-0 flex-col items-center gap-3 rounded-2xl p-6"
+      className="hidden w-[371px] shrink-0 flex-col items-center gap-3 rounded-2xl p-6 md:flex"
       style={{ backgroundColor: "var(--product-color-surface-white)" }}
     >
       <QrPlaceholder />
@@ -64,6 +65,43 @@ export function QrCard({
       <p className="whitespace-nowrap text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
         印刷用PDFを開く
       </p>
+    </div>
+  );
+}
+
+/** SP版（Figma node 56:1303）— QRと情報を横並びに、操作はテキストリンクにする */
+export function QrCardMobile({
+  storeName,
+  reads,
+  low,
+}: {
+  storeName: string;
+  reads: number;
+  low?: boolean;
+}) {
+  return (
+    <div
+      className="flex w-full items-center gap-4 rounded-2xl p-4 md:hidden"
+      style={{ backgroundColor: "var(--product-color-surface-white)" }}
+    >
+      <QrPlaceholder />
+      <div className="flex flex-1 flex-col items-start gap-2">
+        <p className="text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+          {storeName}
+        </p>
+        <p className="text-[11.5px] font-medium" style={{ color: low ? "var(--product-color-status-warning)" : "var(--product-color-text-secondary)" }}>
+          読み取り {reads}回（直近7日）
+        </p>
+        {low && (
+          <p className="text-[11px] font-medium" style={{ color: "var(--product-color-status-warning)" }}>
+            読み取りが少なくなっています
+          </p>
+        )}
+        <div className="flex items-start gap-4 text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
+          <p>ダウンロード</p>
+          <p>印刷用PDF</p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -17,7 +17,7 @@ export function TrendChart({ values, labels, unit = "" }: { values: number[]; la
 
   return (
     <div className="flex w-full flex-col gap-4">
-      <div className="relative h-32 w-full">
+      <div className="relative h-24 w-full md:h-32">
         <svg viewBox={`0 0 ${width} ${height}`} className="absolute inset-0 size-full" preserveAspectRatio="none">
           <path d={path} fill="none" stroke="var(--loop-accent-primary)" strokeWidth={2.5} vectorEffect="non-scaling-stroke" />
         </svg>
