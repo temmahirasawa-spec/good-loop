@@ -24,9 +24,12 @@ export function KpiCard({
         <p className="text-[28px] font-bold md:text-[40px]" style={{ color: "var(--product-color-text-primary)" }}>
           {value}
         </p>
-        <p className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-          {unit}
-        </p>
+        {/* 送客率のように単位が値に含まれる指標では unit="" を渡して単位を出さない（Figmaの Unit 非表示に対応） */}
+        {unit && (
+          <p className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            {unit}
+          </p>
+        )}
       </div>
       <p className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
         {prevLabel}

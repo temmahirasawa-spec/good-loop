@@ -31,7 +31,6 @@ export function TrendChart({ values, labels, unit = "" }: { values: number[]; la
               className="absolute -top-5 whitespace-nowrap font-medium text-xs"
               style={{ color: "var(--product-color-text-secondary)", fontFamily: "var(--font-barlow), sans-serif" }}
             >
-              {p.v > 0 ? "+" : ""}
               {p.v}
               {unit}
             </span>

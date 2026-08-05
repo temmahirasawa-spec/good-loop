@@ -3,10 +3,12 @@ import { KpiCard } from "@/components/admin/KpiCard";
 import { PeriodSegment } from "@/components/admin/PeriodSegment";
 import { TrendChart } from "@/components/admin/TrendChart";
 import { StoreBreakdownTable } from "@/components/admin/StoreBreakdownTable";
-import { STORES, ALL_STORES_TREND, TREND_WEEK_LABELS } from "@/lib/admin/mock-data";
+import { STORES, ALL_STORES_TREND, TREND_WEEK_LABELS, totals } from "@/lib/admin/mock-data";
 
 /** Dashboard / トップ（Figma node 48:1016 PC / 48:1210 SP） */
 export default function AdminTopPage() {
+  const total = totals(STORES);
+
   return (
     <>
       <AdminMobileTopBar title="トップ" storeName="YORKYS BRUNCH" />
@@ -36,14 +38,14 @@ export default function AdminTopPage() {
       </div>
 
       <div className="flex w-full shrink-0 flex-col items-start gap-2 md:flex-row md:gap-4">
-        <KpiCard label="Googleレビュー増加" value="+57" prevLabel="前期 +63件" />
         <KpiCard
           label="Googleへ送客（誘導数）"
-          value="103"
-          prevLabel="前期 130件"
+          value={String(total.routeCount)}
+          prevLabel={`前期 ${total.routeCountPrev}件`}
           note="レビュー画面を開いた数です。実際に投稿された数ではありません"
         />
-        <KpiCard label="回答数" value="189" prevLabel="前期 218件" />
+        <KpiCard label="回答数" value={String(total.responseCount)} prevLabel={`前期 ${total.responseCountPrev}件`} />
+        <KpiCard label="送客率" value={`${total.routeRatePercent}%`} prevLabel={`前期 ${total.routeRatePercentPrev}%`} unit="" />
       </div>
 
       <div
@@ -52,7 +54,7 @@ export default function AdminTopPage() {
       >
         <div className="flex w-full items-baseline gap-2">
           <p className="text-[15px] font-bold md:text-[17px]" style={{ color: "var(--product-color-text-primary)" }}>
-            Googleレビュー増加数の推移
+            Googleへの送客数の推移
           </p>
           <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             直近5週

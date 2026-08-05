@@ -3,7 +3,7 @@ import type { StoreSummary } from "@/lib/admin/mock-data";
 
 /** 店舗別内訳（Figma node 48:1084 PC / 48:1266 SP） */
 export function StoreBreakdownTable({ stores }: { stores: StoreSummary[] }) {
-  const cols = ["店舗名", "Googleレビュー増加", "送客率（前期比）", "回答数（前期比）", "平均評価"];
+  const cols = ["店舗名", "Googleへ送客", "送客率（前期比）", "回答数（前期比）", "平均評価"];
 
   return (
     <div className="flex w-full flex-col items-start gap-3">
@@ -39,8 +39,7 @@ export function StoreBreakdownTable({ stores }: { stores: StoreSummary[] }) {
             </div>
             <div className="flex flex-1 items-center gap-1 whitespace-nowrap">
               <p className="text-xl font-semibold" style={{ color: "var(--product-color-text-primary)", fontFamily: "var(--font-barlow), sans-serif" }}>
-                {store.reviewIncrease > 0 ? "+" : ""}
-                {store.reviewIncrease}
+                {store.routeCount}
               </p>
               <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
                 件
@@ -109,12 +108,11 @@ export function StoreBreakdownTable({ stores }: { stores: StoreSummary[] }) {
             </div>
             <div className="flex flex-col items-start gap-0.5 whitespace-nowrap">
               <p className="text-[11px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
-                Googleレビュー増加
+                Googleへ送客
               </p>
               <div className="flex items-center gap-1">
                 <p className="text-xl font-semibold" style={{ color: "var(--product-color-text-primary)", fontFamily: "var(--font-barlow), sans-serif" }}>
-                  {store.reviewIncrease > 0 ? "+" : ""}
-                  {store.reviewIncrease}
+                  {store.routeCount}
                 </p>
                 <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
                   件
