@@ -1032,6 +1032,46 @@ Figmaに設計済みの「写し取り」（CLAUDE.md 3章）にあたるため�
 
 ---
 
+## 2026-08-05（13回目） — Supabaseプロジェクトが出来た。クライアントライブラリを配線した
+
+天真から「Supabaseのプロジェクト（good-loop）をUTUTU組織・東京リージョンで作った。
+`.env.local` とVercelの3環境にURL・キーを登録した」という報告。
+
+### 実測して分かったこと
+
+- **Supabaseの鍵の形式が新方式（publishable / secret）に変わっていた。**
+  値は `sb_publishable_...` / `sb_secret_...` で、旧来のJWT形式ではない
+  （`createClient(url, key)` の呼び方自体は変わらない。Supabase公式ドキュメントで確認済み）
+- **天真の説明とVercelの実際の登録名が食い違っていた。** 天真は「変数名は
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`」と説明したが、`vercel env ls` で確認したところ
+  実際は **`NEXT_PUBLIC_SUPABASE_ANON_KEY`**（旧名）のままだった。値は新形式なので動作はする。
+  コードは実際に登録されている名前（`NEXT_PUBLIC_SUPABASE_ANON_KEY`）に合わせた
+- `SUPABASE_SERVICE_ROLE_KEY` はVercelで Preview・Production のみ（Development除外、
+  Sensitive設定）。天真の説明と一致
+
+### 追加した依存関係とクライアント
+
+`@supabase/supabase-js` `@supabase/ssr` `server-only` を追加。`lib/supabase/` に3つ作成。
+
+| ファイル | 用途 |
+|---|---|
+| `client.ts` | ブラウザ（Client Component）用。publishable keyのみ |
+| `server.ts` | Server Component・Route Handler用。ログイン中のユーザーのCookieからセッションを読む |
+| `admin.ts` | RLSを迂回するAPI Route専用（secret key）。`server-only` を先頭に置き、誤ってクライアント側にimportされたらビルドで落ちるようにした |
+
+まだ**どこからも呼ばれていない**（配線のみ）。実際にログイン・回答送信から使うのは次のセッション。
+
+`npm run check` 通過。既存の高深刻度の脆弱性（Next.js 14系、`npm audit`）は今回追加した
+パッケージが原因ではないことを確認済み（handoffの以前の記録どおり、天真の判断待ちのまま）。
+
+### 次にやること（天真の作業）
+
+`supabase/0001_rating_flow_schema.sql` → `supabase/0002_tenants_and_rls.sql` の順で、
+Supabaseの SQL Editor に貼って実行する。**まだ一度も実行していない。**
+（このセッションではDBへの直接接続手段が無いため、天真の手作業になる）
+
+---
+
 ## 2026-08-05（12回目） — 認証の tenant_id 設計・tenants テーブルを追加した（PR #20 マージ後）
 
 天真から「次に進められるところを」という依頼。チャット側は引き続き Supabase 作業中で、
