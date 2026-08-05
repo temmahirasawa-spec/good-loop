@@ -1106,6 +1106,75 @@ Supabaseの SQL Editor に貼って実行する。**まだ一度も実行して�
 
 ---
 
+## 2026-08-06（14回目） — GRANT不足を発見・修正し、お客様側フローを実際のSupabase・Anthropicに繋いだ
+
+天真が0001・0002を実行した直後、動作確認のため service_role キーでテーブルにアクセスしたところ、
+**全テーブルが`permission denied`（42501）で読めなかった。** RLS以前に、Postgresの GRANT
+（テーブルへのアクセス権そのもの）が anon/authenticated/service_role のどのロールにも
+与えられていなかったのが原因（SQL Editorから素の CREATE TABLE を流すと、Supabaseの管理画面や
+CLIマイグレーションで自動的に付く権限が付かないことがある）。
+
+`supabase/0003_grants.sql`（PR #23）で修正。RLSポリシーは緩めていない。天真に実行してもらい、
+`service_role` クライアントで全6テーブルへの読み書きを実測確認した。
+
+その後、天真がAnthropicのAPIキー（`good-loop-production`）も発行・登録。SupabaseとAnthropic
+両方が揃ったため、お客様側フロー（評価〜クチコミ下書き）を実際に配線した。
+
+### やったこと
+
+1. **夙川店のデータを投入した。** `tenants`（name: "YORKYS BRUNCH"）と `stores`
+   （slug: `yorkys-shukugawa`、loop_theme: `restaurant`）を service_role クライアントで直接作成
+   （launch-plan.md ③の決定どおり。テストデータではなく本番想定のデータとして投入した）
+2. **`tags_master` にタグをシードした。** `GOOD_TAGS`（良かった点・6件）と
+   `IMPROVE_CHECKLIST`（改善点・5件）を、rating-flow画面のコードと同じ文言でそのまま投入
+3. **`app/r/[storeSlug]/page.tsx`** — 仮の店舗データをやめ、`stores` を slug で引くように変更。
+   存在しないslugは `notFound()`。`data-loop-theme` を店舗の `loop_theme` から実際に付与するようになった
+4. **`POST /api/rating-flow/responses`**（新規）— 02/04画面の送信先。`survey_responses` ＋
+   `response_tags`（タグラベル→`tags_master.id`解決）に保存する。★4以上のときは、
+   rating-flow.md A-1「同時に」のとおり、**同じリクエストの中でAI下書き生成まで行い**、
+   `draft: { text, status }` を一緒に返す
+5. **`POST /api/rating-flow/regenerate-draft`**（新規）— 03画面の再生成用。上限5回はクライアント側に
+   加えサーバー側でも検証する
+6. **`lib/rating-flow/generate-draft.ts`**（新規）— Claude Haiku 4.5（`claude-haiku-4-5-20251001`）で
+   下書きを生成する共通関数。**5秒タイムアウト**（`maxRetries: 0`で余計な再試行を防止）で
+   `lib/rating-flow/fallback-draft.ts`（案3のテンプレート合成。旧 `RatingFlow.tsx` 内の
+   ロジックを移設）にフォールバックする。成否は `ai_draft_logs` に必ず記録する
+7. **`RatingFlow.tsx`** の3つのTODOをすべて `fetch()` に置き換えた。通信失敗時のエラー表示
+   （rating-flow.md A-6「エラー（通信）」）も02/04画面に追加した
+   （`GoodFeedback.tsx` / `ImproveSurvey.tsx` に `error` prop を追加。文言は
+   「送信できませんでした。もう一度お試しください。」という事務的な状態文言で、
+   ブランド文言の新規作成には当たらないと判断したが、天真の目に触れたら確認してほしい）
+
+### 実機確認（Playwright、本番ビルドを一時ポートで起動）
+
+`/r/yorkys-shukugawa` に対して次を確認し、すべて成功。確認後、投入したテスト回答3件は
+`survey_responses` から削除済み（`response_tags`・`ai_draft_logs` は cascade で連動削除）。
+
+| シナリオ | 結果 |
+|---|---|
+| ★4「満足」→タグ1件＋自由記述→回答する | `survey_responses`・`response_tags` に保存。AIが**実際に**下書きを生成（フォールバックではない） |
+| ★2「やや不満」→チェック1件＋自由記述→送信する | `survey_responses` に保存（branch=improve）。06サンクス画面に遷移 |
+| ★5→タグ選択→回答する→**再生成** | `ai_draft_logs` に regenerate_count=0 と 1 の2行。2回とも成功、2回とも異なる自然な文章 |
+| 存在しないslug（`/r/does-not-exist`） | 404 |
+
+生成された下書きの実例（★4・タグ「料理・味」・自由記述「パンケーキがふわふわで感動しました」）：
+
+> パンケーキがふわふわで、思わず感動してしまいました。丁寧に作られているのが伝わってきて、
+> とても美味しかったです。料理の味にこだわっているお店なんだなと感じました。
+> 満足のいく食事ができたので、また来たいと思います。
+
+### 未解決・次にやること
+
+- **E-5（重複回答対策）は引き続き意図的に外したまま。** 「実装の最終段階で戻す」という
+  天真の指示のとおり、まだ最終段階ではないと判断した（このあとも実機確認が続く見込みのため）
+- AI生成システムプロンプトの「★5は『また来たい』、★4は『満足した』」という感情の使い分けが、
+  実際の生成では★4でも「また来たい」と書かれることがあった。誤りではなく許容範囲だが、
+  プロンプトをより厳密にする余地はある
+- 管理画面はまだ `lib/admin/mock-data.ts` の固定値のまま（launch-plan.md フェーズ4は未着手）
+- ログイン・設定6画面はまだ見た目のみ（launch-plan.md フェーズ5）
+
+---
+
 ## 次にやること
 
 **新しい計画の正は `docs/specs/launch-plan.md`。以下はその要約。**
@@ -1113,30 +1182,24 @@ Supabaseの SQL Editor に貼って実行する。**まだ一度も実行して�
 ### 完了
 
 - ①のKPI修正（Figma ＋ コード）
-- Figma にある未実装10画面の実装（ログイン・設定6画面・店舗編集・退会）
-- 認証の `tenant_id` の載せ方と RLS の設計・`tenants` テーブル
+- Figma にある未実装10画面の実装（ログイン・設定6画面・店舗編集・退会。見た目のみ）
+- 認証の `tenant_id` の載せ方と RLS の設計・`tenants` テーブル（`0002`）・GRANT修正（`0003`）
+- Supabase・Anthropic のプロジェクト作成・鍵登録（天真）
+- **お客様側フロー（評価〜クチコミ下書き）の実配線。** 実機で動作確認済み（14回目参照）
 
-### 天真待ち
+### 次に着手すべきこと（launch-plan.md フェーズ4）
 
-- `docs/setup-tasks.md` の1（Supabase）と2（Anthropic）。これが揃うまで DB を使う実装に入れない
-  （SQLを実際に流し込む・動作確認するのはここから）
+- 行動ログ・アクセスログのテーブル追加（送客数・QR読み取り数を実データで出すため）
+- 管理画面（`lib/admin/mock-data.ts`）を実データ取得に差し替える
+- 二重送信のサーバー側ガード（冪等キー）、E-5（重複回答抑止）の復帰
 
-### 以下は旧リストの残り（launch-plan.md に統合済み）
+### 以下は旧リストの残り（launch-plan.md に統合済み。未着手のみ残す）
 
-1. 天真が Supabase / Sentry のプロジェクトを作成し、環境変数を登録する。
-   `supabase/0001_rating_flow_schema.sql` はこれが済んでから流し込む
-2. 上記が済んだら、`@supabase/supabase-js` の追加とクライアント初期化（`lib/`）、
-   `app/r/[storeSlug]/page.tsx` の店舗データ取得・API Routeの実装に着手する
-   （`components/rating-flow/RatingFlow.tsx` 内の `TODO` を参照）
-3. `data-loop-theme` をどこで付けるか（テナントの業態から引く）は上記2の実装時に決める
-4. 管理画面の認証を実装するときに、Supabaseスキーマの RLSポリシー（`auth.jwt() ->> 'tenant_id'`）を見直す
-5. `tenants`（契約主体）マスタ表は、8/6のMTGで料金体系が決まってから設計する
-6. 残っている「Figmaから逸脱させた点」（ロゴ・AI生成）を天真に確認する
+- 管理画面の認証を実装するときに、Supabaseスキーマの RLSポリシーを見直す（`0002`で app_metadata方式に更新済みだが、実際にログインで検証するのはこれから）
+- 残っている「Figmaから逸脱させた点」（ロゴ・AI生成）を天真に確認する
    （エラー色は非活性ボタン化で解消済み。上の節参照）
-7. **実装の最終段階でE-5（重複回答対策）を戻す。** `RatingFlow.tsx` 冒頭の `TODO` 参照。
-   開発中の動作確認のために一旦外してある（勝手に忘れないこと）
-8. **ORDER / harness への移植** — 余白のスケール検査は LOOP にしか入っていない
-9. **ORDER への `scripts/screenshot.mjs`（Playwright検証）の移植** — 2026-08-05、天真から
+- **ORDER / harness への移植** — 余白のスケール検査は LOOP にしか入っていない
+- **ORDER への `scripts/screenshot.mjs`（Playwright検証）の移植** — 2026-08-05、天真から
    「ORDER・LOOP両方の重要なルールにしたい」と依頼あり。LOOP側は導入済み。ORDER側は
    別セッションで着手すること（天真の希望。今回のセッションでは手をつけていない）
 9a. **スクリーンショットのギャラリー化をハーネスにする** — 2026-08-05、PR #16のスクショを
@@ -1148,5 +1211,5 @@ Supabaseの SQL Editor に貼って実行する。**まだ一度も実行して�
 11. LP の SP版を作り、`PAIR_EXEMPT_SECTIONS` から `01 LP / GOOD LOOP` を外す
 12. ~~管理画面のSP版・ドロワー展開を実装する~~ → **完了（2026-08-05 8回目）**
 13. **管理画面のフィルター・絞り込みを実際に動くようにする**（現状は見た目のみ）
-14. **管理画面の設定画面をFigmaで作る**（現状「準備中」のスタブのみ）
-15. Supabase接続後、`lib/admin/mock-data.ts` を実データ取得に差し替える
+14. ~~管理画面の設定画面をFigmaで作る~~ → **完了（2026-08-05実測。実は既にFigmaにあった。11回目参照）**
+15. ~~Supabase接続後、`lib/admin/mock-data.ts` を実データ取得に差し替える~~ → 上記「次に着手すべきこと」に統合

@@ -18,6 +18,7 @@ export function ImproveSurvey({
   freeText,
   onFreeTextChange,
   submitting,
+  error,
   onSubmit,
 }: {
   storeName: string;
@@ -26,6 +27,7 @@ export function ImproveSurvey({
   freeText: string;
   onFreeTextChange: (value: string) => void;
   submitting: boolean;
+  error?: string;
   onSubmit: () => void;
 }) {
   return (
@@ -78,6 +80,11 @@ export function ImproveSurvey({
       <div className="min-h-px w-full flex-1" />
 
       <div className="flex w-full max-w-[342px] flex-col items-center gap-[var(--product-space-12)]">
+        {error && (
+          <p className="w-full text-center text-[11px] font-medium tracking-[0.22px]" style={{ color: "var(--product-color-status-warning)" }}>
+            {error}
+          </p>
+        )}
         <LoopButton variant="primary" disabled={checked.length === 0 || submitting} onClick={onSubmit}>
           {submitting ? "送信中…" : "送信する"}
         </LoopButton>
