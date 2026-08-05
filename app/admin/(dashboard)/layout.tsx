@@ -10,6 +10,10 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
  * SP対応（2026-08-05）：PCはサイドバー常設、SPはハンバーガー+ドロワー
  * （`components/admin/AdminMobileNav.tsx`）。各ページの先頭で
  * `<AdminMobileTopBar>` を呼び出している。
+ *
+ * `(dashboard)` ルートグループにした理由（2026-08-05・未実装10画面の実装時）：
+ * `/admin/login`（サイドバーを持たない単独ページ）を `/admin` 配下に置きつつ、
+ * このレイアウトの対象から外すため。URLパスにはグループ名が出ない。
  */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
