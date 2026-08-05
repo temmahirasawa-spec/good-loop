@@ -972,6 +972,66 @@ handoff の 3・5・6・7回目に出てくるものと原因は同じ。
 
 ---
 
+## 2026-08-05（11回目） — Figmaにある未実装10画面を実装した
+
+天真から「未実装10画面の実装をお願いします」という依頼。PR #19 マージ後の
+`main` から着手。`docs/specs/launch-plan.md` 3節に記載した10画面（ログイン・
+ログイン（エラー）・設定6画面・店舗編集モーダル・退会確認モーダル、PC/SP）を実装した。
+Figmaに設計済みの「写し取り」（CLAUDE.md 3章）にあたるため、天真確認は挟んでいない。
+
+### ルーティングの変更 — `(dashboard)` ルートグループを導入
+
+`app/admin/login` にサイドバーを持たせないため、既存の管理画面ページ群を
+`app/admin/(dashboard)/` に移した（URLパスへの影響なし。`git mv` で移動）。
+
+- `app/admin/(dashboard)/layout.tsx`（旧 `app/admin/layout.tsx`）… サイドバー付きレイアウト
+- `app/admin/(dashboard)/{page.tsx, responses/, qr/, stores/, settings/}` … 既存ページ
+- `app/admin/login/page.tsx`（新規）… サイドバー無しの単独ページ
+
+### 実装した画面
+
+| 画面 | 場所 | 備考 |
+|---|---|---|
+| ログイン／エラー | `app/admin/login/page.tsx` | 未入力での送信時のみエラー表示（クライアント側バリデーション） |
+| 設定タブ共通 | `app/admin/(dashboard)/settings/layout.tsx` ＋ `components/admin/SettingsTabBar.tsx` | タブはURLで状態を持つ（`/admin/settings/brand` 等）。`/admin/settings` は `brand` へredirect |
+| ブランドとテーマ | `settings/brand/page.tsx` | ロゴは選択したファイルをその場でプレビューするだけ（Storage未接続） |
+| アンケート項目 | `settings/survey/page.tsx` | `GOOD_TAGS` / `IMPROVE_CHECKLIST`（お客様側フローと同じ定数）を初期値に使い、タグの追加・削除・プリセット復帰をローカル状態で実装 |
+| 通知 | `settings/notifications/page.tsx` | `components/admin/Toggle.tsx` を新設。「新しいGoogleレビュー」は無い（PR #19で削除済み） |
+| 店舗管理 | `settings/stores/page.tsx` ＋ `components/admin/StoreEditModal.tsx` | Google Places検索は未接続のためダミー候補3件固定 |
+| お支払い | `settings/billing/page.tsx` | Stripe未接続のため各リンクは見た目のみ |
+| アカウント | `settings/account/page.tsx` ＋ `components/admin/WithdrawModal.tsx` | 「退会」と入力するまで退会ボタンが非活性（rating-flowの非活性ボタンの慣習を踏襲） |
+
+### 新設した共通コンポーネント
+
+`components/admin/` に `LoopInput.tsx` / `Toggle.tsx` / `EditTag.tsx`（`EditTag` ＋
+`AddTagButton`）/ `SettingsTabBar.tsx` / `StoreEditModal.tsx` / `WithdrawModal.tsx`。
+
+`components/rating-flow/Button.tsx` の `LoopButton`（primary）に `type` prop
+（`"button" | "submit"`、既定 `"button"`）を追加した。ログイン画面でEnter送信を
+効かせるための最小限の変更で、既存の呼び出し側には影響しない。
+
+### モーダルの実装方針
+
+`StoreEditModal` / `WithdrawModal` とも、**同じマークアップをブレークポイントで
+出し分ける**方式にした（Figmaは別フレーム＝PC中央モーダル／SP下からのシート、
+コードでは1つのコンポーネントで `items-end md:items-center` 等のTailwindレスポンシブ
+クラスのみで両方を再現）。SPだけグラバー（つまみ）を表示する。
+
+### `lib/admin/mock-data.ts` に追加したもの
+
+- `StoreSummary.googlePlaceLinked`（設定・店舗管理の連携バッジに使用。大阪本町店だけ `false`）
+- `LOOP_THEMES`（9業態のラベル・スウォッチ色。`app/design-tokens.css` の `Loop Theme`
+  と対応。スウォッチは「非アクティブな業態の色を常に表示する」必要があるため
+  変数にバインドできず、`design-qa-allow` で除外した）
+
+### 検品
+
+`npm run design:figma` は構造0件・新規違反0件（台帳252件のまま、今回の作業はFigma書き込み無し）。
+`npm run check` 通過。PC 1400px・SP 390pxの全画面（ログイン・ログイン エラー・
+設定6画面・店舗編集モーダル・退会確認モーダル）をPlaywrightで実測確認済み。
+
+---
+
 ## 次にやること
 
 **新しい計画の正は `docs/specs/launch-plan.md`。以下はその要約。**

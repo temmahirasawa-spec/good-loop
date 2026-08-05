@@ -7,7 +7,7 @@ import { CopyIcon, PinIcon, RefreshIcon } from "./icons";
  * Google の Disabled はコピー完了前の待機状態。Regenerate は下書きの再生成用の小ボタン。
  */
 
-type PrimaryProps = { variant: "primary"; disabled?: boolean; children: ReactNode; onClick?: () => void };
+type PrimaryProps = { variant: "primary"; disabled?: boolean; children: ReactNode; onClick?: () => void; type?: "button" | "submit" };
 type CopyProps = { variant: "copy"; copied?: boolean; onClick?: () => void };
 type GoogleProps = { variant: "google"; disabled?: boolean; onClick?: () => void };
 type RegenerateProps = { variant: "regenerate"; disabled?: boolean; onClick?: () => void };
@@ -79,7 +79,7 @@ export function LoopButton(props: Props) {
   // primary
   return (
     <button
-      type="button"
+      type={props.type ?? "button"}
       onClick={props.onClick}
       disabled={props.disabled}
       className="flex h-[52px] min-h-[52px] w-full items-center justify-center gap-[var(--product-space-8)] rounded-[var(--product-radius-lg)] p-[var(--product-space-16)]"
