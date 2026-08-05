@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { RatingTop } from "./screens/RatingTop";
 import { GoodFeedback } from "./screens/GoodFeedback";
 import { DraftResult, REGENERATE_LIMIT, type DraftStatus } from "./screens/DraftResult";
@@ -18,6 +18,11 @@ import { Thanks } from "./screens/Thanks";
  * ここではローカルの模擬処理（setTimeout）で画面遷移だけを確認できるようにしてある。
  * Supabase が用意でき次第、submitGoodFeedback / submitImproveSurvey / generateDraft を
  * fetch("/api/...") に置き換えること。
+ *
+ * ⚠ E-5（重複回答対策・ブラウザ側でやんわり抑止）はまだ実装していない。2026-08-05、
+ * 天真の指示で開発中の動作確認を優先するため一旦外した（同じ店舗スラッグに何度でも
+ * 回答できる状態）。実装の最終段階で `localStorage` に `goodloop:${store.slug}:answered`
+ * を立てる形で戻すこと（docs/specs/rating-flow.md E-5参照）。
  */
 
 type Step = "rating" | "good-feedback" | "draft" | "improve-survey" | "thanks";
@@ -46,17 +51,6 @@ function composeFallbackDraft(rating: 4 | 5, tags: string[], freeText: string): 
 }
 
 export function RatingFlow({ store }: { store: Store }) {
-  const answeredKey = `goodloop:${store.slug}:answered`;
-  const [alreadyAnswered, setAlreadyAnswered] = useState(false);
-
-  useEffect(() => {
-    // E-5（重複回答対策）: サーバー側の重複検知はせず、ブラウザ側でやんわり抑止する
-    // （docs/specs/rating-flow.md E-5参照）。
-    if (typeof window !== "undefined" && window.localStorage.getItem(answeredKey)) {
-      setAlreadyAnswered(true);
-    }
-  }, [answeredKey]);
-
   const [step, setStep] = useState<Step>("rating");
   const [rating, setRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
 
@@ -73,10 +67,6 @@ export function RatingFlow({ store }: { store: Store }) {
   const [regenerating, setRegenerating] = useState(false);
   const [regenerateCount, setRegenerateCount] = useState(0);
   const [copied, setCopied] = useState(false);
-
-  function markAnswered() {
-    if (typeof window !== "undefined") window.localStorage.setItem(answeredKey, "1");
-  }
 
   function handleRatingSubmit() {
     // 「回答する」は星が未選択の間 disabled のため、ここに来る時点で rating は必ず入っている
@@ -98,7 +88,6 @@ export function RatingFlow({ store }: { store: Store }) {
     // TODO: fetch("/api/rating-flow/responses") に置き換える
     setTimeout(() => {
       setSubmittingGood(false);
-      markAnswered();
       setStep("draft");
       generateDraft(rating as 4 | 5, goodTags, goodFreeText);
     }, 600);
@@ -131,25 +120,8 @@ export function RatingFlow({ store }: { store: Store }) {
     // TODO: fetch("/api/rating-flow/responses") に置き換える
     setTimeout(() => {
       setSubmittingImprove(false);
-      markAnswered();
       setStep("thanks");
     }, 600);
-  }
-
-  if (alreadyAnswered) {
-    return (
-      <div
-        className="flex size-full flex-col items-center justify-center gap-[var(--product-space-12)] px-[var(--product-space-24)] py-[var(--product-space-40)] text-center"
-        style={{ backgroundColor: "var(--product-color-bg-primary)" }}
-      >
-        <p className="text-lg font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-          すでにご回答いただいています
-        </p>
-        <p className="text-sm" style={{ color: "var(--product-color-text-secondary)" }}>
-          ご協力ありがとうございました
-        </p>
-      </div>
-    );
   }
 
   switch (step) {
