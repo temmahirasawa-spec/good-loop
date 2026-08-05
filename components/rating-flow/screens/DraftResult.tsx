@@ -38,7 +38,7 @@ export function DraftResult({
 
   return (
     <div
-      className="flex size-full flex-col items-start gap-[var(--product-space-40)] px-[var(--product-space-24)] pb-[var(--product-space-112)] pt-[var(--product-space-48)]"
+      className="flex w-full flex-1 flex-col items-start gap-[var(--product-space-40)] px-[var(--product-space-24)] pb-[var(--product-space-112)] pt-[var(--product-space-48)]"
       style={{ backgroundColor: "var(--product-color-bg-primary)" }}
     >
       <div className="flex w-full max-w-[342px] flex-col items-center gap-[var(--product-space-24)]">

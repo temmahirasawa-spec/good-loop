@@ -6,7 +6,7 @@ import { CheckCircleOutlineIcon } from "../icons";
 export function Thanks({ googleReviewUrl }: { googleReviewUrl: string | null }) {
   return (
     <div
-      className="flex size-full flex-col items-center justify-center gap-[var(--product-space-20)] px-[var(--product-space-24)] py-[var(--product-space-40)]"
+      className="flex w-full flex-1 flex-col items-center justify-center gap-[var(--product-space-20)] px-[var(--product-space-24)] py-[var(--product-space-40)]"
       style={{ backgroundColor: "var(--product-color-bg-primary)" }}
     >
       <CheckCircleOutlineIcon className="size-16 shrink-0" />
