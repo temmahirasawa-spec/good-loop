@@ -24,8 +24,13 @@
   --product-color-border-divider: #ededed;
   --product-color-surface-white: #ffffff;
   --product-color-bg-primary: #fafafa;
+  --product-color-bg-secondary: #f5f5f5;
   --product-color-bg-tertiary: #efefef;
+  --product-color-text-inverse: #ffffff;
   --product-color-status-warning: #f59e0b;
+  /* 管理画面のQR読み取り注意バッジ。Figma側で変数未バインドの直書き値だが、
+     status-warningの薄色版として実測どおり写した */
+  --product-color-status-warning-wash: #fff2e0;
 
   /* ── 角丸 ──────────────────────────────────────────── */
   --product-radius-md: 12px;
