@@ -1032,6 +1032,40 @@ Figmaに設計済みの「写し取り」（CLAUDE.md 3章）にあたるため�
 
 ---
 
+## 2026-08-05（12回目） — 認証の tenant_id 設計・tenants テーブルを追加した（PR #20 マージ後）
+
+天真から「次に進められるところを」という依頼。チャット側は引き続き Supabase 作業中で、
+DBに繋がる実装（フェーズ3以降）にはまだ入れない状態。**フェーズ2の「設計」部分だけは
+Supabase が無くても進められる**と判断し、着手前に天真に確認を取った
+（CLAUDE.md 3章「DBのスキーマ変更」は必ず止まる項目のため）。
+
+### 決定事項（天真、2026-08-05）
+
+1. **tenant_id の載せ方は「app_metadata方式」。** Supabase Auth のユーザーが持つ
+   `app_metadata`（サービスロールキーでしか書き換えられない）に `tenant_id` を入れ、
+   RLSポリシーは `auth.jwt() -> 'app_metadata' ->> 'tenant_id'` を参照する。
+   Auth Hooksの追加設定が要らない、今の規模に一番向いている方式として提案し、採用された
+2. **`tenants`（契約主体）テーブルは今作る。** 料金体系の金額は8/6のMTG未確定だが、
+   `id` / `name` / `created_at` だけの最小構成で作り、プラン・請求関連の列は
+   金額が決まってから別マイグレーションで足す
+
+### `supabase/0002_tenants_and_rls.sql` を新規追加
+
+`0001` は書き換えず（CLAUDE.md 4章「1機能1ファイル」）、新しいファイルで追加・上書きした。
+
+- `tenants` テーブル新設（`tenant-check-allow`：このテーブル自身が参照先であり店舗に属さない）
+- `stores` / `survey_responses` / `response_tags` / `ai_draft_logs` の `tenant_id` に
+  `tenants(id)` への外部キー制約を追加。**`on delete cascade`。** Figmaの「退会の確認」モーダルの
+  文言（「回答データ・集計はすべて削除され、復元できません」）と実際の削除挙動を一致させた
+- 4テーブルのRLSポリシーを `drop policy` → `create policy` で app_metadata方式に差し替え
+
+**まだ一度も実行していない。** Supabaseプロジェクトができ、`0001` と合わせて流し込むまでは
+「型は正しいが未検証」の状態（`0001` 冒頭のコメントと同じ注記）。
+
+`npm run tenant` で6テーブル・除外1件（`tenants` 自身）を確認済み。`npm run check` 通過。
+
+---
+
 ## 2026-08-05（13回目） — Supabaseプロジェクトが出来た。クライアントライブラリを配線した
 
 天真から「Supabaseのプロジェクト（good-loop）をUTUTU組織・東京リージョンで作った。
@@ -1069,40 +1103,6 @@ Figmaに設計済みの「写し取り」（CLAUDE.md 3章）にあたるため�
 `supabase/0001_rating_flow_schema.sql` → `supabase/0002_tenants_and_rls.sql` の順で、
 Supabaseの SQL Editor に貼って実行する。**まだ一度も実行していない。**
 （このセッションではDBへの直接接続手段が無いため、天真の手作業になる）
-
----
-
-## 2026-08-05（12回目） — 認証の tenant_id 設計・tenants テーブルを追加した（PR #20 マージ後）
-
-天真から「次に進められるところを」という依頼。チャット側は引き続き Supabase 作業中で、
-DBに繋がる実装（フェーズ3以降）にはまだ入れない状態。**フェーズ2の「設計」部分だけは
-Supabase が無くても進められる**と判断し、着手前に天真に確認を取った
-（CLAUDE.md 3章「DBのスキーマ変更」は必ず止まる項目のため）。
-
-### 決定事項（天真、2026-08-05）
-
-1. **tenant_id の載せ方は「app_metadata方式」。** Supabase Auth のユーザーが持つ
-   `app_metadata`（サービスロールキーでしか書き換えられない）に `tenant_id` を入れ、
-   RLSポリシーは `auth.jwt() -> 'app_metadata' ->> 'tenant_id'` を参照する。
-   Auth Hooksの追加設定が要らない、今の規模に一番向いている方式として提案し、採用された
-2. **`tenants`（契約主体）テーブルは今作る。** 料金体系の金額は8/6のMTG未確定だが、
-   `id` / `name` / `created_at` だけの最小構成で作り、プラン・請求関連の列は
-   金額が決まってから別マイグレーションで足す
-
-### `supabase/0002_tenants_and_rls.sql` を新規追加
-
-`0001` は書き換えず（CLAUDE.md 4章「1機能1ファイル」）、新しいファイルで追加・上書きした。
-
-- `tenants` テーブル新設（`tenant-check-allow`：このテーブル自身が参照先であり店舗に属さない）
-- `stores` / `survey_responses` / `response_tags` / `ai_draft_logs` の `tenant_id` に
-  `tenants(id)` への外部キー制約を追加。**`on delete cascade`。** Figmaの「退会の確認」モーダルの
-  文言（「回答データ・集計はすべて削除され、復元できません」）と実際の削除挙動を一致させた
-- 4テーブルのRLSポリシーを `drop policy` → `create policy` で app_metadata方式に差し替え
-
-**まだ一度も実行していない。** Supabaseプロジェクトができ、`0001` と合わせて流し込むまでは
-「型は正しいが未検証」の状態（`0001` 冒頭のコメントと同じ注記）。
-
-`npm run tenant` で6テーブル・除外1件（`tenants` 自身）を確認済み。`npm run check` 通過。
 
 ---
 
