@@ -808,5 +808,8 @@ Chromiumで検証する。ブラウザバイナリは既にマシンにキャッ
 7. **実装の最終段階でE-5（重複回答対策）を戻す。** `RatingFlow.tsx` 冒頭の `TODO` 参照。
    開発中の動作確認のために一旦外してある（勝手に忘れないこと）
 8. **ORDER / harness への移植** — 余白のスケール検査は LOOP にしか入っていない
-9. **負債の返済** — 本物の生フレームは LP のスマホモックアップ内 `btn-primary` 3件だけ（Figma 側の作業）
-10. LP の SP版を作り、`PAIR_EXEMPT_SECTIONS` から `01 LP / GOOD LOOP` を外す
+9. **ORDER への `scripts/screenshot.mjs`（Playwright検証）の移植** — 2026-08-05、天真から
+   「ORDER・LOOP両方の重要なルールにしたい」と依頼あり。LOOP側は導入済み。ORDER側は
+   別セッションで着手すること（天真の希望。今回のセッションでは手をつけていない）
+10. **負債の返済** — 本物の生フレームは LP のスマホモックアップ内 `btn-primary` 3件だけ（Figma 側の作業）
+11. LP の SP版を作り、`PAIR_EXEMPT_SECTIONS` から `01 LP / GOOD LOOP` を外す
