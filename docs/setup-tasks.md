@@ -62,7 +62,7 @@ Claude Code（リポジトリ側）はここに書かれた値が揃うまで先
 
 ---
 
-## 1. Supabase — データベース・ログイン・画像の保存
+## 1. Supabase — データベース・ログイン・画像の保存 → **完了（2026-08-05）**
 
 **これが無いと、回答を保存することも、管理画面にログインすることもできません。**
 
@@ -88,18 +88,32 @@ GOOD LOOP は新規に作るプロジェクトだけを使います。
 | 変数名 | どこに書いてあるか | 注意 |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Project URL | ブラウザに出てよい |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon public | ブラウザに出てよい |
-| `SUPABASE_SERVICE_ROLE_KEY` | service_role secret | **これが漏れると全店舗のデータが読まれます。** 絶対に外に出さない |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **publishable key**（画面上の表記。値は `sb_publishable_...`） | ブラウザに出てよい。変数名は旧来のまま使う |
+| `SUPABASE_SERVICE_ROLE_KEY` | **secret key**（画面上の表記。値は `sb_secret_...`） | **これが漏れると全店舗のデータが読まれます。** 絶対に外に出さない |
+
+⚠ Supabaseの画面上の呼び方は「publishable key」「secret key」に変わっているが、
+このプロジェクトでは変数名を旧来のまま（`NEXT_PUBLIC_SUPABASE_ANON_KEY` /
+`SUPABASE_SERVICE_ROLE_KEY`）で統一している（2026-08-05実施分もこの名前で登録済み）。
+値の中身が新しい形式というだけで、コードの動きは変わらない。
 
 ### 完了の判定
 
-- `.env.local` に3つとも入っている
-- Vercel の Environment Variables（Production / Preview / Development の3つとも）に入っている
+- `.env.local` に3つとも入っている ✔️
+- Vercel の Environment Variables（Production / Preview / Development の3つとも）に入っている ✔️
+  （`SUPABASE_SERVICE_ROLE_KEY` はSensitive設定のためDevelopmentには意図的に入れていない）
 
-### そのあと（Claude Code がやります）
+### そのあと — SQLを流し込む（天真の作業）
 
-データベースの表を作るSQL（`supabase/0001_rating_flow_schema.sql`）を流し込みます。
-天真が Supabase の SQL Editor に貼る形になる可能性があるので、そのときは指示します。
+データベースの表を作るSQLがまだ一度も実行されていません。Claude Codeからは直接
+Supabaseに繋ぐ手段が無いため、**SQL Editorに貼って実行する作業だけ天真にお願いします。**
+
+1. https://supabase.com/dashboard/project/uibakdzrxiuemizzfysk/sql/new を開く
+2. リポジトリの `supabase/0001_rating_flow_schema.sql` の中身を全部コピーして貼り、
+   右下の「Run」を押す（緑色で "Success" と出れば完了）
+3. 続けて `supabase/0002_tenants_and_rls.sql` の中身も同じように貼って実行する
+   （**必ず0001の後に実行すること。** 0002は0001で作った表を前提にしている）
+
+終わったら「SQL流し込みました」とだけ伝えてもらえれば、その先はコード側で進めます。
 
 ---
 
