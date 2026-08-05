@@ -60,3 +60,6 @@ next-env.d.ts
 
 # Playwright MCP の作業ディレクトリ
 .playwright-mcp/
+
+# scripts/screenshot.mjs の出力（画面確認用。成果物ではない）
+/.screenshots/
