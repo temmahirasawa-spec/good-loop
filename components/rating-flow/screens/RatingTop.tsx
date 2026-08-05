@@ -23,7 +23,7 @@ export function RatingTop({
 }) {
   return (
     <div
-      className="flex size-full flex-col items-start justify-between px-[var(--product-space-24)] py-[var(--product-space-40)]"
+      className="flex w-full flex-1 flex-col items-start justify-between px-[var(--product-space-24)] py-[var(--product-space-40)]"
       style={{ backgroundColor: "var(--product-color-bg-primary)" }}
     >
       <ProgressBar step={1} />
