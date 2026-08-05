@@ -7,7 +7,11 @@ import { LoopButton } from "../Button";
 
 export const GOOD_TAGS = ["料理・味", "接客・スタッフ", "雰囲気・内装", "コスパ", "清潔感", "提供スピード"] as const;
 
-/** 02 / 良かった点（Figma node 1:360） */
+/**
+ * 02 / 良かった点（Figma node 1:360）
+ * タグを1つ選ぶまで「回答する」は非活性（2026-08-05 天真指示。01画面と同様のルール）。
+ * 自由記述は任意のままなので、タグ0件のままでは送信できない
+ */
 export function GoodFeedback({
   storeName,
   selectedTags,
@@ -79,7 +83,7 @@ export function GoodFeedback({
       <div className="min-h-px w-full flex-1" />
 
       <div className="flex w-full max-w-[342px] flex-col items-center gap-[var(--product-space-12)]">
-        <LoopButton variant="primary" disabled={submitting} onClick={onSubmit}>
+        <LoopButton variant="primary" disabled={selectedTags.length === 0 || submitting} onClick={onSubmit}>
           {submitting ? "送信中…" : "回答する"}
         </LoopButton>
         <p

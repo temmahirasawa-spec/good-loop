@@ -59,7 +59,6 @@ export function RatingFlow({ store }: { store: Store }) {
 
   const [step, setStep] = useState<Step>("rating");
   const [rating, setRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
-  const [showValidationError, setShowValidationError] = useState(false);
 
   const [goodTags, setGoodTags] = useState<string[]>([]);
   const [goodFreeText, setGoodFreeText] = useState("");
@@ -80,11 +79,8 @@ export function RatingFlow({ store }: { store: Store }) {
   }
 
   function handleRatingSubmit() {
-    if (rating === null) {
-      setShowValidationError(true);
-      return;
-    }
-    setShowValidationError(false);
+    // 「回答する」は星が未選択の間 disabled のため、ここに来る時点で rating は必ず入っている
+    if (rating === null) return;
     setStep(rating >= 4 ? "good-feedback" : "improve-survey");
   }
 
@@ -159,16 +155,7 @@ export function RatingFlow({ store }: { store: Store }) {
   switch (step) {
     case "rating":
       return (
-        <RatingTop
-          storeName={store.name}
-          rating={rating}
-          onSelect={(level) => {
-            setRating(level);
-            setShowValidationError(false);
-          }}
-          onSubmit={handleRatingSubmit}
-          showValidationError={showValidationError}
-        />
+        <RatingTop storeName={store.name} rating={rating} onSelect={setRating} onSubmit={handleRatingSubmit} />
       );
     case "good-feedback":
       return (

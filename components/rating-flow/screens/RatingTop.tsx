@@ -5,19 +5,21 @@ import { ProgressBar } from "../ProgressBar";
 import { RatingButton } from "../RatingButton";
 import { LoopButton } from "../Button";
 
-/** 01 / 評価トップ（Figma node 1:324） */
+/**
+ * 01 / 評価トップ（Figma node 1:324）
+ * 星を1つ選ぶまで「回答する」は非活性（2026-08-05 天真指示）。Loop/Button の
+ * Primary/Disabled バリアントをそのまま使うので、未選択の状態を示す別文言は不要。
+ */
 export function RatingTop({
   storeName,
   rating,
   onSelect,
   onSubmit,
-  showValidationError,
 }: {
   storeName: string;
   rating: 1 | 2 | 3 | 4 | 5 | null;
   onSelect: (level: 1 | 2 | 3 | 4 | 5) => void;
   onSubmit: () => void;
-  showValidationError: boolean;
 }) {
   return (
     <div
@@ -66,19 +68,12 @@ export function RatingTop({
           </div>
         </div>
 
-        {showValidationError && (
-          // エラー（危険色）のトークンがデザインシステムにまだ無いため、暫定で text-secondary を使っている。
-          // Figmaにもこの状態のフレームは無い。危険色を追加するかは天真確認が必要（CLAUDE.md 3章）
-          <p className="text-sm font-bold" style={{ color: "var(--product-color-text-secondary)" }}>
-            評価を選んでください
-          </p>
-        )}
       </div>
 
       <div className="min-h-px w-full flex-1" />
 
       <div className="flex w-full max-w-[342px] flex-col items-center gap-[var(--product-space-12)]">
-        <LoopButton variant="primary" onClick={onSubmit}>
+        <LoopButton variant="primary" disabled={rating === null} onClick={onSubmit}>
           回答する
         </LoopButton>
         <p

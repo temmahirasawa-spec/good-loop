@@ -7,7 +7,10 @@ import { LoopButton } from "../Button";
 
 export const IMPROVE_CHECKLIST = ["料理・味", "提供までの待ち時間", "接客・スタッフの対応", "店内の清潔感", "価格"] as const;
 
-/** 04 / 改善アンケート（★1-3）（Figma node 1:306） */
+/**
+ * 04 / 改善アンケート（★1-3）（Figma node 1:306）
+ * チェックを1つ選ぶまで「送信する」は非活性（2026-08-05 天真指示。01/02画面と同様のルール）
+ */
 export function ImproveSurvey({
   storeName,
   checked,
@@ -75,7 +78,7 @@ export function ImproveSurvey({
       <div className="min-h-px w-full flex-1" />
 
       <div className="flex w-full max-w-[342px] flex-col items-center gap-[var(--product-space-12)]">
-        <LoopButton variant="primary" disabled={submitting} onClick={onSubmit}>
+        <LoopButton variant="primary" disabled={checked.length === 0 || submitting} onClick={onSubmit}>
           {submitting ? "送信中…" : "送信する"}
         </LoopButton>
         <p

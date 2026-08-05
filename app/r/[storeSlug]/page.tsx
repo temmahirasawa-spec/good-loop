@@ -18,8 +18,9 @@ export default function RatingFlowPage({ params }: { params: { storeSlug: string
   };
 
   return (
-    // data-loop-theme は実店舗の loop_theme が決まってから渡す。無指定時は Clinic（既定）
-    <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col">
+    // Figmaのフレームは390px固定（02基本形）。data-loop-theme は実店舗の loop_theme が
+    // 決まってから渡す。無指定時は Clinic（既定）
+    <div className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-col">
       <RatingFlow store={store} />
     </div>
   );
