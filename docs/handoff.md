@@ -621,15 +621,55 @@ E節の10項目すべてに天真から回答があり、反映した。マー�
 
 ---
 
+## 2026-08-05（3回目） — お客様側フロー5画面を実装した
+
+`app/r/[storeSlug]/page.tsx` ＋ `components/rating-flow/` 配下。Figma（`i7z9wGL6BpFoC2kwlGA1lV` /
+`App Design Master` / `02 基本形`）の5画面（01評価トップ・02良かった点・03下書き結果／コピー・
+04改善アンケート・06サンクス）を `get_design_context` / `get_variable_defs` で読み取って実装した。
+`npm run check` 通過、devサーバーでPC1400px・SP390px双方の画面遷移を確認済み。
+
+### 新しく作ったトークンファイル
+
+`app/product-tokens.css`（`--product-` 接頭辞）を新設した。UTUTU共通ライブラリ由来の静的トークン
+（`color-text-primary` 等の色・`radius-md`等の角丸・余白スケール）が、これまで `app/design-tokens.css`
+（`Loop Theme` 専用・9モード）にしか無く、画面実装で必要な色の大半（文字色・枠線・背景）が
+定義されていなかったため。値は Figma の実測（`get_variable_defs`）で取得し、推測値は無い。
+`Loop Theme` ファイルとは役割が違う（業態で変わらない）ので、あえて別ファイルにして混在させていない。
+
+### Figmaから逸脱させた3点（実装判断。天真に見てほしい）
+
+1. **ヘッダーのロゴを店舗名テキストに置き換えた。** Figmaのフレームは実店舗（YORKYS BRUNCH）の
+   ロゴをそのまま埋め込んだサンプルだが、GOOD LOOPは多店舗対応でロゴ画像は店舗ごとに異なる。
+   `stores` テーブルにロゴ画像用の列がまだ無いため、暫定で店舗名の文字表示にした
+   （`components/rating-flow/Header.tsx` にコメントで明記）
+2. **01画面の「未選択」エラー表示に使う色が無い。** Figmaにこの状態のフレームは無く、
+   デザインシステムにも危険色（エラー赤）のトークンが無い。暫定で `text-secondary` を使っている。
+   危険色トークンを追加するかは天真確認が必要
+3. **AI下書き生成・02/04画面の送信はまだ本物のAPIに繋がっていない。** Supabaseプロジェクトが
+   無いため、`RatingFlow.tsx` 内で `setTimeout` による模擬処理にしてある（コード内に `TODO` を明記）。
+   03画面は常に「フォールバック」状態（テンプレート合成、E-7で決定した非AI文言）で表示される。
+   本物のAI生成（B節案1・Claude Haiku 4.5）は API Route を作るセッションで置き換えること
+
+### 実装した状態・仕様との対応
+
+- 03画面の再生成上限5回・3/4回目での残り回数表示（E-3）を実装
+- 05画面重複回答対策（E-5・ブラウザ側でやんわり抑止）を `localStorage` で実装
+  （`RatingFlow.tsx` の `answeredKey`）
+- 星の分岐境界（★4以上=good/★1〜3=improve）はA-2のとおり固定値。設定項目は無い
+
+---
+
 ## 次にやること
 
 1. 天真が Supabase / Sentry のプロジェクトを作成し、環境変数を登録する。
    `supabase/0001_rating_flow_schema.sql` はこれが済んでから流し込む
-2. 上記が済んだら、`@supabase/supabase-js` の追加とクライアント初期化（`lib/`）に着手する
-3. お客様側フローの画面実装（Figma `02 基本形` の5画面）。API Route・保存処理はスキーマが前提
-4. `data-loop-theme` をどこで付けるか（テナントの業態から引く）は上記2・3の実装時に決める
-5. 管理画面の認証を実装するときに、上記スキーマのRLSポリシー（`auth.jwt() ->> 'tenant_id'`）を見直す
-6. `tenants`（契約主体）マスタ表は、8/6のMTGで料金体系が決まってから設計する
-4. **ORDER / harness への移植** — 余白のスケール検査は LOOP にしか入っていない
-5. **負債の返済** — 本物の生フレームは LP のスマホモックアップ内 `btn-primary` 3件だけ（Figma 側の作業）
-6. LP の SP版を作り、`PAIR_EXEMPT_SECTIONS` から `01 LP / GOOD LOOP` を外す
+2. 上記が済んだら、`@supabase/supabase-js` の追加とクライアント初期化（`lib/`）、
+   `app/r/[storeSlug]/page.tsx` の店舗データ取得・API Routeの実装に着手する
+   （`components/rating-flow/RatingFlow.tsx` 内の `TODO` を参照）
+3. `data-loop-theme` をどこで付けるか（テナントの業態から引く）は上記2の実装時に決める
+4. 管理画面の認証を実装するときに、Supabaseスキーマの RLSポリシー（`auth.jwt() ->> 'tenant_id'`）を見直す
+5. `tenants`（契約主体）マスタ表は、8/6のMTGで料金体系が決まってから設計する
+6. 上記「Figmaから逸脱させた3点」（ロゴ・エラー色・AI生成）を天真に確認する
+7. **ORDER / harness への移植** — 余白のスケール検査は LOOP にしか入っていない
+8. **負債の返済** — 本物の生フレームは LP のスマホモックアップ内 `btn-primary` 3件だけ（Figma 側の作業）
+9. LP の SP版を作り、`PAIR_EXEMPT_SECTIONS` から `01 LP / GOOD LOOP` を外す
