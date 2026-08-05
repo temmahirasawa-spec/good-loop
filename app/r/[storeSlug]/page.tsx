@@ -1,27 +1,37 @@
+import { notFound } from "next/navigation";
 import { RatingFlow } from "@/components/rating-flow/RatingFlow";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
  * 来店客の入口URL（docs/specs/rating-flow.md A-5）。
  * `https://app.goodloop.jp/r/[storeSlug]` を想定。
  *
- * ⚠ Supabaseプロジェクトがまだ無い（docs/handoff.md参照）ため、storeSlugから実店舗を
- * 引く処理はまだ書けない。プロジェクトができたら、ここで supabase/0001_rating_flow_schema.sql の
- * `stores` テーブルを slug で引き、name / loop_theme / google_place_id 等を渡すこと。
- * それまでは画面の動作確認ができるよう、仮の店舗データを使っている。
+ * 来店客はログインしない前提（rating-flow.md）なので、RLSではなく admin client
+ * （service_role・RLSを迂回）で読む。stores の SELECT には anon ロールへの GRANT を
+ * 与えていない（supabase/0003_grants.sql）ため、ここは意図的に admin client を使う。
  */
-export default function RatingFlowPage({ params }: { params: { storeSlug: string } }) {
-  const store = {
-    name: params.storeSlug,
-    slug: params.storeSlug,
-    googlePlaceId: null,
-    googleMapsFallbackUrl: null,
-  };
+export default async function RatingFlowPage({ params }: { params: { storeSlug: string } }) {
+  const supabase = createSupabaseAdminClient();
+  const { data: store } = await supabase
+    .from("stores")
+    .select("id, name, slug, loop_theme, google_place_id, google_maps_fallback_url")
+    .eq("slug", params.storeSlug)
+    .maybeSingle();
+
+  if (!store) notFound();
 
   return (
-    // Figmaのフレームは390px固定（02基本形）。data-loop-theme は実店舗の loop_theme が
-    // 決まってから渡す。無指定時は Clinic（既定）
-    <div className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-col">
-      <RatingFlow store={store} />
+    // Figmaのフレームは390px固定（02基本形）。data-loop-theme は店舗の業態をそのまま渡す
+    <div className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-col" data-loop-theme={store.loop_theme}>
+      <RatingFlow
+        store={{
+          id: store.id,
+          name: store.name,
+          slug: store.slug,
+          googlePlaceId: store.google_place_id,
+          googleMapsFallbackUrl: store.google_maps_fallback_url,
+        }}
+      />
     </div>
   );
 }

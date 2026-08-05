@@ -13,11 +13,9 @@ import { Thanks } from "./screens/Thanks";
  * A-5「画面間の遷移は別URLに遷移させずクライアント側の状態遷移で行う」の実装。
  * ★4以上→02→03、★1〜3→04→06 の分岐は A-2 で固定値と決定済み。
  *
- * ⚠ まだ Supabase プロジェクトが無い（docs/handoff.md参照）ため、
- * 02/04画面の送信・03画面のAI下書き生成は API Route に繋がっていない。
- * ここではローカルの模擬処理（setTimeout）で画面遷移だけを確認できるようにしてある。
- * Supabase が用意でき次第、submitGoodFeedback / submitImproveSurvey / generateDraft を
- * fetch("/api/...") に置き換えること。
+ * 02/04画面の送信は POST /api/rating-flow/responses、03画面の再生成は
+ * POST /api/rating-flow/regenerate-draft に接続済み（2026-08-06）。
+ * ★4以上の初回下書きは responses のレスポンスに同梱される（A-1「同時に」に対応）。
  *
  * ⚠ E-5（重複回答対策・ブラウザ側でやんわり抑止）はまだ実装していない。2026-08-05、
  * 天真の指示で開発中の動作確認を優先するため一旦外した（同じ店舗スラッグに何度でも
@@ -28,26 +26,20 @@ import { Thanks } from "./screens/Thanks";
 type Step = "rating" | "good-feedback" | "draft" | "improve-survey" | "thanks";
 
 type Store = {
+  id: string;
   name: string;
   slug: string;
   googlePlaceId: string | null;
   googleMapsFallbackUrl: string | null;
 };
 
+const SUBMIT_ERROR_MESSAGE = "送信できませんでした。もう一度お試しください。";
+
 function googleReviewUrl(store: Store): string | null {
   if (store.googlePlaceId) {
     return `https://search.google.com/local/writereview?placeid=${store.googlePlaceId}`;
   }
   return store.googleMapsFallbackUrl;
-}
-
-// B節 案3（テンプレート合成）の簡易版。実際のAI生成（案1・Claude Haiku 4.5）はAPI Route側で行う。
-function composeFallbackDraft(rating: 4 | 5, tags: string[], freeText: string): string {
-  const tagPhrase = tags.length > 0 ? `${tags.join("や")}がとても良かったです。` : "";
-  const feeling = rating === 5 ? "また利用したいと思います。" : "満足できました。";
-  const trimmedFreeText = freeText.trim();
-  const freeTextSentence = trimmedFreeText && !/[。！？]$/.test(trimmedFreeText) ? `${trimmedFreeText}。` : trimmedFreeText;
-  return [tagPhrase, freeTextSentence, feeling].filter(Boolean).join("");
 }
 
 export function RatingFlow({ store }: { store: Store }) {
@@ -57,11 +49,14 @@ export function RatingFlow({ store }: { store: Store }) {
   const [goodTags, setGoodTags] = useState<string[]>([]);
   const [goodFreeText, setGoodFreeText] = useState("");
   const [submittingGood, setSubmittingGood] = useState(false);
+  const [goodError, setGoodError] = useState<string | undefined>();
 
   const [improveChecked, setImproveChecked] = useState<string[]>([]);
   const [improveFreeText, setImproveFreeText] = useState("");
   const [submittingImprove, setSubmittingImprove] = useState(false);
+  const [improveError, setImproveError] = useState<string | undefined>();
 
+  const [responseId, setResponseId] = useState<string | null>(null);
   const [draftStatus, setDraftStatus] = useState<DraftStatus>("generating");
   const [draftText, setDraftText] = useState("");
   const [regenerating, setRegenerating] = useState(false);
@@ -74,36 +69,50 @@ export function RatingFlow({ store }: { store: Store }) {
     setStep(rating >= 4 ? "good-feedback" : "improve-survey");
   }
 
-  function generateDraft(currentRating: 4 | 5, tags: string[], freeText: string) {
-    setDraftStatus("generating");
-    // TODO: Supabase/APIキーが揃ったら fetch("/api/rating-flow/generate-draft") に置き換える
-    setTimeout(() => {
-      setDraftText(composeFallbackDraft(currentRating, tags, freeText));
-      setDraftStatus("fallback");
-    }, 1200);
-  }
-
-  function handleGoodFeedbackSubmit() {
+  async function handleGoodFeedbackSubmit() {
     setSubmittingGood(true);
-    // TODO: fetch("/api/rating-flow/responses") に置き換える
-    setTimeout(() => {
+    setGoodError(undefined);
+    try {
+      const res = await fetch("/api/rating-flow/responses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storeId: store.id, rating, branch: "good", tags: goodTags, freeText: goodFreeText }),
+      });
+      if (!res.ok) throw new Error(`unexpected status ${res.status}`);
+      const data: { responseId: string; draft: { text: string; status: DraftStatus } } = await res.json();
+      setResponseId(data.responseId);
+      setDraftText(data.draft.text);
+      setDraftStatus(data.draft.status);
       setSubmittingGood(false);
       setStep("draft");
-      generateDraft(rating as 4 | 5, goodTags, goodFreeText);
-    }, 600);
+    } catch {
+      setSubmittingGood(false);
+      setGoodError(SUBMIT_ERROR_MESSAGE);
+    }
   }
 
-  function handleRegenerate() {
-    if (regenerateCount >= REGENERATE_LIMIT) return;
+  async function handleRegenerate() {
+    if (regenerateCount >= REGENERATE_LIMIT || responseId === null) return;
     setRegenerating(true);
     setDraftStatus("generating");
-    setTimeout(() => {
-      setDraftText(composeFallbackDraft(rating as 4 | 5, goodTags, goodFreeText));
-      setDraftStatus("fallback");
-      setRegenerating(false);
+    try {
+      const res = await fetch("/api/rating-flow/regenerate-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ responseId, rating, tags: goodTags, freeText: goodFreeText, regenerateCount }),
+      });
+      if (!res.ok) throw new Error(`unexpected status ${res.status}`);
+      const data: { draft: { text: string; status: DraftStatus } } = await res.json();
+      setDraftText(data.draft.text);
+      setDraftStatus(data.draft.status);
       setRegenerateCount((c) => c + 1);
       setCopied(false);
-    }, 1200);
+    } catch {
+      // 再生成の失敗は下書きカードの表示を直前の状態に戻すだけでよい（送信済みの回答は失われない）
+      setDraftStatus((prev) => (prev === "generating" ? "fallback" : prev));
+    } finally {
+      setRegenerating(false);
+    }
   }
 
   async function handleCopy() {
@@ -115,13 +124,22 @@ export function RatingFlow({ store }: { store: Store }) {
     }
   }
 
-  function handleImproveSubmit() {
+  async function handleImproveSubmit() {
     setSubmittingImprove(true);
-    // TODO: fetch("/api/rating-flow/responses") に置き換える
-    setTimeout(() => {
+    setImproveError(undefined);
+    try {
+      const res = await fetch("/api/rating-flow/responses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storeId: store.id, rating, branch: "improve", tags: improveChecked, freeText: improveFreeText }),
+      });
+      if (!res.ok) throw new Error(`unexpected status ${res.status}`);
       setSubmittingImprove(false);
       setStep("thanks");
-    }, 600);
+    } catch {
+      setSubmittingImprove(false);
+      setImproveError(SUBMIT_ERROR_MESSAGE);
+    }
   }
 
   switch (step) {
@@ -138,6 +156,7 @@ export function RatingFlow({ store }: { store: Store }) {
           freeText={goodFreeText}
           onFreeTextChange={setGoodFreeText}
           submitting={submittingGood}
+          error={goodError}
           onSubmit={handleGoodFeedbackSubmit}
         />
       );
@@ -167,6 +186,7 @@ export function RatingFlow({ store }: { store: Store }) {
           freeText={improveFreeText}
           onFreeTextChange={setImproveFreeText}
           submitting={submittingImprove}
+          error={improveError}
           onSubmit={handleImproveSubmit}
         />
       );

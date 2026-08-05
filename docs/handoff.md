@@ -1106,6 +1106,75 @@ Supabaseの SQL Editor に貼って実行する。**まだ一度も実行して�
 
 ---
 
+## 2026-08-06（14回目） — GRANT不足を発見・修正し、お客様側フローを実際のSupabase・Anthropicに繋いだ
+
+天真が0001・0002を実行した直後、動作確認のため service_role キーでテーブルにアクセスしたところ、
+**全テーブルが`permission denied`（42501）で読めなかった。** RLS以前に、Postgresの GRANT
+（テーブルへのアクセス権そのもの）が anon/authenticated/service_role のどのロールにも
+与えられていなかったのが原因（SQL Editorから素の CREATE TABLE を流すと、Supabaseの管理画面や
+CLIマイグレーションで自動的に付く権限が付かないことがある）。
+
+`supabase/0003_grants.sql`（PR #23）で修正。RLSポリシーは緩めていない。天真に実行してもらい、
+`service_role` クライアントで全6テーブルへの読み書きを実測確認した。
+
+その後、天真がAnthropicのAPIキー（`good-loop-production`）も発行・登録。SupabaseとAnthropic
+両方が揃ったため、お客様側フロー（評価〜クチコミ下書き）を実際に配線した。
+
+### やったこと
+
+1. **夙川店のデータを投入した。** `tenants`（name: "YORKYS BRUNCH"）と `stores`
+   （slug: `yorkys-shukugawa`、loop_theme: `restaurant`）を service_role クライアントで直接作成
+   （launch-plan.md ③の決定どおり。テストデータではなく本番想定のデータとして投入した）
+2. **`tags_master` にタグをシードした。** `GOOD_TAGS`（良かった点・6件）と
+   `IMPROVE_CHECKLIST`（改善点・5件）を、rating-flow画面のコードと同じ文言でそのまま投入
+3. **`app/r/[storeSlug]/page.tsx`** — 仮の店舗データをやめ、`stores` を slug で引くように変更。
+   存在しないslugは `notFound()`。`data-loop-theme` を店舗の `loop_theme` から実際に付与するようになった
+4. **`POST /api/rating-flow/responses`**（新規）— 02/04画面の送信先。`survey_responses` ＋
+   `response_tags`（タグラベル→`tags_master.id`解決）に保存する。★4以上のときは、
+   rating-flow.md A-1「同時に」のとおり、**同じリクエストの中でAI下書き生成まで行い**、
+   `draft: { text, status }` を一緒に返す
+5. **`POST /api/rating-flow/regenerate-draft`**（新規）— 03画面の再生成用。上限5回はクライアント側に
+   加えサーバー側でも検証する
+6. **`lib/rating-flow/generate-draft.ts`**（新規）— Claude Haiku 4.5（`claude-haiku-4-5-20251001`）で
+   下書きを生成する共通関数。**5秒タイムアウト**（`maxRetries: 0`で余計な再試行を防止）で
+   `lib/rating-flow/fallback-draft.ts`（案3のテンプレート合成。旧 `RatingFlow.tsx` 内の
+   ロジックを移設）にフォールバックする。成否は `ai_draft_logs` に必ず記録する
+7. **`RatingFlow.tsx`** の3つのTODOをすべて `fetch()` に置き換えた。通信失敗時のエラー表示
+   （rating-flow.md A-6「エラー（通信）」）も02/04画面に追加した
+   （`GoodFeedback.tsx` / `ImproveSurvey.tsx` に `error` prop を追加。文言は
+   「送信できませんでした。もう一度お試しください。」という事務的な状態文言で、
+   ブランド文言の新規作成には当たらないと判断したが、天真の目に触れたら確認してほしい）
+
+### 実機確認（Playwright、本番ビルドを一時ポートで起動）
+
+`/r/yorkys-shukugawa` に対して次を確認し、すべて成功。確認後、投入したテスト回答3件は
+`survey_responses` から削除済み（`response_tags`・`ai_draft_logs` は cascade で連動削除）。
+
+| シナリオ | 結果 |
+|---|---|
+| ★4「満足」→タグ1件＋自由記述→回答する | `survey_responses`・`response_tags` に保存。AIが**実際に**下書きを生成（フォールバックではない） |
+| ★2「やや不満」→チェック1件＋自由記述→送信する | `survey_responses` に保存（branch=improve）。06サンクス画面に遷移 |
+| ★5→タグ選択→回答する→**再生成** | `ai_draft_logs` に regenerate_count=0 と 1 の2行。2回とも成功、2回とも異なる自然な文章 |
+| 存在しないslug（`/r/does-not-exist`） | 404 |
+
+生成された下書きの実例（★4・タグ「料理・味」・自由記述「パンケーキがふわふわで感動しました」）：
+
+> パンケーキがふわふわで、思わず感動してしまいました。丁寧に作られているのが伝わってきて、
+> とても美味しかったです。料理の味にこだわっているお店なんだなと感じました。
+> 満足のいく食事ができたので、また来たいと思います。
+
+### 未解決・次にやること
+
+- **E-5（重複回答対策）は引き続き意図的に外したまま。** 「実装の最終段階で戻す」という
+  天真の指示のとおり、まだ最終段階ではないと判断した（このあとも実機確認が続く見込みのため）
+- AI生成システムプロンプトの「★5は『また来たい』、★4は『満足した』」という感情の使い分けが、
+  実際の生成では★4でも「また来たい」と書かれることがあった。誤りではなく許容範囲だが、
+  プロンプトをより厳密にする余地はある
+- 管理画面はまだ `lib/admin/mock-data.ts` の固定値のまま（launch-plan.md フェーズ4は未着手）
+- ログイン・設定6画面はまだ見た目のみ（launch-plan.md フェーズ5）
+
+---
+
 ## 次にやること
 
 **新しい計画の正は `docs/specs/launch-plan.md`。以下はその要約。**

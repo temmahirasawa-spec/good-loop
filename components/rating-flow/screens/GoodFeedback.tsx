@@ -19,6 +19,7 @@ export function GoodFeedback({
   freeText,
   onFreeTextChange,
   submitting,
+  error,
   onSubmit,
 }: {
   storeName: string;
@@ -27,6 +28,7 @@ export function GoodFeedback({
   freeText: string;
   onFreeTextChange: (value: string) => void;
   submitting: boolean;
+  error?: string;
   onSubmit: () => void;
 }) {
   const rows = [GOOD_TAGS.slice(0, 2), GOOD_TAGS.slice(2, 4), GOOD_TAGS.slice(4, 6)];
@@ -83,6 +85,11 @@ export function GoodFeedback({
       <div className="min-h-px w-full flex-1" />
 
       <div className="flex w-full max-w-[342px] flex-col items-center gap-[var(--product-space-12)]">
+        {error && (
+          <p className="w-full text-center text-[11px] font-medium tracking-[0.22px]" style={{ color: "var(--product-color-status-warning)" }}>
+            {error}
+          </p>
+        )}
         <LoopButton variant="primary" disabled={selectedTags.length === 0 || submitting} onClick={onSubmit}>
           {submitting ? "送信中…" : "回答する"}
         </LoopButton>
