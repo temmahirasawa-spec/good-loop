@@ -597,12 +597,39 @@ E節の10項目すべてに天真から回答があり、反映した。マー�
 
 ---
 
+## 2026-08-05（2回目） — 評価フローのSupabaseスキーマを作成した
+
+`supabase/0001_rating_flow_schema.sql` を新規追加。`docs/specs/rating-flow.md` D節の案どおり、
+`tags_master`（tenant-check-allow・全店共通マスタ）/ `stores` / `survey_responses` /
+`response_tags` / `ai_draft_logs` の5テーブル。`npm run tenant` で5テーブル・除外1件を確認済み。
+
+まだ実プロジェクトが無い（Supabase未作成）ため、**このSQLはまだ一度も実行していない。**
+天真がプロジェクトを作成し、`supabase db push` 相当の手段で流し込むまでは案のまま。
+
+- **`tags`は中間テーブル（`response_tags`）を採用**（D節では「jsonb配列 or 中間テーブル」の両論併記
+  だった）。理由：ダッシュボードのタグ別集計をSQLの`group by`で素直に書けるため。実装の技術判断であり
+  公開挙動に影響しないため天真確認は不要と判断（CLAUDE.md 3章）
+- **RLSポリシーは暫定形。** `auth.jwt() ->> 'tenant_id'` を見る形にしたが、Supabase Auth のトークンに
+  `tenant_id` をどう載せるか（管理画面の認証実装）はまだ着手していない。**認証を実装するセッションで
+  ポリシーを見直すこと。それまでは「型は正しいが未検証」の状態**
+- **来店客側の書き込み（02/04画面の送信）はRLSの対象外。** 来店客はログインしないため、
+  Next.js の API Route が `SUPABASE_SERVICE_ROLE_KEY`（RLSを迂回する鍵）で書き込む前提にした。
+  上記のRLSポリシーは管理画面（店舗スタッフ・運営者）の読み書きだけを対象にしている
+- **`tenants`（契約主体）マスタ表はまだ作っていない。** 料金体系の金額が8/6のMTGで未確定なため、
+  契約単位のテーブル設計はそちらが決まってから。現状 `stores.tenant_id` は他表と参照整合性の無い
+  ただのUUID列
+
+---
+
 ## 次にやること
 
-1. **お客様側フローの実装着手** — 提案書（`docs/specs/rating-flow.md`）はE-1（料金体系の金額）を除いて固まった。
-   Supabase のスキーマ（D節の案）から着手するのが自然
-2. 天真が Supabase / Sentry のプロジェクトを作成し、環境変数を登録する（上記の前提）
-3. `data-loop-theme` をどこで付けるか（テナントの業態から引く）は Supabase のスキーマが決まってから
+1. 天真が Supabase / Sentry のプロジェクトを作成し、環境変数を登録する。
+   `supabase/0001_rating_flow_schema.sql` はこれが済んでから流し込む
+2. 上記が済んだら、`@supabase/supabase-js` の追加とクライアント初期化（`lib/`）に着手する
+3. お客様側フローの画面実装（Figma `02 基本形` の5画面）。API Route・保存処理はスキーマが前提
+4. `data-loop-theme` をどこで付けるか（テナントの業態から引く）は上記2・3の実装時に決める
+5. 管理画面の認証を実装するときに、上記スキーマのRLSポリシー（`auth.jwt() ->> 'tenant_id'`）を見直す
+6. `tenants`（契約主体）マスタ表は、8/6のMTGで料金体系が決まってから設計する
 4. **ORDER / harness への移植** — 余白のスケール検査は LOOP にしか入っていない
 5. **負債の返済** — 本物の生フレームは LP のスマホモックアップ内 `btn-primary` 3件だけ（Figma 側の作業）
 6. LP の SP版を作り、`PAIR_EXEMPT_SECTIONS` から `01 LP / GOOD LOOP` を外す
