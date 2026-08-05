@@ -1,0 +1,55 @@
+/*
+ * GOOD LOOP プロダクトトークン — 業態に依存しない共通トークン
+ *
+ * `Loop Theme`（app/design-tokens.css）が業態ごとに切り替わる accent/cta の8変数なのに対し、
+ * ここは色・余白・角丸・サイズなど、9業態を通じて値が変わらないもの。
+ * 出典は UTUTU 共通ライブラリ（`KGPuY4YVRQW6BMRrulBaFN` / Color・Spacing・Radius・Size
+ * コレクション）。GOOD LOOP 専用ファイル（`i7z9wGL6BpFoC2kwlGA1lV`）の画面から
+ * get_variable_defs で実測した値を写した。推測値は無い。
+ *
+ * CSS変数名には `--product-` 接頭辞を付ける（CLAUDE.md 4章の命名規約）。
+ * `--loop-` = LOOP専用（業態で変わる）、`--product-` = UTUTU由来の共通トークン、で見分ける。
+ *
+ * まだ UTUTU ファイルから自動同期する仕組みは無い（Figmaトークンのスコープ不足。
+ * CLAUDE.md 4章「Figma」参照）。値が変わったら、このファイルも同様に実測して作り直すこと。
+ */
+
+:root {
+  /* ── 色（業態で変わらない静的トークン） ───────────────── */
+  --product-color-text-primary: #1a1a1a;
+  --product-color-text-secondary: #646464;
+  --product-color-text-tertiary: #999999;
+  --product-color-text-disabled: #c4c4c4;
+  --product-color-border-default: #dddddd;
+  --product-color-border-divider: #ededed;
+  --product-color-surface-white: #ffffff;
+  --product-color-bg-primary: #fafafa;
+  --product-color-bg-tertiary: #efefef;
+  --product-color-status-warning: #f59e0b;
+
+  /* ── 角丸 ──────────────────────────────────────────── */
+  --product-radius-md: 12px;
+  --product-radius-lg: 16px;
+  --product-radius-full: 999px;
+
+  /* ── サイズ ────────────────────────────────────────── */
+  --product-control-h-lg: 52px;
+  --product-touch-min: 44px;
+
+  /* ── 余白（docs/specs/design-rules.md 2-5 のスケール） ─── */
+  --product-space-2: 2px;
+  --product-space-4: 4px;
+  --product-space-8: 8px;
+  --product-space-12: 12px;
+  --product-space-16: 16px;
+  --product-space-20: 20px;
+  --product-space-24: 24px;
+  --product-space-32: 32px;
+  --product-space-40: 40px;
+  --product-space-48: 48px;
+  --product-space-64: 64px;
+  --product-space-80: 80px;
+  --product-space-96: 96px;
+  --product-space-112: 112px;
+  --product-space-128: 128px;
+}
