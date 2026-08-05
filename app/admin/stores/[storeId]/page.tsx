@@ -5,11 +5,12 @@ import { PeriodSegment } from "@/components/admin/PeriodSegment";
 import { TrendChart } from "@/components/admin/TrendChart";
 import { ResponseCard } from "@/components/admin/ResponseCard";
 import { LoopButton } from "@/components/rating-flow/Button";
-import { getStore, RESPONSES, TREND_WEEK_LABELS } from "@/lib/admin/mock-data";
+import { getStore, routeRate, RESPONSES, TREND_WEEK_LABELS } from "@/lib/admin/mock-data";
 
 /** Dashboard / 店舗詳細（Figma node 53:905 PC / 54:926 SP） */
 export default function AdminStoreDetailPage({ params }: { params: { storeId: string } }) {
   const store = getStore(params.storeId);
+  const prevRate = store.routeRatePercent === null ? null : routeRate(store.routeCountPrev, store.responseCountPrev);
   const recentResponses = RESPONSES.filter((r) => r.storeId === store.id).slice(0, 2);
   const qrReads = 58; // Figmaのサンプル値。QR読み取り回数はまだ店舗ごとの実データが無い
 
@@ -47,14 +48,19 @@ export default function AdminStoreDetailPage({ params }: { params: { storeId: st
       </div>
 
       <div className="flex w-full shrink-0 flex-col items-start gap-2 md:flex-row md:gap-4">
-        <KpiCard label="Googleレビュー増加" value={`${store.reviewIncrease > 0 ? "+" : ""}${store.reviewIncrease}`} prevLabel={`前期 +${store.reviewIncreasePrev}件`} />
         <KpiCard
           label="Googleへ送客（誘導数）"
-          value={String(Math.round(store.responseCount * 0.3))}
-          prevLabel="前期 30件"
+          value={String(store.routeCount)}
+          prevLabel={`前期 ${store.routeCountPrev}件`}
           note="レビュー画面を開いた数です。実際に投稿された数ではありません"
         />
         <KpiCard label="回答数" value={String(store.responseCount)} prevLabel={`前期 ${store.responseCountPrev}件`} />
+        <KpiCard
+          label="送客率"
+          value={store.routeRatePercent === null ? "—" : `${store.routeRatePercent}%`}
+          prevLabel={`前期 ${prevRate === null ? "—" : `${prevRate}%`}`}
+          unit=""
+        />
       </div>
 
       <div
@@ -63,7 +69,7 @@ export default function AdminStoreDetailPage({ params }: { params: { storeId: st
       >
         <div className="flex w-full items-baseline gap-2">
           <p className="text-[15px] font-bold md:text-[17px]" style={{ color: "var(--product-color-text-primary)" }}>
-            この店舗のGoogleレビュー増加数の推移
+            この店舗のGoogleへの送客数の推移
           </p>
           <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             直近5週

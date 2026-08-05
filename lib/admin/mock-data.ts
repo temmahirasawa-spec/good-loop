@@ -13,27 +13,52 @@
 export type StoreSummary = {
   id: string;
   name: string;
-  reviewIncrease: number;
-  reviewIncreasePrev: number;
+  /** Googleのクチコミ投稿画面へ送り出した数。実際に投稿されたかはGOOD LOOPからは分からない */
+  routeCount: number;
+  routeCountPrev: number;
   routeRatePercent: number | null;
   routeRateDeltaPt: number | null;
   responseCount: number;
   responseCountPrev: number;
   avgRating: number;
+  /** 送客数の推移（直近5週）。末尾が今週＝routeCount と一致する */
   trend: number[];
 };
 
 export const STORES: StoreSummary[] = [
-  { id: "sannomiya", name: "三宮本店", reviewIncrease: 21, reviewIncreasePrev: 18, routeRatePercent: 61, routeRateDeltaPt: 2, responseCount: 62, responseCountPrev: 58, avgRating: 4.4, trend: [16, 18, 15, 17, 21] },
-  { id: "umeda", name: "梅田うめきた店", reviewIncrease: 7, reviewIncreasePrev: 9, routeRatePercent: 29, routeRateDeltaPt: -32, responseCount: 41, responseCountPrev: 44, avgRating: 3.8, trend: [16, 18, 15, 17, 7] },
-  { id: "kobe-motomachi", name: "神戸元町店", reviewIncrease: 19, reviewIncreasePrev: 16, routeRatePercent: 62, routeRateDeltaPt: 3, responseCount: 55, responseCountPrev: 51, avgRating: 4.2, trend: [12, 15, 14, 18, 19] },
-  { id: "osaka-honmachi", name: "大阪本町店", reviewIncrease: 1, reviewIncreasePrev: 2, routeRatePercent: null, routeRateDeltaPt: null, responseCount: 3, responseCountPrev: 39, avgRating: 4.1, trend: [8, 9, 6, 4, 1] },
-  { id: "kyoto-shijo", name: "京都四条店", reviewIncrease: 9, reviewIncreasePrev: 8, routeRatePercent: 61, routeRateDeltaPt: 3, responseCount: 28, responseCountPrev: 26, avgRating: 4.0, trend: [7, 8, 6, 8, 9] },
+  { id: "sannomiya", name: "三宮本店", routeCount: 38, routeCountPrev: 34, routeRatePercent: 61, routeRateDeltaPt: 2, responseCount: 62, responseCountPrev: 58, avgRating: 4.4, trend: [31, 35, 30, 33, 38] },
+  { id: "umeda", name: "梅田うめきた店", routeCount: 12, routeCountPrev: 27, routeRatePercent: 29, routeRateDeltaPt: -32, responseCount: 41, responseCountPrev: 44, avgRating: 3.8, trend: [28, 32, 26, 30, 12] },
+  { id: "kobe-motomachi", name: "神戸元町店", routeCount: 34, routeCountPrev: 30, routeRatePercent: 62, routeRateDeltaPt: 3, responseCount: 55, responseCountPrev: 51, avgRating: 4.2, trend: [27, 29, 25, 29, 34] },
+  { id: "osaka-honmachi", name: "大阪本町店", routeCount: 2, routeCountPrev: 24, routeRatePercent: null, routeRateDeltaPt: null, responseCount: 3, responseCountPrev: 39, avgRating: 4.1, trend: [10, 4, 12, 6, 2] },
+  { id: "kyoto-shijo", name: "京都四条店", routeCount: 17, routeCountPrev: 15, routeRatePercent: 61, routeRateDeltaPt: 3, responseCount: 28, responseCountPrev: 26, avgRating: 4.0, trend: [14, 15, 13, 15, 17] },
 ];
 
 export const TREND_WEEK_LABELS = ["5週前", "4週前", "3週前", "2週前", "今週"];
 
-export const ALL_STORES_TREND = [61, 64, 59, 63, 57];
+/** 全店の送客数の推移（直近5週）。各週は STORES の同じ週の合計と一致する */
+export const ALL_STORES_TREND = [110, 115, 106, 113, 103];
+
+/** 送客率（％）。回答数が0のときは算出しない */
+export function routeRate(routeCount: number, responseCount: number): number | null {
+  if (responseCount === 0) return null;
+  return Math.round((routeCount / responseCount) * 100);
+}
+
+export function totals(stores: StoreSummary[]) {
+  const sum = (pick: (s: StoreSummary) => number) => stores.reduce((acc, s) => acc + pick(s), 0);
+  const routeCount = sum((s) => s.routeCount);
+  const routeCountPrev = sum((s) => s.routeCountPrev);
+  const responseCount = sum((s) => s.responseCount);
+  const responseCountPrev = sum((s) => s.responseCountPrev);
+  return {
+    routeCount,
+    routeCountPrev,
+    responseCount,
+    responseCountPrev,
+    routeRatePercent: routeRate(routeCount, responseCount),
+    routeRatePercentPrev: routeRate(routeCountPrev, responseCountPrev),
+  };
+}
 
 export type RouteStatus = "guided" | "store-only";
 
