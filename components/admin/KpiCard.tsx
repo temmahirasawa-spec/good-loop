@@ -14,14 +14,14 @@ export function KpiCard({
 }) {
   return (
     <div
-      className="flex flex-1 flex-col items-start gap-2 rounded-2xl p-6"
+      className="flex w-full flex-1 flex-col items-start gap-1 rounded-2xl p-4 md:gap-2 md:p-6"
       style={{ backgroundColor: "var(--product-color-surface-white)" }}
     >
       <p className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
         {label}
       </p>
       <div className="flex items-baseline gap-1">
-        <p className="text-[40px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+        <p className="text-[28px] font-bold md:text-[40px]" style={{ color: "var(--product-color-text-primary)" }}>
           {value}
         </p>
         <p className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
@@ -32,7 +32,7 @@ export function KpiCard({
         {prevLabel}
       </p>
       {note && (
-        <p className="text-[11px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
+        <p className="text-[10.5px] font-medium md:text-[11px]" style={{ color: "var(--product-color-text-tertiary)" }}>
           {note}
         </p>
       )}
