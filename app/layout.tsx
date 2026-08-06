@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP, Barlow } from "next/font/google";
 // 業態別テーマの CSS変数。globals.css より先に読む（Tailwind の宣言より前に置くため）
 import "./design-tokens.css";
@@ -20,6 +20,17 @@ const barlow = Barlow({
 export const metadata: Metadata = {
   title: "GOOD LOOP",
   description: "実店舗向け Googleレビュー獲得 × 顧客満足度アンケート（株式会社UTUTU）",
+};
+
+// フォーム入力時にスマホブラウザが自動でズームする挙動を止める（2026-08-06、天真の依頼）。
+// maximumScale=1 で「最大でも等倍まで」にすることで、ピンチズームも入力欄フォーカス時の
+// 自動ズームも起きなくなる。お客様側（/r/[storeSlug]）・管理画面（/admin）はこのレイアウトを
+// 共有しているため、ここ1箇所の変更で両方に効く。
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
