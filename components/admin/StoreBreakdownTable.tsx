@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { StoreSummary } from "@/lib/admin/mock-data";
+import type { StoreSummary } from "@/lib/admin/types";
 
 /** 店舗別内訳（Figma node 48:1084 PC / 48:1266 SP） */
 export function StoreBreakdownTable({ stores }: { stores: StoreSummary[] }) {

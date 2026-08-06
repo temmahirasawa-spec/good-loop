@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { LoopButton } from "@/components/rating-flow/Button";
 import { LoopInput } from "@/components/admin/LoopInput";
-import { LOOP_THEMES } from "@/lib/admin/mock-data";
+import { LOOP_THEMES } from "@/lib/admin/constants";
 
 /**
  * 設定（ブランドとテーマ） Figma node 69:1261 PC / 75:1613 SP。

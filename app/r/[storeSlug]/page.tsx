@@ -14,11 +14,17 @@ export default async function RatingFlowPage({ params }: { params: { storeSlug: 
   const supabase = createSupabaseAdminClient();
   const { data: store } = await supabase
     .from("stores")
-    .select("id, name, slug, loop_theme, google_place_id, google_maps_fallback_url")
+    .select("id, tenant_id, name, slug, loop_theme, google_place_id, google_maps_fallback_url")
     .eq("slug", params.storeSlug)
     .maybeSingle();
 
   if (!store) notFound();
+
+  // QR読み取り数の元データ（launch-plan.md C節）。失敗しても来店客の画面は止めない
+  await supabase
+    .from("page_views")
+    .insert({ tenant_id: store.tenant_id, store_id: store.id })
+    .then(() => {}, () => {});
 
   return (
     // Figmaのフレームは390px固定（02基本形）。data-loop-theme は店舗の業態をそのまま渡す

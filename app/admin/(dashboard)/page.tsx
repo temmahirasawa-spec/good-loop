@@ -3,11 +3,18 @@ import { KpiCard } from "@/components/admin/KpiCard";
 import { PeriodSegment } from "@/components/admin/PeriodSegment";
 import { TrendChart } from "@/components/admin/TrendChart";
 import { StoreBreakdownTable } from "@/components/admin/StoreBreakdownTable";
-import { STORES, ALL_STORES_TREND, TREND_WEEK_LABELS, totals } from "@/lib/admin/mock-data";
+import { TREND_WEEK_LABELS } from "@/lib/admin/constants";
+import { totals, sumTrend } from "@/lib/admin/metrics";
+import { getStoreSummaries } from "@/lib/admin/queries";
+
+// 動的な集計データを毎リクエスト取得する（静的プリレンダーで数値が固定化されるのを防ぐ）
+export const dynamic = "force-dynamic";
 
 /** Dashboard / トップ（Figma node 48:1016 PC / 48:1210 SP） */
-export default function AdminTopPage() {
-  const total = totals(STORES);
+export default async function AdminTopPage() {
+  const stores = await getStoreSummaries();
+  const total = totals(stores);
+  const allStoresTrend = sumTrend(stores);
 
   return (
     <>
@@ -45,7 +52,12 @@ export default function AdminTopPage() {
           note="レビュー画面を開いた数です。実際に投稿された数ではありません"
         />
         <KpiCard label="回答数" value={String(total.responseCount)} prevLabel={`前期 ${total.responseCountPrev}件`} />
-        <KpiCard label="送客率" value={`${total.routeRatePercent}%`} prevLabel={`前期 ${total.routeRatePercentPrev}%`} unit="" />
+        <KpiCard
+          label="送客率"
+          value={total.routeRatePercent === null ? "—" : `${total.routeRatePercent}%`}
+          prevLabel={`前期 ${total.routeRatePercentPrev === null ? "—" : `${total.routeRatePercentPrev}%`}`}
+          unit=""
+        />
       </div>
 
       <div
@@ -60,10 +72,10 @@ export default function AdminTopPage() {
             直近5週
           </p>
         </div>
-        <TrendChart values={ALL_STORES_TREND} labels={TREND_WEEK_LABELS} unit="" />
+        <TrendChart values={allStoresTrend} labels={TREND_WEEK_LABELS} unit="" />
       </div>
 
-      <StoreBreakdownTable stores={STORES} />
+      <StoreBreakdownTable stores={stores} />
     </>
   );
 }

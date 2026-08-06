@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RatingTop } from "./screens/RatingTop";
 import { GoodFeedback } from "./screens/GoodFeedback";
 import { DraftResult, REGENERATE_LIMIT, type DraftStatus } from "./screens/DraftResult";
 import { ImproveSurvey } from "./screens/ImproveSurvey";
 import { Thanks } from "./screens/Thanks";
+import { AlreadyAnswered } from "./screens/AlreadyAnswered";
 
 /**
  * お客様側フロー（docs/specs/rating-flow.md）のクライアント側オーケストレーター。
@@ -17,13 +18,12 @@ import { Thanks } from "./screens/Thanks";
  * POST /api/rating-flow/regenerate-draft に接続済み（2026-08-06）。
  * ★4以上の初回下書きは responses のレスポンスに同梱される（A-1「同時に」に対応）。
  *
- * ⚠ E-5（重複回答対策・ブラウザ側でやんわり抑止）はまだ実装していない。2026-08-05、
- * 天真の指示で開発中の動作確認を優先するため一旦外した（同じ店舗スラッグに何度でも
- * 回答できる状態）。実装の最終段階で `localStorage` に `goodloop:${store.slug}:answered`
- * を立てる形で戻すこと（docs/specs/rating-flow.md E-5参照）。
+ * E-5（重複回答対策・ブラウザ側でやんわり抑止）実装済み（2026-08-06）。回答成功時に
+ * `localStorage` の `goodloop:${store.slug}:answered` を立て、次回訪問時は01画面の代わりに
+ * AlreadyAnswered を出す。サーバー側の重複検知はしない（rating-flow.md E-5で決定済み）。
  */
 
-type Step = "rating" | "good-feedback" | "draft" | "improve-survey" | "thanks";
+type Step = "rating" | "good-feedback" | "draft" | "improve-survey" | "thanks" | "already-answered";
 
 type Store = {
   id: string;
@@ -42,9 +42,30 @@ function googleReviewUrl(store: Store): string | null {
   return store.googleMapsFallbackUrl;
 }
 
+/** 送客数の元データ（launch-plan.md C節）。送りっぱなしで、失敗しても画面には出さない */
+function trackEvent(responseId: string, eventType: "copied_draft" | "opened_google") {
+  fetch("/api/rating-flow/track-event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ responseId, eventType }),
+  }).catch(() => {});
+}
+
+/** E-5用の重複回答フラグのキー（rating-flow.md E-5） */
+function answeredStorageKey(slug: string): string {
+  return `goodloop:${slug}:answered`;
+}
+
 export function RatingFlow({ store }: { store: Store }) {
   const [step, setStep] = useState<Step>("rating");
   const [rating, setRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+
+  // SSRではlocalStorageが無いため、初期表示は常に「rating」。マウント後にフラグを見て切り替える
+  useEffect(() => {
+    if (window.localStorage.getItem(answeredStorageKey(store.slug)) === "1") {
+      setStep("already-answered");
+    }
+  }, [store.slug]);
 
   const [goodTags, setGoodTags] = useState<string[]>([]);
   const [goodFreeText, setGoodFreeText] = useState("");
@@ -84,6 +105,7 @@ export function RatingFlow({ store }: { store: Store }) {
       setDraftText(data.draft.text);
       setDraftStatus(data.draft.status);
       setSubmittingGood(false);
+      window.localStorage.setItem(answeredStorageKey(store.slug), "1");
       setStep("draft");
     } catch {
       setSubmittingGood(false);
@@ -119,6 +141,7 @@ export function RatingFlow({ store }: { store: Store }) {
     try {
       await navigator.clipboard.writeText(draftText);
       setCopied(true);
+      if (responseId) trackEvent(responseId, "copied_draft");
     } catch {
       // iOS Safari 等でクリップボードAPIが使えない場合は、コピー済み扱いにはしない
     }
@@ -135,6 +158,7 @@ export function RatingFlow({ store }: { store: Store }) {
       });
       if (!res.ok) throw new Error(`unexpected status ${res.status}`);
       setSubmittingImprove(false);
+      window.localStorage.setItem(answeredStorageKey(store.slug), "1");
       setStep("thanks");
     } catch {
       setSubmittingImprove(false);
@@ -173,7 +197,9 @@ export function RatingFlow({ store }: { store: Store }) {
           onCopy={handleCopy}
           onOpenGoogle={() => {
             const url = googleReviewUrl(store);
-            if (url) window.open(url, "_blank", "noreferrer");
+            if (!url) return;
+            if (responseId) trackEvent(responseId, "opened_google");
+            window.open(url, "_blank", "noreferrer");
           }}
         />
       );
@@ -192,5 +218,7 @@ export function RatingFlow({ store }: { store: Store }) {
       );
     case "thanks":
       return <Thanks googleReviewUrl={googleReviewUrl(store)} />;
+    case "already-answered":
+      return <AlreadyAnswered storeName={store.name} />;
   }
 }
