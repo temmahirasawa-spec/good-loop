@@ -1,18 +1,22 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { AdminMobileTopBar } from "@/components/admin/AdminMobileNav";
 import { KpiCard } from "@/components/admin/KpiCard";
 import { PeriodSegment } from "@/components/admin/PeriodSegment";
 import { TrendChart } from "@/components/admin/TrendChart";
 import { ResponseCard } from "@/components/admin/ResponseCard";
 import { LoopButton } from "@/components/rating-flow/Button";
-import { getStore, routeRate, RESPONSES, TREND_WEEK_LABELS } from "@/lib/admin/mock-data";
+import { TREND_WEEK_LABELS } from "@/lib/admin/constants";
+import { routeRate } from "@/lib/admin/metrics";
+import { getStoreSummary, getResponseItems } from "@/lib/admin/queries";
 
 /** Dashboard / 店舗詳細（Figma node 53:905 PC / 54:926 SP） */
-export default function AdminStoreDetailPage({ params }: { params: { storeId: string } }) {
-  const store = getStore(params.storeId);
+export default async function AdminStoreDetailPage({ params }: { params: { storeId: string } }) {
+  const store = await getStoreSummary(params.storeId);
+  if (!store) notFound();
   const prevRate = store.routeRatePercent === null ? null : routeRate(store.routeCountPrev, store.responseCountPrev);
-  const recentResponses = RESPONSES.filter((r) => r.storeId === store.id).slice(0, 2);
-  const qrReads = 58; // Figmaのサンプル値。QR読み取り回数はまだ店舗ごとの実データが無い
+  const recentResponses = await getResponseItems({ storeId: store.id, limit: 2 });
+  const qrReads = store.qrReads;
 
   return (
     <>
@@ -96,7 +100,7 @@ export default function AdminStoreDetailPage({ params }: { params: { storeId: st
             </p>
           </div>
           <p className="text-xs font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
-            前期 63回
+            前期 {store.qrReadsPrev}回
           </p>
         </div>
         <div className="w-fit">
@@ -119,7 +123,7 @@ export default function AdminStoreDetailPage({ params }: { params: { storeId: st
             回
           </p>
           <p className="text-[11.5px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
-            前期 63回
+            前期 {store.qrReadsPrev}回
           </p>
         </div>
         <div className="w-full">

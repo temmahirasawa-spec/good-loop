@@ -1,4 +1,4 @@
-import type { ResponseItem } from "@/lib/admin/mock-data";
+import type { ResponseItem } from "@/lib/admin/types";
 
 /** Response カード（Figma node 51:921 等）— 回答一覧・店舗詳細の「直近の回答」で共有 */
 export function ResponseCard({ response, showStoreName = true }: { response: ResponseItem; showStoreName?: boolean }) {
