@@ -6,14 +6,21 @@ import { LoopInput } from "@/components/admin/LoopInput";
 import { LOOP_THEMES } from "@/lib/admin/constants";
 
 type NewStore = { id: string; name: string; slug: string; loopTheme: string };
+type PlaceSuggestion = { placeId: string; name: string; address: string };
 
 /**
- * 「＋ 店舗を追加」モーダル（Figma『Modal / 店舗を追加 — PC/SP』、2026-08-06 案1で決定）。
+ * 「＋ 店舗を追加」モーダル（Figma『Modal / 店舗を追加 — PC/SP』、2026-08-06 案1で決定。
+ * 2026-08-06、天真の依頼でGoogleマップ紐付けを追加時点に統合）。
  *
- * URLスラッグは店舗名の入力から400ms後に自動生成される（店舗編集モーダルの店名検索と
- * 同じデバウンス）。生成はサーバー側（lib/admin/store-slug.ts、Claude Haikuでローマ字化）。
- * 「編集」を押すと直接書き換えられる — 一度この値で保存すると、QRコードに印刷した後は
- * 簡単に変えられないため、送信直前まで確認・修正できるようにしている。
+ * URLスラッグは店舗名の入力から400ms後に自動生成される。生成はサーバー側
+ * （lib/admin/store-slug.ts、Claude Haikuでローマ字化）。「編集」を押すと直接書き換えられる
+ * — 一度この値で保存すると、QRコードに印刷した後は簡単に変えられないため、送信直前まで
+ * 確認・修正できるようにしている。
+ *
+ * Googleマップの紐付けは店舗編集モーダル（StoreEditModal）と同じ検索UI・同じ
+ * POST /api/admin/places/search を使う。ここで選んでおくと、保存直後からQRコードの
+ * 送客先・お客様の★4/5評価後のGoogleマップ遷移先が有効になる（未選択でも保存はでき、
+ * あとから編集で設定してもよい）。
  */
 export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onCreated: (store: NewStore) => void }) {
   const [name, setName] = useState("");
@@ -21,6 +28,10 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
   const [slug, setSlug] = useState("");
   const [slugLoading, setSlugLoading] = useState(false);
   const [editingSlug, setEditingSlug] = useState(false);
+  const [placeQuery, setPlaceQuery] = useState("");
+  const [placeSuggestions, setPlaceSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [placeSearching, setPlaceSearching] = useState(false);
+  const [selectedPlace, setSelectedPlace] = useState<PlaceSuggestion | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +59,30 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
     return () => clearTimeout(timer);
   }, [name, editingSlug]);
 
+  useEffect(() => {
+    if (placeQuery.trim() === "") {
+      setPlaceSuggestions([]);
+      return;
+    }
+    setPlaceSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/admin/places/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: placeQuery.trim() }),
+        });
+        const data: { candidates?: PlaceSuggestion[] } = await res.json();
+        setPlaceSuggestions(data.candidates ?? []);
+      } catch {
+        setPlaceSuggestions([]);
+      } finally {
+        setPlaceSearching(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [placeQuery]);
+
   async function handleSave() {
     if (name.trim() === "" || slug.trim() === "") return;
     setSaving(true);
@@ -56,7 +91,12 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
       const res = await fetch("/api/admin/settings/stores", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), loopTheme: theme, slug: slug.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          loopTheme: theme,
+          slug: slug.trim(),
+          ...(selectedPlace ? { googlePlaceId: selectedPlace.placeId } : {}),
+        }),
       });
       const data: { store?: NewStore; error?: string } = await res.json();
       if (!res.ok || !data.store) {
@@ -127,6 +167,66 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
               );
             })}
           </div>
+        </div>
+
+        <div className="flex w-full flex-col items-start gap-2">
+          <p className="text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+            Googleマップ上のお店
+          </p>
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            店名で検索して選ぶと、QRコードとお客様の★4・5評価から、このお店のクチコミ投稿画面へ直接誘導できます
+          </p>
+          <LoopInput value={placeQuery} onChange={setPlaceQuery} placeholder="店名で検索（あとから設定することもできます）" />
+          {placeQuery.trim() !== "" && (
+            <div className="flex w-full flex-col items-start rounded-xl border" style={{ borderColor: "var(--product-color-border-default)" }}>
+              {placeSearching && (
+                <p className="px-4 py-3 text-[12.5px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
+                  検索中…
+                </p>
+              )}
+              {!placeSearching && placeSuggestions.length === 0 && (
+                <p className="px-4 py-3 text-[12.5px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
+                  見つかりませんでした
+                </p>
+              )}
+              {placeSuggestions.map((s) => {
+                const isSelected = selectedPlace?.placeId === s.placeId;
+                return (
+                  <button
+                    key={s.placeId}
+                    type="button"
+                    onClick={() => setSelectedPlace(s)}
+                    className="flex w-full items-center justify-between px-4 py-3 text-left"
+                    style={{ backgroundColor: isSelected ? "var(--loop-accent-wash)" : "transparent" }}
+                  >
+                    <div className="flex flex-col items-start gap-1">
+                      <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+                        {s.name}
+                      </p>
+                      <p className="text-[11.5px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
+                        {s.address}
+                      </p>
+                    </div>
+                    {isSelected && (
+                      <span className="text-sm font-bold" style={{ color: "var(--loop-accent-action)" }}>
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {selectedPlace && (
+            <div className="flex w-full flex-col items-start gap-1 rounded-xl p-4" style={{ backgroundColor: "var(--loop-accent-wash)" }}>
+              <p className="text-[13px] font-bold" style={{ color: "var(--loop-accent-action)" }}>
+                ✓ 紐付けが完了しました
+              </p>
+              <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+                お客様は「{selectedPlace.name}」のクチコミ投稿画面へ直接誘導されます
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex w-full flex-col items-start gap-2">

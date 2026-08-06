@@ -8,13 +8,12 @@ import { useStoreName } from "./StoreNameContext";
 
 /**
  * SP管理画面のトップバー（Figma node 79:1535 / 54:927）＋ドロワー（node 50:881）。
- * トップレベル画面（トップ・回答一覧・二次元コード発行・設定）はハンバーガー、
+ * トップレベル画面（トップ・回答一覧・設定）はハンバーガー、
  * 店舗詳細のようなサブページは戻るボタンにする（backHref を渡す）。
  */
 const NAV_ITEMS = [
   { href: "/admin", label: "トップ" },
   { href: "/admin/responses", label: "回答一覧" },
-  { href: "/admin/qr", label: "二次元コード発行" },
   { href: "/admin/settings", label: "設定" },
 ];
 
