@@ -1,66 +1,109 @@
 "use client";
 
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { AdminMobileTopBar } from "@/components/admin/AdminMobileNav";
-import { PeriodSegment } from "@/components/admin/PeriodSegment";
+import { PERIOD_OPTIONS, PeriodSegment, type PeriodCode } from "@/components/admin/PeriodSegment";
 import { ResponseCard } from "@/components/admin/ResponseCard";
 import type { ResponseItem } from "@/lib/admin/types";
 
-const ROUTE_FILTERS = ["すべて", "★5・4", "★3・2・1"];
+type StoreOption = { id: string; name: string };
+type Filters = { store: string; stars: string; branch: "good" | "improve" | "all"; period: PeriodCode };
 
-function StoreRatingSelects() {
+const BRANCH_SEGMENTS: { value: "all" | "good" | "improve"; label: string }[] = [
+  { value: "all", label: "すべて" },
+  { value: "good", label: "★5・4" },
+  { value: "improve", label: "★3・2・1" },
+];
+
+const STAR_OPTIONS = [5, 4, 3, 2, 1];
+
+/** 見た目は据え置きのまま、実際のvalueを持つセレクト（矢印は自前で描き、ブラウザ既定の矢印は消す） */
+function FilterSelect({
+  value,
+  onChange,
+  placeholder,
+  options,
+  widthClassName,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  options: { value: string; label: string }[];
+  widthClassName: string;
+}) {
   return (
-    <>
-      <div
-        className="flex h-11 flex-1 items-center justify-between rounded-xl border pl-4 pr-3 md:w-[180px] md:flex-none"
-        style={{ borderColor: "var(--product-color-border-default)", backgroundColor: "var(--product-color-surface-white)" }}
+    <div
+      className={`relative flex h-11 flex-1 items-center rounded-xl border pl-4 pr-3 md:flex-none ${widthClassName}`}
+      style={{ borderColor: "var(--product-color-border-default)", backgroundColor: "var(--product-color-surface-white)" }}
+    >
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full appearance-none bg-transparent text-[13px] outline-none"
+        style={{ color: "var(--product-color-text-primary)" }}
       >
-        <p className="text-[13px]" style={{ color: "var(--product-color-text-primary)" }}>
-          すべての店舗
-        </p>
-        <p className="text-[11px]" style={{ color: "var(--product-color-text-secondary)" }}>
-          ▾
-        </p>
-      </div>
-      <div
-        className="flex h-11 flex-1 items-center justify-between rounded-xl border pl-4 pr-3 md:w-[150px] md:flex-none"
-        style={{ borderColor: "var(--product-color-border-default)", backgroundColor: "var(--product-color-surface-white)" }}
-      >
-        <p className="text-[13px]" style={{ color: "var(--product-color-text-primary)" }}>
-          すべての評価
-        </p>
-        <p className="text-[11px]" style={{ color: "var(--product-color-text-secondary)" }}>
-          ▾
-        </p>
-      </div>
-    </>
+        <option value="">{placeholder}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <p className="pointer-events-none absolute right-3 text-[11px]" style={{ color: "var(--product-color-text-secondary)" }}>
+        ▾
+      </p>
+    </div>
   );
 }
 
 /**
  * Dashboard / 回答一覧（Figma node 51:883 PC / 52:899 SP）の表示部分。
- * データ取得は親（app/admin/(dashboard)/responses/page.tsx）が行う。
+ * データ取得・フィルタ適用は親（app/admin/(dashboard)/responses/page.tsx）が行う。
  *
- * フィルター（店舗・評価・送客状況）・期間はまだ見た目のみで、実際の絞り込みは動かない
- * （launch-plan.md D-8。この画面は「実データを出す」までがフェーズ4のスコープ）。
+ * フィルター（店舗・評価・分岐）・期間はURLのsearchParamsで状態を持つ（launch-plan.md D-8）。
  */
-export function ResponsesView({ responses }: { responses: ResponseItem[] }) {
-  const [routeFilter, setRouteFilter] = useState(ROUTE_FILTERS[0]);
+export function ResponsesView({
+  responses,
+  storeOptions,
+  filters,
+}: {
+  responses: ResponseItem[];
+  storeOptions: StoreOption[];
+  filters: Filters;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  function updateFilters(next: Partial<Filters>) {
+    const merged = { ...filters, ...next };
+    const params = new URLSearchParams();
+    if (merged.store) params.set("store", merged.store);
+    if (merged.stars) params.set("stars", merged.stars);
+    if (merged.branch !== "all") params.set("branch", merged.branch);
+    if (merged.period !== "7d") params.set("period", merged.period);
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname);
+  }
+
+  const periodLabel = PERIOD_OPTIONS.find((o) => o.code === filters.period)?.label ?? PERIOD_OPTIONS[0].label;
 
   const routeSegment = (
     <div className="flex items-start gap-1">
-      {ROUTE_FILTERS.map((f) => {
-        const selected = f === routeFilter;
+      {BRANCH_SEGMENTS.map((seg) => {
+        const selected = seg.value === filters.branch;
         return (
           <button
-            key={f}
+            key={seg.value}
             type="button"
-            onClick={() => setRouteFilter(f)}
+            onClick={() => updateFilters({ branch: seg.value })}
             className="flex items-center rounded-full px-5 py-[13px]"
             style={{ backgroundColor: selected ? "var(--loop-accent-primary)" : "transparent" }}
           >
-            <span className="whitespace-nowrap text-xs font-medium" style={{ color: selected ? "var(--loop-accent-on-primary)" : "var(--product-color-text-secondary)" }}>
-              {f}
+            <span
+              className="whitespace-nowrap text-xs font-medium"
+              style={{ color: selected ? "var(--loop-accent-on-primary)" : "var(--product-color-text-secondary)" }}
+            >
+              {seg.label}
             </span>
           </button>
         );
@@ -85,7 +128,7 @@ export function ResponsesView({ responses }: { responses: ResponseItem[] }) {
           <p className="whitespace-nowrap text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             {countLabel}
           </p>
-          <PeriodSegment />
+          <PeriodSegment value={periodLabel} onChange={(label) => updateFilters({ period: PERIOD_OPTIONS.find((o) => o.label === label)?.code ?? "7d" })} />
         </div>
       </div>
       <p className="whitespace-nowrap text-[13px] font-medium md:hidden" style={{ color: "var(--product-color-text-secondary)" }}>
@@ -93,12 +136,25 @@ export function ResponsesView({ responses }: { responses: ResponseItem[] }) {
       </p>
 
       <div className="flex w-full shrink-0 items-center gap-3">
-        <StoreRatingSelects />
+        <FilterSelect
+          value={filters.store}
+          onChange={(v) => updateFilters({ store: v })}
+          placeholder="すべての店舗"
+          widthClassName="md:w-[180px]"
+          options={storeOptions.map((s) => ({ value: s.id, label: s.name }))}
+        />
+        <FilterSelect
+          value={filters.stars}
+          onChange={(v) => updateFilters({ stars: v })}
+          placeholder="すべての評価"
+          widthClassName="md:w-[150px]"
+          options={STAR_OPTIONS.map((n) => ({ value: String(n), label: "★".repeat(n) }))}
+        />
         <div className="hidden md:flex">{routeSegment}</div>
       </div>
       <div className="flex w-full flex-col items-start gap-3 md:hidden">
         {routeSegment}
-        <PeriodSegment />
+        <PeriodSegment value={periodLabel} onChange={(label) => updateFilters({ period: PERIOD_OPTIONS.find((o) => o.label === label)?.code ?? "7d" })} />
       </div>
 
       <div className="flex w-full flex-col items-start gap-3">
