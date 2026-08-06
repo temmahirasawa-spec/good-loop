@@ -13,7 +13,7 @@ const LOW_READS_THRESHOLD = 20;
  * Dashboard / 二次元コード発行（Figma node 56:931 PC / 56:1292 SP）の表示部分。
  * データ取得は親（app/admin/(dashboard)/qr/page.tsx）が行う。
  */
-export function QrPageView({ stores }: { stores: StoreSummary[] }) {
+export function QrPageView({ stores }: { stores: (StoreSummary & { qrSvg: string })[] }) {
   const [spExpanded, setSpExpanded] = useState(false);
   const visibleForSp = spExpanded ? stores : stores.slice(0, SP_COLLAPSED_COUNT);
   const hiddenCount = stores.length - SP_COLLAPSED_COUNT;
@@ -48,13 +48,13 @@ export function QrPageView({ stores }: { stores: StoreSummary[] }) {
 
       <div className="flex w-full flex-wrap items-start gap-4">
         {stores.map((store) => (
-          <QrCard key={store.id} storeName={store.name} reads={store.qrReads} low={store.qrReads < LOW_READS_THRESHOLD} />
+          <QrCard key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} reads={store.qrReads} low={store.qrReads < LOW_READS_THRESHOLD} />
         ))}
       </div>
 
       <div className="flex w-full flex-col items-start gap-3 md:hidden">
         {visibleForSp.map((store) => (
-          <QrCardMobile key={store.id} storeName={store.name} reads={store.qrReads} low={store.qrReads < LOW_READS_THRESHOLD} />
+          <QrCardMobile key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} reads={store.qrReads} low={store.qrReads < LOW_READS_THRESHOLD} />
         ))}
         {!spExpanded && hiddenCount > 0 && (
           <button
