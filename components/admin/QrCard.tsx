@@ -1,37 +1,64 @@
+"use client";
+
 import { LoopButton } from "@/components/rating-flow/Button";
 
-/** Loop / QR Placeholder（Figma node 55:931）— ダミー表示。実装ではURLから動的生成する */
-function QrPlaceholder() {
-  const dots = [
-    [47, 13], [63, 21], [41, 31], [57, 39], [75, 31], [91, 43], [47, 51], [29, 57],
-    [65, 57], [83, 65], [45, 71], [59, 79], [75, 91], [93, 83], [43, 93], [59, 63], [91, 59], [103, 71],
-  ];
-  const finders: [number, number][] = [
-    [9, 9], [85, 9], [9, 85],
-  ];
+/**
+ * 実際のQRコード（launch-plan.md D-7、2026-08-06実装）。
+ * サーバー側で生成したSVG（`lib/qr-code.ts`）をそのまま描画する。読み取り信頼性のため
+ * 常に黒/白（デザイントークンでは色付けしない）。
+ */
+function QrImage({ svg }: { svg: string }) {
   return (
-    <div className="relative size-[120px] shrink-0 rounded-lg" style={{ backgroundColor: "white", border: "1px solid var(--product-color-border-divider)" }}>
-      {finders.map(([x, y]) => (
-        <div key={`${x}-${y}`}>
-          <div className="absolute size-6" style={{ left: x, top: y, backgroundColor: "var(--product-color-text-primary)" }} />
-          <div className="absolute size-4" style={{ left: x + 4, top: y + 4, backgroundColor: "white" }} />
-          <div className="absolute size-2" style={{ left: x + 8, top: y + 8, backgroundColor: "var(--product-color-text-primary)" }} />
-        </div>
-      ))}
-      {dots.map(([x, y]) => (
-        <div key={`${x}-${y}`} className="absolute size-1.5" style={{ left: x, top: y, backgroundColor: "var(--product-color-text-primary)" }} />
-      ))}
-    </div>
+    <div
+      className="relative size-[120px] shrink-0 overflow-hidden rounded-lg [&>svg]:size-full"
+      style={{ backgroundColor: "white", border: "1px solid var(--product-color-border-divider)" }}
+      // eslint-disable-next-line react/no-danger -- lib/qr-code.tsがサーバー側で生成した固定フォーマットのSVGで、外部入力を含まない
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
   );
+}
+
+/** SVG文字列をPNGに変換してダウンロードする（Canvas経由。印刷・貼り付けに使いやすい形式） */
+function downloadQr(svg: string, slug: string) {
+  const svgBlob = new Blob([svg], { type: "image/svg+xml" });
+  const svgUrl = URL.createObjectURL(svgBlob);
+  const image = new Image();
+  image.onload = () => {
+    const size = 1024; // 印刷に耐える解像度
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    // design-qa-allow: PNG化するQRコードの背景は読み取り信頼性のため常に白固定（QRのdark/lightと揃える）
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, size, size);
+    ctx.drawImage(image, 0, 0, size, size);
+    URL.revokeObjectURL(svgUrl);
+    canvas.toBlob((pngBlob) => {
+      if (!pngBlob) return;
+      const pngUrl = URL.createObjectURL(pngBlob);
+      const a = document.createElement("a");
+      a.href = pngUrl;
+      a.download = `${slug}-qr.png`;
+      a.click();
+      URL.revokeObjectURL(pngUrl);
+    }, "image/png");
+  };
+  image.src = svgUrl;
 }
 
 /** PC版（Figma node 56:957） */
 export function QrCard({
   storeName,
+  slug,
+  qrSvg,
   reads,
   low,
 }: {
   storeName: string;
+  slug: string;
+  qrSvg: string;
   reads: number;
   low?: boolean;
 }) {
@@ -40,7 +67,7 @@ export function QrCard({
       className="hidden w-[371px] shrink-0 flex-col items-center gap-3 rounded-2xl p-6 md:flex"
       style={{ backgroundColor: "var(--product-color-surface-white)" }}
     >
-      <QrPlaceholder />
+      <QrImage svg={qrSvg} />
       <p className="whitespace-nowrap text-[15px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
         {storeName}
       </p>
@@ -60,7 +87,9 @@ export function QrCard({
         </div>
       )}
       <div className="w-full">
-        <LoopButton variant="primary">画像をダウンロード</LoopButton>
+        <LoopButton variant="primary" onClick={() => downloadQr(qrSvg, slug)}>
+          画像をダウンロード
+        </LoopButton>
       </div>
       <p className="whitespace-nowrap text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
         印刷用PDFを開く
@@ -72,10 +101,14 @@ export function QrCard({
 /** SP版（Figma node 56:1303）— QRと情報を横並びに、操作はテキストリンクにする */
 export function QrCardMobile({
   storeName,
+  slug,
+  qrSvg,
   reads,
   low,
 }: {
   storeName: string;
+  slug: string;
+  qrSvg: string;
   reads: number;
   low?: boolean;
 }) {
@@ -84,7 +117,7 @@ export function QrCardMobile({
       className="flex w-full items-center gap-4 rounded-2xl p-4 md:hidden"
       style={{ backgroundColor: "var(--product-color-surface-white)" }}
     >
-      <QrPlaceholder />
+      <QrImage svg={qrSvg} />
       <div className="flex flex-1 flex-col items-start gap-2">
         <p className="text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
           {storeName}
@@ -98,7 +131,9 @@ export function QrCardMobile({
           </p>
         )}
         <div className="flex items-start gap-4 text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
-          <p>ダウンロード</p>
+          <button type="button" onClick={() => downloadQr(qrSvg, slug)}>
+            ダウンロード
+          </button>
           <p>印刷用PDF</p>
         </div>
       </div>
