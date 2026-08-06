@@ -5,15 +5,17 @@ import { ProgressBar } from "../ProgressBar";
 import { TagChip } from "../TagChip";
 import { LoopButton } from "../Button";
 
-export const GOOD_TAGS = ["料理・味", "接客・スタッフ", "雰囲気・内装", "コスパ", "清潔感", "提供スピード"] as const;
-
 /**
  * 02 / 良かった点（Figma node 1:360）
  * タグを1つ選ぶまで「回答する」は非活性（2026-08-05 天真指示。01画面と同様のルール）。
- * 自由記述は任意のままなので、タグ0件のままでは送信できない
+ * 自由記述は任意のままなので、タグ0件のままでは送信できない。
+ *
+ * タグの選択肢は店舗ごとに編集できる（launch-plan.md 決定②）ため、固定の定数ではなく
+ * props（`tags`）で受け取る。呼び出し元（app/r/[storeSlug]/page.tsx）が store_tags から解決する。
  */
 export function GoodFeedback({
   storeName,
+  tags,
   selectedTags,
   onToggleTag,
   freeText,
@@ -23,6 +25,7 @@ export function GoodFeedback({
   onSubmit,
 }: {
   storeName: string;
+  tags: string[];
   selectedTags: string[];
   onToggleTag: (tag: string) => void;
   freeText: string;
@@ -31,7 +34,8 @@ export function GoodFeedback({
   error?: string;
   onSubmit: () => void;
 }) {
-  const rows = [GOOD_TAGS.slice(0, 2), GOOD_TAGS.slice(2, 4), GOOD_TAGS.slice(4, 6)];
+  const rows: string[][] = [];
+  for (let i = 0; i < tags.length; i += 2) rows.push(tags.slice(i, i + 2));
 
   return (
     <div

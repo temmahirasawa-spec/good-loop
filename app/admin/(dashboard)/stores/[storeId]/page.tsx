@@ -20,7 +20,7 @@ export default async function AdminStoreDetailPage({ params }: { params: { store
 
   return (
     <>
-      <AdminMobileTopBar title={store.name} storeName="YORKYS BRUNCH" backHref="/admin" />
+      <AdminMobileTopBar title={store.name} backHref="/admin" />
 
       <div
         className="hidden w-full shrink-0 items-center justify-between rounded-2xl px-6 py-5 md:flex"

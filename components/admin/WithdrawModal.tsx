@@ -7,9 +7,17 @@ import { LoopInput } from "@/components/admin/LoopInput";
 const CONFIRM_WORD = "退会";
 
 /** 退会の確認モーダル（Figma node 75:1449 PC / 76:1736 SP）。「退会」と入力するまで実行ボタンは非活性 */
-export function WithdrawModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
+export function WithdrawModal({
+  onClose,
+  onConfirm,
+  confirming,
+}: {
+  onClose: () => void;
+  onConfirm: () => void;
+  confirming?: boolean;
+}) {
   const [input, setInput] = useState("");
-  const canConfirm = input === CONFIRM_WORD;
+  const canConfirm = input === CONFIRM_WORD && !confirming;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }} onClick={onClose}>
@@ -55,7 +63,7 @@ export function WithdrawModal({ onClose, onConfirm }: { onClose: () => void; onC
             }}
           >
             <span className="text-[13px] font-bold" style={{ color: "var(--product-color-status-warning)" }}>
-              退会する
+              {confirming ? "処理中…" : "退会する"}
             </span>
           </button>
         </div>

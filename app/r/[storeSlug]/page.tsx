@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { RatingFlow } from "@/components/rating-flow/RatingFlow";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { byCategory, getOrSeedStoreTags } from "@/lib/store-tags";
 
 /**
  * 来店客の入口URL（docs/specs/rating-flow.md A-5）。
@@ -26,6 +27,8 @@ export default async function RatingFlowPage({ params }: { params: { storeSlug: 
     .insert({ tenant_id: store.tenant_id, store_id: store.id })
     .then(() => {}, () => {});
 
+  const storeTags = await getOrSeedStoreTags(supabase, store.id, store.tenant_id);
+
   return (
     // Figmaのフレームは390px固定（02基本形）。data-loop-theme は店舗の業態をそのまま渡す
     <div className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-col" data-loop-theme={store.loop_theme}>
@@ -37,6 +40,7 @@ export default async function RatingFlowPage({ params }: { params: { storeSlug: 
           googlePlaceId: store.google_place_id,
           googleMapsFallbackUrl: store.google_maps_fallback_url,
         }}
+        tags={{ good: byCategory(storeTags, "good"), improve: byCategory(storeTags, "improve") }}
       />
     </div>
   );

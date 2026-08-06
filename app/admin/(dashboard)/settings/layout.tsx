@@ -8,7 +8,7 @@ import { SettingsTabBar } from "@/components/admin/SettingsTabBar";
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <AdminMobileTopBar title="設定" storeName="YORKYS BRUNCH" />
+      <AdminMobileTopBar title="設定" />
       <p className="hidden text-xl font-bold md:block" style={{ color: "var(--product-color-text-primary)" }}>
         設定
       </p>

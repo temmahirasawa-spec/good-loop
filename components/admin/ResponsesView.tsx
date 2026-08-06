@@ -72,7 +72,7 @@ export function ResponsesView({ responses }: { responses: ResponseItem[] }) {
 
   return (
     <>
-      <AdminMobileTopBar title="回答一覧" storeName="YORKYS BRUNCH" />
+      <AdminMobileTopBar title="回答一覧" />
 
       <div
         className="hidden w-full shrink-0 items-center justify-between rounded-2xl px-6 py-5 md:flex"

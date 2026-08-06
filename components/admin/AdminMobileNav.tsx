@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LogoutButton } from "./LogoutButton";
+import { useStoreName } from "./StoreNameContext";
 
 /**
  * SP管理画面のトップバー（Figma node 79:1535 / 54:927）＋ドロワー（node 50:881）。
@@ -18,15 +20,14 @@ const NAV_ITEMS = [
 
 export function AdminMobileTopBar({
   title,
-  storeName,
   backHref,
 }: {
   title: string;
-  storeName: string;
   backHref?: string;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const storeName = useStoreName();
 
   return (
     <>
@@ -102,9 +103,7 @@ export function AdminMobileTopBar({
               );
             })}
             <div className="min-h-px w-full flex-1" />
-            <p className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-              ログアウト
-            </p>
+            <LogoutButton className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }} />
           </div>
         </div>
       )}

@@ -11,8 +11,8 @@ export type SettingsStoreRow = { id: string; name: string; googlePlaceLinked: bo
  * データ取得は親（app/admin/(dashboard)/settings/stores/page.tsx）が行う。
  *
  * 「＋ 店舗を追加」は新規店舗のスラッグ・業態設定を伴うため、店舗編集モーダルとは
- * フォームが異なる（未実装）。まずFigmaにある編集フローを実装した。
- * 保存はまだローカル状態のみ（Google Places APIが未接続のため、DBへの反映はしない）。
+ * フォームが異なる（未実装。フェーズ5の対象は既存店舗の編集のみ）。
+ * 編集の保存は StoreEditModal が直接 stores を更新する（Google Places API接続済み、2026-08-06）。
  */
 export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
   const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set(stores.filter((s) => s.googlePlaceLinked).map((s) => s.id)));
@@ -58,6 +58,7 @@ export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
 
       {editingStore && (
         <StoreEditModal
+          storeId={editingStore.id}
           storeName={editingStore.name}
           linked={linkedIds.has(editingStore.id)}
           onClose={() => setEditingId(null)}

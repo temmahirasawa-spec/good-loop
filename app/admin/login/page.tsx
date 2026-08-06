@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { LoopInput } from "@/components/admin/LoopInput";
 import { LoopButton } from "@/components/rating-flow/Button";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /**
  * ログイン（Figma node 81:1812 PC / 81:1846 SP、エラー版 81:1828 / 81:1862）。
@@ -10,18 +12,33 @@ import { LoopButton } from "@/components/rating-flow/Button";
  * `(dashboard)` ルートグループの外に置き、サイドバーを持たない単独ページにしてある
  * （app/admin/layout.tsx はもう存在しない。app/admin/(dashboard)/layout.tsx がダッシュボード側だけを包む）。
  *
- * Supabase Authがまだ無いため、実際の認証はしていない。未入力のまま送信したときの
- * エラー表示（Figmaの2案）だけを、素直なクライアント側バリデーションとして実装した。
+ * Figmaのエラー文言は「メールアドレスまたはパスワードが正しくありません」の1種類のみ
+ * （未入力・認証失敗を区別しない）。Supabase Authのエラーもこの文言に丸めている。
  */
 export default function AdminLoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showError, setShowError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: Supabase Auth が入ったら signInWithPassword に置き換える
-    setShowError(email.trim() === "" || password.trim() === "");
+    if (email.trim() === "" || password.trim() === "") {
+      setShowError(true);
+      return;
+    }
+    setSubmitting(true);
+    setShowError(false);
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) {
+      setShowError(true);
+      setSubmitting(false);
+      return;
+    }
+    router.push("/admin");
+    router.refresh();
   }
 
   return (
@@ -60,13 +77,13 @@ export default function AdminLoginPage() {
           <LoopInput value={password} onChange={setPassword} type="password" placeholder="••••••••" error={showError} />
         </div>
 
-        <LoopButton variant="primary" type="submit">
-          ログイン
+        <LoopButton variant="primary" type="submit" disabled={submitting}>
+          {submitting ? "ログイン中…" : "ログイン"}
         </LoopButton>
 
-        <button type="button" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--loop-accent-action)" }}>
+        <a href="/admin/reset-password" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--loop-accent-action)" }}>
           パスワードをお忘れの方はこちら
-        </button>
+        </a>
       </form>
     </div>
   );

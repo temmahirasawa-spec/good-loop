@@ -18,7 +18,7 @@ export default async function AdminTopPage() {
 
   return (
     <>
-      <AdminMobileTopBar title="トップ" storeName="YORKYS BRUNCH" />
+      <AdminMobileTopBar title="トップ" />
 
       <div
         className="hidden w-full shrink-0 items-center justify-between rounded-2xl px-6 py-5 md:flex"

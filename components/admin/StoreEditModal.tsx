@@ -1,38 +1,83 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LoopButton } from "@/components/rating-flow/Button";
 import { LoopInput } from "@/components/admin/LoopInput";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-type PlaceSuggestion = { name: string; address: string };
+type PlaceSuggestion = { placeId: string; name: string; address: string };
 
 /**
  * 店舗編集モーダル（Figma node 75:1416 PC / 76:1658 SP）。
  *
- * Google Places APIがまだ無い（docs/setup-tasks.md 3参照）ため、店名検索の候補は
- * ダミーの3件固定。実装時は入力文字列でPlaces APIのText Search（New）を叩く想定。
- * PC は中央モーダル、SP は下からのシート。同じマークアップをブレークポイントで出し分ける。
+ * 店名検索は POST /api/admin/places/search（Google Places API、サーバー側の鍵を使用）。
+ * 保存は stores.name / stores.google_place_id を直接更新する（RLSでテナント分離される
+ * ため、admin clientは使わない）。
+ *
+ * 既にGoogleマップと連携済みの店舗を開いたときも、保存済みの google_place_id からは
+ * 店名・住所を復元できない（Places Details APIを追加で叩けば可能だが、今回は簡易化のため
+ * 未実装）。連携状態を確認・変更したい場合は再検索して選び直す運用とする。
  */
 export function StoreEditModal({
+  storeId,
   storeName,
   linked,
   onClose,
   onSave,
 }: {
+  storeId: string;
   storeName: string;
   linked: boolean;
   onClose: () => void;
   onSave: (nextName: string) => void;
 }) {
   const [name, setName] = useState(storeName);
-  const [query, setQuery] = useState(linked ? `${storeName.replace(/店$/, "")}` : "");
-  const [selected, setSelected] = useState<PlaceSuggestion | null>(linked ? { name: `YORKYS BRUNCH ${storeName}`, address: "住所は選択後にPlaces APIから取得" } : null);
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selected, setSelected] = useState<PlaceSuggestion | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const suggestions: PlaceSuggestion[] = [
-    { name: `YORKYS BRUNCH ${storeName}`, address: "住所は選択後にPlaces APIから取得" },
-    { name: "YORKYS BRUNCH 梅田店", address: "大阪府大阪市北区大深町4-20" },
-    { name: "ヨーキーズカフェ 大阪城公園", address: "大阪府大阪市中央区大阪城1-1" },
-  ];
+  useEffect(() => {
+    if (query.trim() === "") {
+      setSuggestions([]);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/admin/places/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: query.trim() }),
+        });
+        const data: { candidates?: PlaceSuggestion[] } = await res.json();
+        setSuggestions(data.candidates ?? []);
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    const supabase = createSupabaseBrowserClient();
+    const { error: updateError } = await supabase
+      .from("stores")
+      .update({ name, ...(selected ? { google_place_id: selected.placeId } : {}) })
+      .eq("id", storeId);
+    setSaving(false);
+    if (updateError) {
+      setError("保存できませんでした。もう一度お試しください。");
+      return;
+    }
+    onSave(name);
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }} onClick={onClose}>
@@ -59,14 +104,29 @@ export function StoreEditModal({
           <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             Googleマップ上のお店（店名で検索して選択）
           </p>
+          {linked && !selected && (
+            <p className="text-[11.5px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
+              既に連携済みです。変更する場合は再検索して選び直してください
+            </p>
+          )}
           <LoopInput value={query} onChange={setQuery} placeholder="店名で検索" />
           {query.trim() !== "" && (
             <div className="flex w-full flex-col items-start rounded-xl border" style={{ borderColor: "var(--product-color-border-default)" }}>
+              {searching && (
+                <p className="px-4 py-3 text-[12.5px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
+                  検索中…
+                </p>
+              )}
+              {!searching && suggestions.length === 0 && (
+                <p className="px-4 py-3 text-[12.5px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
+                  見つかりませんでした
+                </p>
+              )}
               {suggestions.map((s) => {
-                const isSelected = selected?.name === s.name;
+                const isSelected = selected?.placeId === s.placeId;
                 return (
                   <button
-                    key={s.name}
+                    key={s.placeId}
                     type="button"
                     onClick={() => setSelected(s)}
                     className="flex w-full items-center justify-between px-4 py-3 text-left"
@@ -100,10 +160,13 @@ export function StoreEditModal({
             <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
               お客様は「{selected.name}」のクチコミ投稿画面へ直接誘導されます
             </p>
-            <p className="text-xs font-medium" style={{ color: "var(--loop-accent-action)" }}>
-              投稿画面を自分で確認する →
-            </p>
           </div>
+        )}
+
+        {error && (
+          <p className="w-full text-[12.5px] font-medium" style={{ color: "var(--product-color-status-warning)" }}>
+            {error}
+          </p>
         )}
 
         <div className="flex w-full items-center justify-between pt-2">
@@ -111,8 +174,8 @@ export function StoreEditModal({
             キャンセル
           </button>
           <div className="w-fit">
-            <LoopButton variant="primary" onClick={() => onSave(name)}>
-              保存する
+            <LoopButton variant="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "保存中…" : "保存する"}
             </LoopButton>
           </div>
         </div>

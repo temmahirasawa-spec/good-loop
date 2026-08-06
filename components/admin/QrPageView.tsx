@@ -20,7 +20,7 @@ export function QrPageView({ stores }: { stores: StoreSummary[] }) {
 
   return (
     <>
-      <AdminMobileTopBar title="二次元コード発行" storeName="YORKYS BRUNCH" />
+      <AdminMobileTopBar title="二次元コード発行" />
 
       <div
         className="hidden w-full shrink-0 items-center justify-between rounded-2xl px-6 py-5 md:flex"
