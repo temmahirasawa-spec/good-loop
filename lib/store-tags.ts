@@ -17,7 +17,14 @@ type PresetRow = { label: string; category: StoreTagCategory; sort_order: number
 /**
  * 店舗の store_tags を返す。1件も無い（初回アクセス）場合は tags_master の
  * プリセットをコピーして種をまいてから返す。`unique(store_id, category, label)` があるため、
- * 同時アクセスで二重に呼ばれても重複行にはならない（後勝ちは無視され、既存行を読み直す）。
+ * 同時アクセスで二重に呼ばれても重複行にはならない（後勝ちは無視される）。
+ *
+ * 2026-08-06、初回アクセス時にタグが1件も表示されない不具合の原因が判明した：
+ * upsert直後に別クエリで再読み込みすると、Supabaseの接続プーリング（PgBouncer）越しに
+ * 別のDB接続が使われることがあり、「自分が今書き込んだ行」がまだ見えない状態で
+ * 読んでしまうことがあった（読み取り一貫性が保証されない）。
+ * upsertの`.select()`レスポンスをそのまま使えば、書き込みと同じレスポンスなので
+ * 必ず反映済みの内容が返る。これを正として使い、再読み込みはしない。
  */
 export async function getOrSeedStoreTags(supabase: SupabaseClient, storeId: string, tenantId: string): Promise<StoreTag[]> {
   const existing = await fetchStoreTags(supabase, storeId);
@@ -31,46 +38,36 @@ export async function getOrSeedStoreTags(supabase: SupabaseClient, storeId: stri
     .returns<PresetRow[]>();
   if (!presets || presets.length === 0) return [];
 
-  await supabase
+  const { data: inserted } = await supabase
     .from("store_tags")
     .upsert(
       presets.map((p) => ({ tenant_id: tenantId, store_id: storeId, label: p.label, category: p.category, sort_order: p.sort_order })),
       { onConflict: "store_id,category,label", ignoreDuplicates: true }
-    );
+    )
+    .select("id, label, category, sort_order")
+    .returns<StoreTagRow[]>();
 
+  if (inserted && inserted.length > 0) {
+    return toStoreTags(inserted).sort((a, b) => a.category.localeCompare(b.category) || a.sortOrder - b.sortOrder);
+  }
+
+  // 同時アクセスで他リクエストが先に種まきした場合など、insertedが空になるケースの保険
   return fetchStoreTags(supabase, storeId);
 }
 
 async function fetchStoreTags(supabase: SupabaseClient, storeId: string): Promise<StoreTag[]> {
-  // TODO(debug-temp): 本番でstore_tagsが空配列になる原因調査のための一時ログ。原因判明後に削除する
-  console.log("[debug] SUPABASE_SERVICE_ROLE_KEY length=", process.env.SUPABASE_SERVICE_ROLE_KEY?.length ?? "undefined");
-  console.log("[debug] NEXT_PUBLIC_SUPABASE_URL=", process.env.NEXT_PUBLIC_SUPABASE_URL);
-
-  const rawUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/store_tags?select=id,label,category&store_id=eq.${storeId}`;
-  try {
-    const rawRes = await fetch(rawUrl, {
-      headers: {
-        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
-        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""}`,
-        Prefer: "count=exact",
-      },
-      cache: "no-store",
-    });
-    const rawText = await rawRes.text();
-    console.log("[debug] raw fetch status=", rawRes.status, "content-range=", rawRes.headers.get("content-range"), "body=", rawText.slice(0, 500));
-  } catch (e) {
-    console.log("[debug] raw fetch threw", String(e));
-  }
-
-  const { data, error, count } = await supabase
+  const { data } = await supabase
     .from("store_tags")
-    .select("id, label, category, sort_order", { count: "exact" })
+    .select("id, label, category, sort_order")
     .eq("store_id", storeId)
     .order("category")
     .order("sort_order")
     .returns<StoreTagRow[]>();
-  console.log("[fetchStoreTags]", "storeId=", storeId, "count=", count, "dataLen=", data?.length, "error=", error ? JSON.stringify(error) : null);
-  return (data ?? []).map((t) => ({ id: t.id, label: t.label, category: t.category, sortOrder: t.sort_order }));
+  return toStoreTags(data ?? []);
+}
+
+function toStoreTags(rows: StoreTagRow[]): StoreTag[] {
+  return rows.map((t) => ({ id: t.id, label: t.label, category: t.category, sortOrder: t.sort_order }));
 }
 
 export function byCategory(tags: StoreTag[], category: StoreTagCategory): string[] {
