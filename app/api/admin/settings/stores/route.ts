@@ -11,7 +11,7 @@ import { isValidSlug } from "@/lib/admin/store-slug";
 
 const VALID_THEMES = new Set(LOOP_THEMES.map((t) => t.slug));
 
-type Body = { name: string; loopTheme: string; slug: string };
+type Body = { name: string; loopTheme: string; slug: string; googlePlaceId?: string };
 
 function isValidBody(body: unknown): body is Body {
   if (typeof body !== "object" || body === null) return false;
@@ -22,7 +22,8 @@ function isValidBody(body: unknown): body is Body {
     typeof b.loopTheme === "string" &&
     VALID_THEMES.has(b.loopTheme) &&
     typeof b.slug === "string" &&
-    isValidSlug(b.slug)
+    isValidSlug(b.slug) &&
+    (b.googlePlaceId === undefined || (typeof b.googlePlaceId === "string" && b.googlePlaceId.trim() !== ""))
   );
 }
 
@@ -43,7 +44,13 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from("stores")
-    .insert({ tenant_id: tenantId, name: body.name.trim(), slug: body.slug, loop_theme: body.loopTheme })
+    .insert({
+      tenant_id: tenantId,
+      name: body.name.trim(),
+      slug: body.slug,
+      loop_theme: body.loopTheme,
+      ...(body.googlePlaceId ? { google_place_id: body.googlePlaceId } : {}),
+    })
     .select("id, name, slug, loop_theme")
     .single();
 

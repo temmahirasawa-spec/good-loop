@@ -8,7 +8,6 @@ import { LogoutButton } from "./LogoutButton";
 const NAV_ITEMS = [
   { href: "/admin", label: "トップ" },
   { href: "/admin/responses", label: "回答一覧" },
-  { href: "/admin/qr", label: "二次元コード発行" },
   { href: "/admin/settings", label: "設定" },
 ];
 
