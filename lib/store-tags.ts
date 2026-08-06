@@ -42,13 +42,16 @@ export async function getOrSeedStoreTags(supabase: SupabaseClient, storeId: stri
 }
 
 async function fetchStoreTags(supabase: SupabaseClient, storeId: string): Promise<StoreTag[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("store_tags")
     .select("id, label, category, sort_order")
     .eq("store_id", storeId)
     .order("category")
     .order("sort_order")
     .returns<StoreTagRow[]>();
+  // TODO(debug-temp): 本番でstore_tagsが空配列になる原因調査のための一時ログ。原因判明後に削除する
+  if (error) console.error("[fetchStoreTags] error", JSON.stringify(error), "storeId=", storeId);
+  else console.log("[fetchStoreTags] ok", "storeId=", storeId, "count=", data?.length);
   return (data ?? []).map((t) => ({ id: t.id, label: t.label, category: t.category, sortOrder: t.sort_order }));
 }
 
