@@ -3,6 +3,10 @@ import { RatingFlow } from "@/components/rating-flow/RatingFlow";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { byCategory, getOrSeedStoreTags } from "@/lib/store-tags";
 
+// 動的なSupabaseデータを毎リクエスト取得する（静的プリレンダー・fetchキャッシュで
+// 固定化されるのを防ぐ。2026-08-06、本番で新規タグが反映されない不具合の原因だった）
+export const dynamic = "force-dynamic";
+
 /**
  * 来店客の入口URL（docs/specs/rating-flow.md A-5）。
  * `https://app.goodloop.jp/r/[storeSlug]` を想定。
