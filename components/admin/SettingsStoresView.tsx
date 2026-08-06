@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { LoopButton } from "@/components/rating-flow/Button";
 import { StoreEditModal } from "@/components/admin/StoreEditModal";
+import { AddStoreModal } from "@/components/admin/AddStoreModal";
 
 export type SettingsStoreRow = { id: string; name: string; googlePlaceLinked: boolean };
 
@@ -10,13 +12,15 @@ export type SettingsStoreRow = { id: string; name: string; googlePlaceLinked: bo
  * 設定（店舗管理） Figma node 73:1364 PC / 75:1803 SP の表示部分。
  * データ取得は親（app/admin/(dashboard)/settings/stores/page.tsx）が行う。
  *
- * 「＋ 店舗を追加」は新規店舗のスラッグ・業態設定を伴うため、店舗編集モーダルとは
- * フォームが異なる（未実装。フェーズ5の対象は既存店舗の編集のみ）。
  * 編集の保存は StoreEditModal が直接 stores を更新する（Google Places API接続済み、2026-08-06）。
+ * 「＋ 店舗を追加」は AddStoreModal が /api/admin/settings/stores 経由で新規作成する
+ * （Figma『Modal / 店舗を追加』案1、2026-08-06決定）。
  */
 export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
+  const router = useRouter();
   const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set(stores.filter((s) => s.googlePlaceLinked).map((s) => s.id)));
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const editingStore = stores.find((s) => s.id === editingId) ?? null;
 
@@ -53,7 +57,9 @@ export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
             </div>
           );
         })}
-        <LoopButton variant="primary">＋ 店舗を追加</LoopButton>
+        <LoopButton variant="primary" onClick={() => setAdding(true)}>
+          ＋ 店舗を追加
+        </LoopButton>
       </div>
 
       {editingStore && (
@@ -65,6 +71,16 @@ export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
           onSave={() => {
             setLinkedIds((prev) => new Set(prev).add(editingStore.id));
             setEditingId(null);
+          }}
+        />
+      )}
+
+      {adding && (
+        <AddStoreModal
+          onClose={() => setAdding(false)}
+          onCreated={() => {
+            setAdding(false);
+            router.refresh();
           }}
         />
       )}

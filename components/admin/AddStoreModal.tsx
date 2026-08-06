@@ -1,0 +1,172 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { LoopButton } from "@/components/rating-flow/Button";
+import { LoopInput } from "@/components/admin/LoopInput";
+import { LOOP_THEMES } from "@/lib/admin/constants";
+
+type NewStore = { id: string; name: string; slug: string; loopTheme: string };
+
+/**
+ * 「＋ 店舗を追加」モーダル（Figma『Modal / 店舗を追加 — PC/SP』、2026-08-06 案1で決定）。
+ *
+ * URLスラッグは店舗名の入力から400ms後に自動生成される（店舗編集モーダルの店名検索と
+ * 同じデバウンス）。生成はサーバー側（lib/admin/store-slug.ts、Claude Haikuでローマ字化）。
+ * 「編集」を押すと直接書き換えられる — 一度この値で保存すると、QRコードに印刷した後は
+ * 簡単に変えられないため、送信直前まで確認・修正できるようにしている。
+ */
+export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onCreated: (store: NewStore) => void }) {
+  const [name, setName] = useState("");
+  const [theme, setTheme] = useState(LOOP_THEMES[1].slug); // 飲食店をデフォルトに（launch-plan.md③、現状の主要業態）
+  const [slug, setSlug] = useState("");
+  const [slugLoading, setSlugLoading] = useState(false);
+  const [editingSlug, setEditingSlug] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (editingSlug || name.trim() === "") {
+      if (name.trim() === "") setSlug("");
+      return;
+    }
+    setSlugLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/admin/settings/stores/suggest-slug", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim() }),
+        });
+        const data: { slug?: string } = await res.json();
+        setSlug(data.slug ?? "");
+      } catch {
+        // 失敗しても空欄のまま「編集」から手入力できる
+      } finally {
+        setSlugLoading(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [name, editingSlug]);
+
+  async function handleSave() {
+    if (name.trim() === "" || slug.trim() === "") return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings/stores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), loopTheme: theme, slug: slug.trim() }),
+      });
+      const data: { store?: NewStore; error?: string } = await res.json();
+      if (!res.ok || !data.store) {
+        setError(data.error ?? "保存できませんでした。もう一度お試しください。");
+        setSaving(false);
+        return;
+      }
+      onCreated(data.store);
+    } catch {
+      setError("保存できませんでした。もう一度お試しください。");
+      setSaving(false);
+    }
+  }
+
+  const canSave = name.trim() !== "" && slug.trim() !== "" && !saving;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }} onClick={onClose}>
+      <div
+        className="flex max-h-[90dvh] w-full flex-col items-start gap-4 overflow-y-auto rounded-t-[20px] p-6 md:w-[560px] md:rounded-2xl"
+        style={{ backgroundColor: "var(--product-color-surface-white)", boxShadow: "0px 8px 32px 0px rgba(0,0,0,0.14)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex h-4 w-full items-center justify-center md:hidden">
+          <span className="block h-1 w-10 rounded-full opacity-40" style={{ backgroundColor: "var(--product-color-text-tertiary)" }} />
+        </div>
+        <p className="text-[17px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+          店舗を追加
+        </p>
+
+        <div className="flex w-full flex-col items-start gap-2">
+          <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            店舗名（管理画面での表示名）
+          </p>
+          <LoopInput value={name} onChange={setName} placeholder="例：大阪本町店" />
+        </div>
+
+        <div className="flex w-full flex-col items-start gap-2">
+          <p className="text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+            業態
+          </p>
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            色とアンケート項目のプリセットが決まります
+          </p>
+          <div className="flex w-full flex-wrap items-start gap-3 pt-1">
+            {LOOP_THEMES.map((t) => {
+              const selected = t.slug === theme;
+              return (
+                <button
+                  key={t.slug}
+                  type="button"
+                  onClick={() => setTheme(t.slug)}
+                  className="flex w-[calc(50%-6px)] flex-col items-start gap-2 rounded-xl border p-3 md:w-[111.5556px]"
+                  style={{
+                    backgroundColor: selected ? "var(--loop-accent-wash)" : "var(--product-color-surface-white)",
+                    borderWidth: selected ? 2 : 1,
+                    borderColor: selected ? "var(--loop-accent-primary)" : "var(--product-color-border-divider)",
+                  }}
+                >
+                  <div className="flex shrink-0 items-start gap-1">
+                    <span className="block size-5 rounded-[6px]" style={{ backgroundColor: t.swatchPrimary }} />
+                    <span className="block size-5 rounded-[6px] border" style={{ backgroundColor: t.swatchLight, borderColor: "rgba(0,0,0,0.06)" }} />
+                  </div>
+                  <span className="whitespace-nowrap text-xs" style={{ color: "var(--product-color-text-primary)", fontWeight: selected ? 700 : 500 }}>
+                    {t.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex w-full flex-col items-start gap-2">
+          <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            お客様が開くURL（店舗名から自動で作成）
+          </p>
+          {editingSlug ? (
+            <LoopInput value={slug} onChange={setSlug} placeholder="半角英数字とハイフン" />
+          ) : (
+            <div
+              className="flex h-11 w-full items-center justify-between rounded-xl px-4"
+              style={{ backgroundColor: "var(--product-color-bg-primary)" }}
+            >
+              <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+                {slugLoading ? "作成中…" : slug ? `app.goodloop.jp/r/${slug}` : "店舗名を入力すると自動で作成されます"}
+              </p>
+              <button type="button" onClick={() => setEditingSlug(true)} className="text-xs font-bold shrink-0" style={{ color: "var(--loop-accent-action)" }}>
+                編集
+              </button>
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <p className="w-full text-[12.5px] font-medium" style={{ color: "var(--product-color-status-warning)" }}>
+            {error}
+          </p>
+        )}
+
+        <div className="flex w-full items-center justify-between pt-2">
+          <button type="button" onClick={onClose} className="text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            キャンセル
+          </button>
+          <div className="w-fit">
+            <LoopButton variant="primary" onClick={handleSave} disabled={!canSave}>
+              {saving ? "保存中…" : "保存する"}
+            </LoopButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
