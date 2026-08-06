@@ -5,14 +5,16 @@ import { ProgressBar } from "../ProgressBar";
 import { CheckRow } from "../CheckRow";
 import { LoopButton } from "../Button";
 
-export const IMPROVE_CHECKLIST = ["料理・味", "提供までの待ち時間", "接客・スタッフの対応", "店内の清潔感", "価格"] as const;
-
 /**
  * 04 / 改善アンケート（★1-3）（Figma node 1:306）
  * チェックを1つ選ぶまで「送信する」は非活性（2026-08-05 天真指示。01/02画面と同様のルール）
+ *
+ * チェック項目は店舗ごとに編集できる（launch-plan.md 決定②）ため、固定の定数ではなく
+ * props（`items`）で受け取る。呼び出し元（app/r/[storeSlug]/page.tsx）が store_tags から解決する。
  */
 export function ImproveSurvey({
   storeName,
+  items,
   checked,
   onToggle,
   freeText,
@@ -22,6 +24,7 @@ export function ImproveSurvey({
   onSubmit,
 }: {
   storeName: string;
+  items: string[];
   checked: string[];
   onToggle: (item: string) => void;
   freeText: string;
@@ -53,7 +56,7 @@ export function ImproveSurvey({
       <div className="h-4 w-full shrink-0" />
 
       <div className="flex w-full max-w-[342px] flex-col items-start gap-[var(--product-space-8)]">
-        {IMPROVE_CHECKLIST.map((item) => (
+        {items.map((item) => (
           <CheckRow key={item} label={item} checked={checked.includes(item)} onToggle={() => onToggle(item)} />
         ))}
       </div>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LogoutButton } from "./LogoutButton";
 
 /** Loop / Admin Sidebar（Figma node 48:851）— LOOP管理画面のサイドナビ */
 const NAV_ITEMS = [
@@ -48,9 +49,7 @@ export function AdminSidebar({ storeName }: { storeName: string }) {
         );
       })}
       <div className="min-h-px w-full flex-1" />
-      <p className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-        ログアウト
-      </p>
+      <LogoutButton className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }} />
     </div>
   );
 }

@@ -1,15 +1,15 @@
 import "server-only";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { routeRate } from "./metrics";
 import type { ResponseItem, StoreSummary } from "./types";
 
 /**
- * 管理画面のデータ取得（launch-plan.md フェーズ4）。
+ * 管理画面のデータ取得（launch-plan.md フェーズ5でログイン中tenant_idの絞り込みに切り替え済み）。
  *
- * ⚠ 管理画面にはまだログイン（Supabase Auth）が無い（launch-plan.md フェーズ5で着手）。
- * そのため「ログイン中のテナント」を判定できず、admin client（service_role・RLSを迂回）で
- * 見えている店舗を全件そのまま出している。現状はテナントが1つ（YORKYS BRUNCH）しか無いため
- * 実害は無いが、認証を実装するときは必ずここを「ログイン中の tenant_id で絞り込む」形に直すこと。
+ * admin client（service_role・RLSを迂回）ではなく、ログイン中ユーザーのCookieセッションを
+ * 積んだクライアントを使う。これにより supabase/0002_tenants_and_rls.sql のRLSポリシーが
+ * そのまま効き、「ログイン中の tenant_id の行しか返らない」がコード側の絞り込み漏れに関係なく保証される。
+ * `/admin` 配下は middleware.ts が未ログイン時に弾くため、ここに来る時点でセッションは必ず存在する。
  */
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -43,7 +43,7 @@ type ViewRow = { store_id: string; created_at: string };
 
 /** トップ・店舗詳細・二次元コード発行・店舗管理で共有する店舗ごとの集計 */
 export async function getStoreSummaries(): Promise<StoreSummary[]> {
-  const supabase = createSupabaseAdminClient();
+  const supabase = await createSupabaseServerClient();
 
   const { data: stores } = await supabase
     .from("stores")
@@ -129,18 +129,18 @@ type ResponseWithJoinsRow = {
   free_text: string | null;
   created_at: string;
   stores: { name: string } | null;
-  response_tags: { tags_master: { label: string } | null }[] | null;
+  response_tags: { store_tags: { label: string } | null }[] | null;
   conversion_events: { event_type: string }[] | null;
 };
 
 /** 回答一覧・店舗詳細「直近の回答」で共有する回答データ */
 export async function getResponseItems(options: { storeId?: string; limit?: number } = {}): Promise<ResponseItem[]> {
-  const supabase = createSupabaseAdminClient();
+  const supabase = await createSupabaseServerClient();
 
   let query = supabase
     .from("survey_responses")
     .select(
-      "id, store_id, rating, free_text, created_at, stores(name), response_tags(tags_master(label)), conversion_events(event_type)"
+      "id, store_id, rating, free_text, created_at, stores(name), response_tags(store_tags(label)), conversion_events(event_type)"
     )
     .order("created_at", { ascending: false });
   if (options.storeId) query = query.eq("store_id", options.storeId);
@@ -156,7 +156,7 @@ export async function getResponseItems(options: { storeId?: string; limit?: numb
     rating: r.rating,
     dateLabel: formatDateLabel(r.created_at),
     routeStatus: (r.conversion_events ?? []).some((e) => e.event_type === "opened_google") ? "guided" : "store-only",
-    tags: (r.response_tags ?? []).map((rt) => rt.tags_master?.label).filter((label): label is string => Boolean(label)),
+    tags: (r.response_tags ?? []).map((rt) => rt.store_tags?.label).filter((label): label is string => Boolean(label)),
     freeText: r.free_text ?? undefined,
   }));
 }

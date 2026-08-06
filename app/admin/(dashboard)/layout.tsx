@@ -1,11 +1,9 @@
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { StoreNameProvider } from "@/components/admin/StoreNameContext";
+import { getCurrentStore } from "@/lib/admin/current-store";
 
 /**
- * 管理画面のはりぼて（2026-08-05、8/6の洋輔×天真MTGデモ用）。
- *
- * ⚠ Supabase未接続のため、認証・実データ取得はまだ無い。店舗名はFigmaのサンプル
- * （YORKYS BRUNCH）を暫定表示している。ログイン中の運営者が持つ店舗一覧に応じて
- * 出し分ける実装は、Supabase Authが入るセッションで行うこと。
+ * 管理画面の共通レイアウト。
  *
  * SP対応（2026-08-05）：PCはサイドバー常設、SPはハンバーガー+ドロワー
  * （`components/admin/AdminMobileNav.tsx`）。各ページの先頭で
@@ -14,17 +12,25 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
  * `(dashboard)` ルートグループにした理由（2026-08-05・未実装10画面の実装時）：
  * `/admin/login`（サイドバーを持たない単独ページ）を `/admin` 配下に置きつつ、
  * このレイアウトの対象から外すため。URLパスにはグループ名が出ない。
+ *
+ * 店舗名はログイン中テナントの店舗から取得する（2026-08-06、フェーズ5でSupabase Auth接続）。
+ * middleware.ts が未ログイン時にここへ到達させないため、通常は必ず店舗が存在する。
  */
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const store = await getCurrentStore();
+  const storeName = store?.name ?? "";
+
   return (
-    <div className="flex h-dvh w-full items-start" style={{ backgroundColor: "var(--product-color-bg-primary)" }}>
-      <AdminSidebar storeName="YORKYS BRUNCH" />
-      <div
-        className="flex h-full flex-1 flex-col items-start gap-4 overflow-auto px-4 pb-8 pt-6 md:gap-6 md:px-8 md:pb-10 md:pt-8"
-        style={{ backgroundColor: "var(--product-color-bg-secondary)" }}
-      >
-        {children}
+    <StoreNameProvider value={storeName}>
+      <div className="flex h-dvh w-full items-start" style={{ backgroundColor: "var(--product-color-bg-primary)" }}>
+        <AdminSidebar storeName={storeName} />
+        <div
+          className="flex h-full flex-1 flex-col items-start gap-4 overflow-auto px-4 pb-8 pt-6 md:gap-6 md:px-8 md:pb-10 md:pt-8"
+          style={{ backgroundColor: "var(--product-color-bg-secondary)" }}
+        >
+          {children}
+        </div>
       </div>
-    </div>
+    </StoreNameProvider>
   );
 }

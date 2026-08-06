@@ -1267,13 +1267,99 @@ DBスキーマ変更のため、着手前にテーブル設計を天真に提示
 
 ---
 
+## 2026-08-06（16回目） — フェーズ5（認証・設定画面の接続）を実装した
+
+天真から「フェーズ5いきましょう」という依頼。Resend・Stripeの鍵が無いため「接続できる分だけ全部進める」方針で天真の承認を得て着手（通知メール・お支払いの2画面は見た目のまま残した）。
+
+### スキーマ変更（天真の承認を得て着手。CLAUDE.md 3章）
+
+- **`supabase/0005_store_logo_and_tags.sql`** — `stores.logo_url` 列追加、`store_tags`
+  テーブル新設（launch-plan.md 決定②「アンケートのタグは店舗側が編集できるようにする」の実装）。
+  `response_tags.tag_id` の参照先を `tags_master` → `store_tags` に切り替えた
+  （本番の `survey_responses` は当時0件だったため影響なし）。ブランドロゴ用に
+  Supabase Storage の公開バケット `store-logos` も同ファイルで作成
+- **`supabase/0006_tags_master_rls_fix.sql`** — `tags_master` にRLSが有効化されているのに
+  ポリシーが無く、ログイン中セッションからは0件しか読めない不具合を発見・修正（下記参照）
+
+### 実装したもの
+
+- **認証基盤**：`middleware.ts`（セッションリフレッシュ＋`/admin`配下の未ログインリダイレクト）、
+  ログイン画面を `signInWithPassword` に接続、`components/admin/LogoutButton.tsx`
+  （サイドバー・SPドロワー・設定アカウント画面で共通）
+- **パスワード再設定**：`app/admin/reset-password/` に2画面新設（Figmaに対応ノード無し。
+  天真に3案を提示し「案A：1画面完結」で決定）。メール送信はSupabase Auth組み込み機能を使用
+  （Resendは不要。低評価アラート専用の用途とは別）
+- **`lib/admin/queries.ts`**：admin client（service_role）から、ログイン中セッションのクライアントに
+  切り替えた。RLSがそのまま効くため、コード側の絞り込み漏れに関係なくテナント分離が保証される
+- **設定（ブランドとテーマ）**：ロゴをSupabase Storageにアップロードし `stores.logo_url` を更新。
+  楽観的更新ではなく明示的な「保存する」ボタン（Figmaにボタンが無かったため追加）
+- **設定（アンケート項目）**：`store_tags` のCRUD。`PUT /api/admin/settings/survey-tags`
+  で追加分だけinsert・外れた分だけdelete（回答で使用済みのタグは `on delete restrict` で
+  削除できず409を返す）。楽観的更新（CLAUDE.md 4章）
+- **店舗編集モーダル → Google Places API接続**：`POST /api/admin/places/search`
+  （Places API (New) Text Search、鍵は既に登録済みだった）。実際に「東京タワー」で検索・
+  選択・保存まで動作確認済み
+- **設定（アカウント）**：メール・パスワード変更（`supabase.auth.updateUser`）、ログイン中の
+  実メールアドレス表示
+- **退会**：`POST /api/admin/settings/withdraw`。tenant_id はリクエストボディではなく
+  ログイン中セッションから取得（他テナント誤削除を防止）。`tenants` 削除 →
+  `on delete cascade` で関連データが連鎖削除 → Authユーザー自体も削除
+- **お客様側フローのタグ動的化**：`GoodFeedback.tsx`/`ImproveSurvey.tsx` の固定定数
+  `GOOD_TAGS`/`IMPROVE_CHECKLIST` を廃止し、`store_tags` から取得したタグをpropsで渡す形に変更。
+  `lib/store-tags.ts` の `getOrSeedStoreTags()` が、店舗の `store_tags` が空なら
+  `tags_master` のプリセットを1回だけコピーする（`unique(store_id, category, label)` で
+  同時アクセスの二重シードを防止）
+
+### 天真の管理者アカウントを作成した
+
+`temma.hirasawa@gmail.com` 宛に招待メールを送信済み（`supabase.auth.admin.inviteUserByEmail`、
+`app_metadata.tenant_id` にYORKYS BRUNCHのテナントIDを設定）。メール内のリンクからパスワードを
+設定するとログインできる。
+
+### 検証中に見つけたバグ3件（すべて修正済み）
+
+1. **サイドバーの店舗名が `"YORKYS BRUNCH"` 固定値のままだった**（フェーズ4のはりぼて実装の
+   残骸）。`components/admin/StoreNameContext.tsx` を新設し、`app/admin/(dashboard)/layout.tsx`
+   がログイン中テナントの店舗名をContextで配る形に直した（5箇所の`AdminMobileTopBar`呼び出しから
+   `storeName`propを削除）
+2. **`tags_master` にRLSが有効化されているのにポリシーが無く、ログイン中セッションからは
+   0件しか読めなかった**。`service_role`では11件見えるのに認証済みセッションでは
+   エラー無し・0件、という症状で発覚。0001はRLSを有効化していないため、Supabaseダッシュボードの
+   「RLSが無効です」という警告に従って後から個別に有効化された可能性が高い。`0006`で
+   `authenticated`向けのSELECTポリシーを追加して解消（tags_masterは非機密の共通データのため、
+   これは「RLSを緩める」には当たらないと判断。天真に事後報告した）
+3. **`getResponseItems()`のJOINが `response_tags(tags_master(label))` のままで、
+   `0005`で `response_tags.tag_id` の参照先を`store_tags`に変えたことと食い違っていた**。
+   Postgrestが解決できない関係のJOINになり、クエリ全体がエラーになって回答一覧が
+   常に0件に見えていた。`response_tags(store_tags(label))` に直して解消
+
+### 検証方法：使い捨てのQAテナントで実機確認した
+
+本番テナント（YORKYS BRUNCH）には一切書き込んでいない。`service_role`で使い捨てのテナント・
+店舗・管理者アカウントを作成し、ログイン→設定4画面の保存→Google Places検索→お客様側フローの
+回答送信（AI下書き生成含む）→回答一覧への反映→退会、まで一通り実機確認したあと、
+テナント削除（cascade）とAuthユーザー削除で片付けた。作業に使った一時スクリプト
+（`.tmp-*.mjs`）はすべて使用後に削除済み（コミットしていない）。
+
+`npm run check` 通過。スクリーンショットは
+[GOOD LOOP フェーズ5 検証ギャラリー](https://claude.ai/code/artifact/6fef64b9-64ca-4de2-8ef7-a18d6a24d652)
+にまとめた。
+
+### 意図的に見送ったもの
+
+- **設定（通知）の低評価メールアラート** — Resendの鍵が無いため見た目のまま
+- **設定（お支払い）** — Stripeの鍵が無く、料金体系も8/6のMTGで未確定のまま。見た目のまま
+- **「＋ 店舗を追加」** — 新規店舗のスラッグ・業態設定を伴うフォームが未実装（フェーズ5の対象は
+  既存店舗の編集のみとした）
+
+---
+
 ## 次にやること
 
 **新しい計画の正は `docs/specs/launch-plan.md`。以下はその要約。**
 
-> **2026-08-06 セッション終了時点の状態：** フェーズ4まで完了。`main` は緑
-> （`npm run check` 通過）。このセッションの変更はまだブランチ・PRになっていない
-> （このあとの手順で作成する）。
+> **2026-08-06 セッション終了時点の状態：** フェーズ5まで実装完了。`feat/phase5-auth-and-settings`
+> ブランチでPR作成待ち（このあとの手順で作成する）。`main` は緑（`npm run check` 通過）。
 
 ### 完了
 
@@ -1284,15 +1370,17 @@ DBスキーマ変更のため、着手前にテーブル設計を天真に提示
 - お客様側フロー（評価〜クチコミ下書き）の実配線。実機で動作確認済み（14回目参照）
 - **フェーズ4（管理画面を本物にする）。** 行動ログ・アクセスログのテーブル、計測の配線、
   管理画面の実データ化、E-5復帰（15回目参照）。**1章のゴールの定義を満たした**
+- **フェーズ5（認証・設定画面の接続）。** ログイン・ログアウト・パスワード再設定・
+  設定4画面（ブランド・アンケート項目・店舗管理・アカウント）の保存API・Google Places連携・
+  退会を実装（16回目参照）。通知（Resend）・お支払い（Stripe）は鍵が無く見送り
 
 ### 次に着手すべきこと
 
-- **天真の作業：`supabase/0004_activity_logs.sql` をSQL Editorで実行する**
-  （`0001`〜`0003`と同じ手順）。実行しないと送客数・QR読み取り数は0のまま溜まらない
-- launch-plan.md フェーズ5（ログイン・設定6画面・店舗編集・退会に、認証・保存API・
-  Google Places・Stripeを接続する）。認証を入れるタイミングで `lib/admin/queries.ts` を
-  「ログイン中のtenant_idで絞り込む」形に直すことを忘れないこと（15回目参照）
+- **天真の作業：Resend・Stripeの鍵を揃える**（launch-plan.md フェーズ5の残り＝設定（通知）・
+  設定（お支払い）を実装するときに必要。docs/setup-tasks.md 4・7）
+- **天真の作業：料金体系の金額を決める**（Stripeのプラン設計に必要）
 - launch-plan.md D-7（QRコードの実画像生成）・D-8（管理画面フィルターの実動作化）
+- 「＋ 店舗を追加」フォームの実装（新規店舗のスラッグ・業態設定）
 
 ### 以下は旧リストの残り（launch-plan.md に統合済み。未着手のみ残す）
 

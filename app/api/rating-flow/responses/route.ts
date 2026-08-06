@@ -72,8 +72,9 @@ export async function POST(request: Request) {
 
   if (body.tags.length > 0) {
     const { data: matchedTags } = await supabase
-      .from("tags_master")
+      .from("store_tags")
       .select("id")
+      .eq("store_id", store.id)
       .eq("category", body.branch)
       .in("label", body.tags);
     if (matchedTags && matchedTags.length > 0) {

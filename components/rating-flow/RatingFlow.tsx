@@ -33,6 +33,8 @@ type Store = {
   googleMapsFallbackUrl: string | null;
 };
 
+type Tags = { good: string[]; improve: string[] };
+
 const SUBMIT_ERROR_MESSAGE = "送信できませんでした。もう一度お試しください。";
 
 function googleReviewUrl(store: Store): string | null {
@@ -56,7 +58,7 @@ function answeredStorageKey(slug: string): string {
   return `goodloop:${slug}:answered`;
 }
 
-export function RatingFlow({ store }: { store: Store }) {
+export function RatingFlow({ store, tags }: { store: Store; tags: Tags }) {
   const [step, setStep] = useState<Step>("rating");
   const [rating, setRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
 
@@ -175,6 +177,7 @@ export function RatingFlow({ store }: { store: Store }) {
       return (
         <GoodFeedback
           storeName={store.name}
+          tags={tags.good}
           selectedTags={goodTags}
           onToggleTag={(tag) => setGoodTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))}
           freeText={goodFreeText}
@@ -207,6 +210,7 @@ export function RatingFlow({ store }: { store: Store }) {
       return (
         <ImproveSurvey
           storeName={store.name}
+          items={tags.improve}
           checked={improveChecked}
           onToggle={(item) => setImproveChecked((prev) => (prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]))}
           freeText={improveFreeText}
