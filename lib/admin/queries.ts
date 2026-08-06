@@ -36,6 +36,20 @@ function formatDateLabel(iso: string): string {
   return `${get("month")}/${get("day")} ${get("hour")}:${get("minute")}`;
 }
 
+/** 回答一覧の期間フィルタ（launch-plan.md D-8）。「今月」だけはJST（Asia/Tokyo）の暦月で区切る */
+function periodSinceIso(period?: "7d" | "14d" | "month" | "90d"): string | undefined {
+  if (!period) return undefined;
+  const now = Date.now();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  if (period === "7d") return new Date(now - 7 * DAY_MS).toISOString();
+  if (period === "14d") return new Date(now - 14 * DAY_MS).toISOString();
+  if (period === "90d") return new Date(now - 90 * DAY_MS).toISOString();
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit" }).formatToParts(new Date(now));
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  return new Date(`${year}-${month}-01T00:00:00+09:00`).toISOString();
+}
+
 type StoreRow = { id: string; name: string; slug: string; loop_theme: string; google_place_id: string | null };
 type ResponseRow = { store_id: string; rating: number; created_at: string };
 type EventRow = { store_id: string; created_at: string };
@@ -134,7 +148,17 @@ type ResponseWithJoinsRow = {
 };
 
 /** 回答一覧・店舗詳細「直近の回答」で共有する回答データ */
-export async function getResponseItems(options: { storeId?: string; limit?: number } = {}): Promise<ResponseItem[]> {
+export async function getResponseItems(
+  options: {
+    storeId?: string;
+    limit?: number;
+    /** 個別の星評価（1〜5）。良かった点／改善点の粗い分岐は branch を使う */
+    rating?: number;
+    /** ★4以上＝good・★3以下＝improve（rating-flow.md A-2の分岐と同じ） */
+    branch?: "good" | "improve";
+    period?: "7d" | "14d" | "month" | "90d";
+  } = {}
+): Promise<ResponseItem[]> {
   const supabase = await createSupabaseServerClient();
 
   let query = supabase
@@ -144,6 +168,10 @@ export async function getResponseItems(options: { storeId?: string; limit?: numb
     )
     .order("created_at", { ascending: false });
   if (options.storeId) query = query.eq("store_id", options.storeId);
+  if (options.rating) query = query.eq("rating", options.rating);
+  if (options.branch) query = query.eq("branch", options.branch);
+  const since = periodSinceIso(options.period);
+  if (since) query = query.gte("created_at", since);
   if (options.limit) query = query.limit(options.limit);
 
   const { data } = await query.returns<ResponseWithJoinsRow[]>();
