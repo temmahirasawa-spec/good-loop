@@ -5,9 +5,10 @@ import { AiBadge } from "@/components/rating-flow/AiBadge";
 import type { CheckReport } from "@/lib/ai-check/types";
 import { Card, Eyebrow } from "./Card";
 import { CompetitorList } from "./CompetitorList";
-import { FullReportNotice } from "./FullReportNotice";
+import { FactorTeaser } from "./FactorTeaser";
 import { GhostButton } from "./GhostButton";
 import { LeadForm } from "./LeadForm";
+import { LockedContent } from "./LockedContent";
 import { QuestionResultCard } from "./QuestionResultCard";
 import { ShareSection } from "./ShareSection";
 import { VerdictCard } from "./VerdictCard";
@@ -20,6 +21,23 @@ import { VerdictCard } from "./VerdictCard";
  * ⚠ **診断結果を第三者が見られるURLは作らない。** 共有導線（ShareSection）が共有するのは
  *   ツールのURLだけで、店名・スコア・順位は一切含めない（2026-08-17 天真の指示）。
  */
+
+/** メールアドレス欄の位置。鍵のかかった区画から運ぶために使う */
+const LEAD_FORM_ID = "ai-check-lead-form";
+
+/**
+ * メールアドレス欄まで運んで、入力できる状態にする。
+ * 共通部品の `LoopInput` は id を受け取らないため、囲みの要素から辿っている。
+ */
+function goToLeadForm() {
+  const target = document.getElementById(LEAD_FORM_ID);
+  if (!target) return;
+
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+  // スクロールの途中で焦点を移すと位置が飛ぶので、少し待ってから
+  window.setTimeout(() => target.querySelector("input")?.focus(), reduced ? 0 : 500);
+}
 
 function formatCheckedAt(iso: string): string {
   const date = new Date(iso);
@@ -109,16 +127,32 @@ export function ReportScreen({
       </ReportSection>
 
       <ReportSection no="03 · Why" title="要因分析">
-        <FullReportNotice />
+        <LockedContent visibleHeight={232} onUnlock={goToLeadForm}>
+          <FactorTeaser />
+        </LockedContent>
       </ReportSection>
 
       <ReportSection no="04 · Summary" title="総評">
-        <p className="text-[13.5px] leading-[2]" style={{ color: "var(--product-color-text-secondary)" }}>
-          {report.summary}
-        </p>
+        <LockedContent visibleHeight={120} onUnlock={goToLeadForm}>
+          {/* 実測から組み立てた本物の総評。ここは必ず読める位置に置く */}
+          <p className="text-[13.5px] leading-[2]" style={{ color: "var(--product-color-text-secondary)" }}>
+            {report.summary}
+          </p>
+          {/*
+            この先はフルレポートの内容の予告。
+            ⚠ 店舗別に見える数値や断定を書かないこと。ここは「何をするか」の説明であって、
+              測っていないことを測ったように書くと作り話になる。
+          */}
+          <p
+            className="mt-[var(--product-space-12)] text-[13.5px] leading-[2]"
+            style={{ color: "var(--product-color-text-secondary)" }}
+          >
+            フルレポートでは、登場しなかった質問に共通する文脈を洗い出し、AIが参照している情報源のどこに空白があるのかを整理します。あわせて、次の30日で着手する順番を、費用のかからないものから並べてご提案します。今の状態を起点に、何をどの順で埋めていくかが分かる形でお送りします。
+          </p>
+        </LockedContent>
       </ReportSection>
 
-      <div className="mt-[var(--product-space-16)]">
+      <div className="mt-[var(--product-space-16)]" id={LEAD_FORM_ID}>
         <LeadForm onSubmit={onSubmitLead} />
       </div>
 
