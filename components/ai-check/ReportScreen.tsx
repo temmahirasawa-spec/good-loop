@@ -136,6 +136,16 @@ export function ReportScreen({
           （components/ai-check/FactorTeaser.tsx の冒頭を参照）。
       */}
       <ReportSection no="03 · Why" title="要因分析" badge={<Pill tone="muted">サンプル</Pill>}>
+        {/*
+          ⚠ この一文を消さないこと。中の点数は架空で、実測していない。
+            ぼかしの外（必ず読める位置）に置いてある。
+        */}
+        <p
+          className="mb-[var(--product-space-12)] text-xs leading-[1.8]"
+          style={{ color: "var(--product-color-text-secondary)" }}
+        >
+          ※ この項目は<b className="font-bold" style={{ color: "var(--product-color-text-primary)" }}>表示例</b>です。あなたのお店を測った値ではありません。実測はフルレポートでお送りします。
+        </p>
         <LockedContent visibleHeight={244} onUnlock={goToLeadForm}>
           <FactorTeaser />
         </LockedContent>
