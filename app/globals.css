@@ -5,3 +5,28 @@
 body {
   font-family: var(--font-noto-sans-jp), sans-serif;
 }
+
+/*
+ * AI視認性チェッカー（/ai-check）のフォーカスリング。
+ *
+ * ⚠ 共通の `LoopInput`（components/admin/LoopInput.tsx）は `outline-none` を持っており、
+ *   そのままだとキーボード操作でどこにいるか分からない。
+ *   ここで `[data-ai-check]` の内側だけ上書きしている（クラス2つぶんの詳細度があるので
+ *   Tailwind の `outline-none` に勝つ）。
+ *
+ * ⚠ **管理画面・来店客画面には意図的に適用していない。** 見た目が変わる範囲を
+ *   このツールに閉じるため。全体に広げるのは別途デザインの判断が要る
+ *   （フォーカスリングが無いのは全画面共通の課題。天真に報告済み）。
+ *
+ * 色は `--loop-accent-action`。白地で 5.26:1、ページ地 #fafafa でも 5.04:1 あり、
+ * 非文字コントラストの基準（3:1）を満たす。
+ */
+[data-ai-check] :focus-visible {
+  outline: 2px solid var(--loop-accent-action);
+  outline-offset: 2px;
+}
+
+/* マウス操作でリングが出ないようにする（キーボード操作のときだけ出す） */
+[data-ai-check] :focus:not(:focus-visible) {
+  outline: none;
+}

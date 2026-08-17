@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GOOD REVIEW｜AI視認性チェッカー β</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Barlow:wght@500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FAF9F4; --card:#FFFFFF; --ink:#17181C; --sub:#70747C;
+  --line:#E8E5DB; --line-soft:#F0EDE4;
+  --accent:#FAC03D; --accent-soft:#FDEDC2;
+  --good:#2FBFB4; --good-deep:#177E77; --good-bg:#E7F6F4; --good-line:#BFE8E4;
+  --bad:#E5605A; --bad-deep:#B23B36; --bad-bg:#FBECEA; --bad-line:#F2CDCA;
+  --warn:#E8A23D;
+  --jp:'Noto Sans JP',"Hiragino Sans",sans-serif;
+  --en:'Barlow',sans-serif;
+  --num:'Barlow Condensed',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--jp); color:var(--ink); background:var(--paper);
+  background-image:radial-gradient(circle, rgba(23,24,20,.045) 1px, transparent 1px);
+  background-size:22px 22px;
+  line-height:1.7; font-size:15px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:760px;margin:0 auto;padding:0 20px}
+a{color:inherit}
+
+/* ===== header ===== */
+header{padding:22px 0 0}
+.hd{display:flex;align-items:center;justify-content:space-between}
+.wordmark{font-family:var(--en);font-weight:700;font-size:19px;letter-spacing:.02em;white-space:nowrap}
+.wordmark .mk{
+  background:linear-gradient(180deg, transparent 58%, var(--accent) 58%, var(--accent) 94%, transparent 94%);
+  padding:0 .12em;
+}
+.beta{
+  font-family:var(--en);font-weight:600;font-size:11px;letter-spacing:.12em;
+  border:1px solid var(--line);background:var(--card);border-radius:999px;
+  padding:5px 12px;color:var(--sub);white-space:nowrap;
+}
+
+/* ===== common ===== */
+.scr{display:none}
+.scr.on{display:block;animation:fadeUp .5s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.eyebrow{
+  font-family:var(--en);font-weight:600;font-size:11px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--sub);
+}
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 1px 0 rgba(23,24,20,.03);
+}
+.pill{
+  display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;
+  padding:3px 10px;border-radius:999px;border:1px solid var(--line);
+  background:#F6F4EC;color:var(--sub);white-space:nowrap;
+}
+.pill.ok{color:var(--good-deep);background:var(--good-bg);border-color:var(--good-line)}
+.pill.ng{color:var(--bad-deep);background:var(--bad-bg);border-color:var(--bad-line)}
+mark.me{
+  background:linear-gradient(180deg, transparent 55%, var(--accent) 55%, var(--accent) 96%, transparent 96%);
+  color:inherit;font-weight:700;padding:0 .1em;
+}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-family:var(--jp);font-weight:700;font-size:15px;
+  border-radius:12px;border:1px solid transparent;cursor:pointer;
+  padding:14px 22px;transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn:active{transform:translateY(1px)}
+.btn-accent{background:var(--accent);color:var(--ink);box-shadow:0 2px 0 rgba(23,24,20,.10)}
+.btn-accent:hover{background:#F5B520}
+.btn-ghost{background:var(--card);border-color:var(--line);color:var(--ink)}
+.btn-ghost:hover{background:#F6F4EC}
+.btn:focus-visible,input:focus-visible{outline:3px solid rgba(250,192,61,.7);outline-offset:2px}
+
+/* ===== input screen ===== */
+.hero{padding:52px 0 26px}
+.hero h1{
+  font-size:clamp(27px,6.6vw,40px);font-weight:700;line-height:1.35;
+  letter-spacing:.01em;margin:14px 0 14px;
+}
+.hero .sub{color:var(--sub);max-width:34em}
+.ticker{
+  margin-top:16px;font-size:12.5px;color:var(--sub);
+  display:flex;align-items:center;gap:8px;min-height:22px;
+}
+.ticker .dot{width:7px;height:7px;border-radius:50%;background:var(--good);flex:none;
+  animation:blink 1.6s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.ticker b{font-weight:500;color:var(--ink);transition:opacity .4s ease}
+
+.form{padding:26px 22px;margin:10px 0 14px}
+.f-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.f-item{display:flex;flex-direction:column;gap:6px}
+.f-item.full{grid-column:1/-1}
+.f-item label{font-size:12.5px;font-weight:700}
+.f-item label small{font-weight:500;color:var(--sub);margin-left:6px}
+.f-item input{
+  font-family:var(--jp);font-size:16px;height:50px;padding:0 14px;
+  border:1px solid var(--line);border-radius:11px;background:#FDFCF9;color:var(--ink);
+}
+.f-item input::placeholder{color:#B7BAC0}
+.f-actions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:20px}
+.f-note{margin-top:14px;font-size:12px;color:var(--sub);line-height:1.8}
+.f-note b{font-weight:700;color:var(--ink)}
+
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:8px 0 34px}
+.how .h-item{padding:16px 14px}
+.how .h-num{font-family:var(--num);font-weight:700;font-size:22px;color:var(--sub)}
+.how .h-item p{font-size:12.5px;color:var(--sub);line-height:1.65;margin-top:2px}
+.how .h-item b{display:block;font-size:13.5px;color:var(--ink);margin:4px 0 2px}
+
+/* ===== checking screen ===== */
+.chk{padding:60px 0 40px}
+.chk h2{font-size:20px;font-weight:700;margin:10px 0 4px}
+.chk .sub{color:var(--sub);font-size:13px}
+.progress{height:6px;border-radius:999px;background:#EDEAE0;margin:22px 0 18px;overflow:hidden}
+.progress i{display:block;height:100%;width:0%;background:var(--accent);border-radius:999px;transition:width .5s ease}
+.qrow{
+  display:flex;align-items:center;gap:12px;padding:15px 16px;margin-bottom:10px;
+}
+.qrow .qi{flex:none;width:26px;height:26px;display:flex;align-items:center;justify-content:center}
+.spin{width:16px;height:16px;border-radius:50%;border:2.5px solid #E3E0D6;border-top-color:var(--ink);animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.qrow .qt{flex:1;min-width:0}
+.qrow .qq{font-weight:700;font-size:14px;line-height:1.5}
+.qrow .qs{font-size:12px;color:var(--sub);margin-top:1px}
+.qrow .eng{flex:none}
+.mini-eng{font-family:var(--en);font-weight:600;font-size:10.5px;letter-spacing:.06em;
+  border:1px solid var(--line);border-radius:6px;padding:2px 7px;color:var(--sub);background:#F8F6EF}
+.qmark{font-weight:700;font-size:15px}
+.qmark.ok{color:var(--good-deep)} .qmark.ng{color:var(--bad-deep)}
+.chk-banner{
+  margin-top:14px;padding:16px 18px;border:1px solid var(--bad-line);
+  background:var(--bad-bg);border-radius:14px;font-size:13px;line-height:1.8;display:none;
+}
+.chk-banner.on{display:block}
+.chk-banner .b-actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+
+/* ===== report ===== */
+.rep{padding:44px 0 20px}
+.rep-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.rep-head h2{font-size:23px;font-weight:700;line-height:1.4}
+.rep-head .meta{font-size:12px;color:var(--sub);line-height:1.7}
+.sec{margin-bottom:16px;animation:fadeUp .55s ease both}
+.sec .s-head{display:flex;align-items:center;gap:10px;padding:16px 20px 0}
+.sec .s-body{padding:12px 20px 18px}
+.s-line{height:1px;background:var(--line-soft);margin:12px 20px 0}
+
+/* verdict */
+.verdict{padding:26px 22px 24px;position:relative;overflow:hidden}
+.v-lead{font-size:15px;font-weight:500;margin-top:10px;line-height:1.9}
+.v-lead b{font-family:var(--num);font-size:1.35em;font-weight:700;padding:0 .08em}
+.v-main{display:flex;align-items:flex-end;gap:6px;margin:4px 0 6px;flex-wrap:wrap}
+.v-num{font-family:var(--num);font-weight:700;font-size:clamp(76px,21vw,116px);line-height:.95;letter-spacing:.01em}
+.v-unit{font-size:22px;font-weight:700;padding-bottom:10px}
+.stamp{
+  position:absolute;top:22px;right:20px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  width:88px;height:88px;border:3px solid currentColor;border-radius:14px;
+  transform:rotate(-7deg);opacity:.92;
+}
+.stamp::after{content:'';position:absolute;inset:4px;border:1px solid currentColor;border-radius:9px;opacity:.45}
+.stamp b{font-family:var(--num);font-size:42px;line-height:1;font-weight:700}
+.stamp span{font-size:9.5px;font-weight:700;letter-spacing:.06em;margin-top:2px}
+.stamp.in{animation:stampIn .5s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes stampIn{from{transform:rotate(-18deg) scale(1.75);opacity:0}to{transform:rotate(-7deg) scale(1);opacity:.92}}
+.v-score{display:flex;align-items:center;gap:16px;margin-top:14px;padding-top:16px;border-top:1px solid var(--line-soft)}
+.ring{width:86px;height:86px;flex:none}
+.ring .tr{fill:none;stroke:#EFECE3;stroke-width:10}
+.ring .fg{fill:none;stroke-width:10;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;
+  transition:stroke-dashoffset 1.1s cubic-bezier(.3,.8,.3,1)}
+.vs-num{font-family:var(--num);font-weight:700;font-size:40px;line-height:1}
+.vs-num small{font-size:16px;font-weight:600;color:var(--sub);margin-left:2px}
+.vs-label{font-size:12px;color:var(--sub)}
+.vs-rank{font-weight:700;font-size:14.5px;margin-top:2px}
+
+/* question results */
+.qcard{padding:16px 18px;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;background:#FDFCF9}
+.qc-top{display:flex;align-items:flex-start;gap:10px;justify-content:space-between}
+.qc-q{font-weight:700;font-size:14.5px;line-height:1.55}
+.qc-q .mini-eng{margin-left:8px;vertical-align:1px}
+.qc-ex{
+  margin-top:10px;padding:12px 14px;border-left:3px solid var(--line);
+  background:#F7F5EE;border-radius:0 10px 10px 0;
+  font-size:13px;line-height:1.9;color:#3A3C42;white-space:pre-line;
+}
+.qc-stores{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.qc-stores .st{
+  font-size:11.5px;font-weight:500;border:1px solid var(--line);border-radius:999px;
+  padding:2.5px 10px;color:var(--sub);background:#fff;
+}
+.qc-stores .st.hit{border-color:var(--accent);background:var(--accent-soft);color:var(--ink);font-weight:700}
+.qc-pos{font-size:12px;color:var(--sub);margin-top:8px}
+
+/* competitors */
+.comp-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line-soft)}
+.comp-row:last-child{border-bottom:0}
+.comp-name{flex:0 0 44%;font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comp-bar{flex:1;height:9px;border-radius:999px;background:#EFECE3;overflow:hidden}
+.comp-bar i{display:block;height:100%;background:var(--ink);border-radius:999px;width:0;transition:width .9s ease}
+.comp-n{flex:none;font-family:var(--num);font-weight:700;font-size:16px;width:44px;text-align:right}
+.comp-n small{font-size:11px;color:var(--sub);font-family:var(--jp);font-weight:500}
+
+/* factors */
+.fact{padding:4px 0 2px}
+.fact-row{padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.fact-row:last-child{border-bottom:0}
+.fact-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.fact-name{font-size:13.5px;font-weight:700}
+.fact-score{font-family:var(--num);font-weight:700;font-size:19px}
+.fact-score small{font-size:11px;color:var(--sub);font-family:var(--jp);font-weight:500}
+.fact-bar{height:7px;border-radius:999px;background:#EFECE3;overflow:hidden;margin:7px 0 5px}
+.fact-bar i{display:block;height:100%;border-radius:999px;width:0;transition:width .9s ease}
+.fact-note{font-size:12px;color:var(--sub);line-height:1.7}
+
+/* summary + cta */
+.sum{font-size:13.5px;line-height:2.0;color:#33353B}
+.cta{padding:26px 22px;background:linear-gradient(180deg,#FFFDF6,#FFF8E3);border-color:#F1DFAC}
+.cta h3{font-size:19px;font-weight:700;line-height:1.5}
+.cta p{font-size:13px;color:#5A5545;margin-top:8px;line-height:1.9}
+.cta-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 18px}
+.cta-steps div{background:#fff;border:1px solid #EDE0B8;border-radius:12px;padding:12px 12px}
+.cta-steps .cs-n{font-family:var(--num);font-weight:700;font-size:15px;color:#A8842B}
+.cta-steps b{display:block;font-size:13px;margin:2px 0 2px}
+.cta-steps p{font-size:11.5px;margin:0;color:#6E6851;line-height:1.6}
+.cta-form{display:flex;gap:8px}
+.cta-form input{
+  flex:1;min-width:0;font-family:var(--jp);font-size:15px;height:48px;padding:0 14px;
+  border:1px solid #E3D6A8;border-radius:11px;background:#fff;
+}
+.cta .fine{font-size:11px;color:#8A8266;margin-top:10px}
+.rep-foot{display:flex;justify-content:center;padding:8px 0 10px}
+
+/* footer */
+footer{padding:26px 0 46px;color:var(--sub)}
+.foot-line{height:1px;background:var(--line);margin-bottom:18px}
+footer .method{font-size:11.5px;line-height:1.9;max-width:44em}
+footer .brand{margin-top:14px;font-family:var(--en);font-weight:600;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+
+/* toast */
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(8px);
+  background:var(--ink);color:#fff;font-size:13px;font-weight:500;
+  padding:11px 18px;border-radius:999px;opacity:0;pointer-events:none;
+  transition:opacity .3s ease, transform .3s ease;z-index:50;max-width:88vw;text-align:center;
+}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:560px){
+  .f-row{grid-template-columns:1fr}
+  .how{grid-template-columns:1fr}
+  .cta-steps{grid-template-columns:1fr}
+  .cta-form{flex-direction:column}
+  .stamp{width:74px;height:74px;top:18px;right:16px}
+  .stamp b{font-size:34px}
+  .comp-name{flex-basis:40%}
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="hd">
+    <div class="wordmark">GOOD <span class="mk">REVIEW</span></div>
+    <div class="beta">AI VISIBILITY CHECKER β</div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ 入力 ============ -->
+  <section class="scr on" id="scr-input">
+    <div class="hero">
+      <p class="eyebrow">AIはあなたのお店を知っていますか</p>
+      <h1>あなたのお店、<br>AIに聞くと出てきますか？</h1>
+      <p class="sub">「三宮 ランチ おすすめ」— お客様はもう、検索ではなくAIにこう尋ねています。実際にAIへ質問を投げて、あなたのお店が推薦されるかを無料でチェックします。</p>
+      <div class="ticker"><span class="dot"></span><span>いま試されている質問:</span><b id="ticker">「三宮 パンケーキ おすすめ」</b></div>
+    </div>
+
+    <div class="card form">
+      <p class="eyebrow">Free Check</p>
+      <div class="f-row">
+        <div class="f-item full">
+          <label for="inStore">店名<small>必須</small></label>
+          <input id="inStore" type="text" value="YORKYS BRUNCH" placeholder="例: YORKYS BRUNCH">
+        </div>
+        <div class="f-item">
+          <label for="inArea">エリア</label>
+          <input id="inArea" type="text" value="三宮" placeholder="例: 三宮">
+        </div>
+        <div class="f-item">
+          <label for="inGenre">ジャンル</label>
+          <input id="inGenre" type="text" value="パンケーキ・カフェ" placeholder="例: パンケーキ">
+        </div>
+      </div>
+      <div class="f-actions">
+        <button class="btn btn-accent" id="btnLive">実測でチェックする（Claudeに質問）</button>
+        <button class="btn btn-ghost" id="btnDemo">サンプルレポートを見る — YORKYS BRUNCH</button>
+      </div>
+      <p class="f-note"><b>β版はClaudeのみ実測</b>です。ChatGPT / Gemini の同時計測は開発中で、完成形のイメージはサンプルレポートでご確認いただけます。本ツールは掲載を保証するものではなく、<b>現状を可視化するためのもの</b>です。</p>
+    </div>
+
+    <div class="how">
+      <div class="card h-item"><span class="h-num">01</span><b>AIに質問</b><p>エリア×ジャンルの現実的な質問を、実際にAIへ投げます。</p></div>
+      <div class="card h-item"><span class="h-num">02</span><b>回答を照合</b><p>AIの回答にあなたの店名（表記ゆれ含む）が登場するか解析します。</p></div>
+      <div class="card h-item"><span class="h-num">03</span><b>スコア化</b><p>登場率と順位からAI視認性スコアを算出し、要因を診断します。</p></div>
+    </div>
+  </section>
+
+  <!-- ============ 診断中 ============ -->
+  <section class="scr" id="scr-check">
+    <div class="chk">
+      <p class="eyebrow">Checking</p>
+      <h2 id="chkTitle">AIに質問しています…</h2>
+      <p class="sub" id="chkSub">回答の受信と店名の照合には少し時間がかかります。</p>
+      <div class="progress"><i id="prog"></i></div>
+      <div id="qrows"></div>
+      <div class="chk-banner" id="chkBanner">
+        <b>実測APIに接続できませんでした。</b><br>
+        リアル診断は claude.ai のプレビュー内でのみ動作します（本番版はサーバーサイドで実装します）。UIと完成形の流れはサンプルレポートでご確認ください。
+        <div class="b-actions">
+          <button class="btn btn-accent" id="btnBannerDemo">サンプルレポートを見る</button>
+          <button class="btn btn-ghost" id="btnBannerBack">入力に戻る</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ レポート ============ -->
+  <section class="scr" id="scr-report">
+    <div class="rep" id="repRoot"></div>
+    <div class="rep-foot"><button class="btn btn-ghost" id="btnAgain">条件を変えてもう一度チェックする</button></div>
+  </section>
+
+</main>
+
+<footer class="wrap">
+  <div class="foot-line"></div>
+  <p class="method">本ツールは、実際にAIアシスタントへ質問した応答を記録・解析して判定します。AIの回答は日時・文脈・モデルの更新によって変動するため、結果は計測時点のスナップショットです。特定のAIサービスへの掲載や順位を保証するものではありません。サンプルレポート内の店舗名は、対象店を除きすべて架空のものです。</p>
+  <p class="brand">GOOD REVIEW — GOOD SERIES by UTUTU</p>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm=s=>String(s||'').toLowerCase().replace(/[\s\u3000・･'’\-–—]/g,'');
+const state={mode:null};
+
+/* ===== ticker ===== */
+const SAMPLES=['「三宮 パンケーキ おすすめ」','「梅田 焼肉 個室があるお店」','「神戸 モーニング おすすめ」','「元町 デートに使えるレストラン」','「三宮 子連れで行けるカフェ」'];
+let ti=0;
+setInterval(()=>{ if(REDUCED)return; const el=$('#ticker'); el.style.opacity=0;
+  setTimeout(()=>{ ti=(ti+1)%SAMPLES.length; el.textContent=SAMPLES[ti]; el.style.opacity=1; },380);
+},3200);
+
+/* ===== score / rank ===== */
+function rankOf(sc){
+  if(sc>=85)return{r:'S',label:'AIの定番推薦になっています',color:'#177E77'};
+  if(sc>=70)return{r:'A',label:'AIから十分見えています',color:'#2FBFB4'};
+  if(sc>=50)return{r:'B',label:'見えていますが、取りこぼしがあります',color:'#E8A23D'};
+  if(sc>=30)return{r:'C',label:'AIからほとんど見えていません',color:'#E5605A'};
+  return{r:'D',label:'AIから見えていません',color:'#B23B36'};
+}
+function calcScore(qs){
+  const total=qs.length||1;
+  const hits=qs.filter(q=>q.mentioned);
+  let s=(hits.length/total)*78;
+  hits.forEach(h=>{const p=h.position||5; s+=Math.max(0,6-Math.min(p,6))/5*(22/total);});
+  return Math.max(0,Math.min(100,Math.round(s)));
+}
+
+/* ===== demo data（対象店以外は架空の店名） ===== */
+const DEMO={
+  mode:'demo', store:'YORKYS BRUNCH', aliases:['ヨーキーズブランチ','ヨーキーズ ブランチ'],
+  area:'神戸・三宮', genre:'パンケーキ・カフェ', engines:['Claude','ChatGPT','Gemini'],
+  questions:[
+    { q:'三宮 パンケーキ おすすめ', engine:'Claude', mentioned:true, position:2,
+      excerpt:'1. 神戸パンケーキ倶楽部 — 分厚いクラシックホットケーキの老舗\n2. YORKYS BRUNCH（ヨーキーズブランチ） — ふわふわ食感のリコッタパンケーキで行列必至の人気店\n3. ふわり堂 パンケーキ工房 — 季節のフルーツを使った限定メニューが評判…',
+      stores:['神戸パンケーキ倶楽部','YORKYS BRUNCH','ふわり堂 パンケーキ工房','カフェ ソラリス 三宮','喫茶ルポ'] },
+    { q:'神戸で人気のブランチのお店を教えて', engine:'ChatGPT', mentioned:false, position:null,
+      excerpt:'神戸でブランチなら、まず名前が挙がるのがブランチカフェ MERROW。北野ガーデンカフェは異人館エリアの緑を眺めながらゆったり過ごせます。老舗の喫茶ルポも根強い人気で…',
+      stores:['ブランチカフェ MERROW','北野ガーデンカフェ','喫茶ルポ','カフェ・グレコ 元町','神戸パンケーキ倶楽部'] },
+    { q:'三宮 ゆっくりできるカフェ', engine:'Gemini', mentioned:false, position:null,
+      excerpt:'落ち着いて長居できるお店なら、喫茶ルポやカフェ・グレコ 元町のような純喫茶系がおすすめです。電源席が必要ならカフェ ソラリス 三宮が便利…',
+      stores:['喫茶ルポ','カフェ・グレコ 元町','カフェ ソラリス 三宮','北野ガーデンカフェ'] },
+    { q:'神戸 モーニング おすすめ', engine:'Claude', mentioned:false, position:null,
+      excerpt:'神戸の朝ごはんの定番はモーニングハウス トアロード。厚切りトーストのセットが名物です。喫茶ルポのゆで卵付きモーニングも地元で愛されています…',
+      stores:['モーニングハウス トアロード','喫茶ルポ','カフェ・グレコ 元町','ブランチカフェ MERROW','神戸パンケーキ倶楽部'] },
+    { q:'三宮 スイーツが美味しいカフェ デートにおすすめ', engine:'ChatGPT', mentioned:true, position:4,
+      excerpt:'…3. ふわり堂 パンケーキ工房 — 季節のフルーツづかいが華やか\n4. YORKYS BRUNCH — 写真映えするパンケーキで、デート利用にも人気\n5. ブランチカフェ MERROW — 落ち着いた空間でスイーツと会話を楽しめる…',
+      stores:['北野ガーデンカフェ','カフェ ソラリス 三宮','ふわり堂 パンケーキ工房','YORKYS BRUNCH','ブランチカフェ MERROW'] },
+  ],
+  factors:[
+    {name:'直近90日の新規口コミ', v:34, note:'総数は多い一方、直近の投稿ペースが鈍化。AIは新しい情報を優先します。'},
+    {name:'口コミへのオーナー返信率', v:18, note:'返信はAIが拾う信頼シグナル。現状ほぼ未返信です。'},
+    {name:'基本情報の鮮度（営業時間・メニュー）', v:55, note:'一部の情報が更新されておらず、AIの回答が古い内容になる恐れがあります。'},
+    {name:'写真の量と質', v:82, note:'量・質ともに十分。維持できている強みです。'},
+    {name:'公式サイトの構造化データ', v:40, note:'メニュー・営業情報が機械可読になっておらず、AIが参照しにくい状態です。'},
+    {name:'第三者メディア・ブログでの言及', v:61, note:'「パンケーキ」文脈に偏り。モーニング・カフェ文脈の言及が空白です。'},
+  ],
+  summary:'来店人気と評価は高い一方、AIが参照する情報ソース — 直近の口コミ、オーナー返信、構造化されたメニュー情報、第三者メディアの言及 — が不足しています。特に「モーニング」「ゆっくりできるカフェ」など周辺キーワードでの登場がゼロで、パンケーキ以外の文脈ではAIから見えていません。ここが埋まると、推薦される質問の幅が一気に広がります。'
+};
+
+/* ===== screens ===== */
+function show(id){
+  document.querySelectorAll('.scr').forEach(e=>e.classList.remove('on'));
+  $(id).classList.add('on');
+  window.scrollTo({top:0,behavior:REDUCED?'auto':'smooth'});
+}
+
+/* ===== checking rows ===== */
+function buildRows(items){
+  $('#qrows').innerHTML=items.map((it,i)=>`
+    <div class="card qrow" id="qr${i}">
+      <div class="qi"><span class="spin" style="visibility:hidden"></span></div>
+      <div class="qt"><div class="qq">「${esc(it.q)}」</div><div class="qs">待機中…</div></div>
+      <div class="eng"><span class="mini-eng">${esc(it.engine)}</span></div>
+    </div>`).join('');
+  $('#prog').style.width='0%';
+  $('#chkBanner').classList.remove('on');
+}
+function rowPhase(i,phase,msg){
+  const r=$('#qr'+i); if(!r)return;
+  const qi=r.querySelector('.qi'), qs=r.querySelector('.qs');
+  if(phase==='ask'){ qi.innerHTML='<span class="spin"></span>'; qs.textContent='AIに質問中…'; }
+  else if(phase==='judge'){ qs.textContent='回答を受信 — 店名を照合中…'; }
+  else if(phase==='ok'){ qi.innerHTML='<span class="qmark ok">✓</span>'; qs.textContent=msg; qs.style.color='var(--good-deep)'; qs.style.fontWeight='700'; }
+  else if(phase==='ng'){ qi.innerHTML='<span class="qmark ng">✗</span>'; qs.textContent=msg; qs.style.color='var(--bad-deep)'; qs.style.fontWeight='700'; }
+  else if(phase==='err'){ qi.innerHTML='<span class="qmark">—</span>'; qs.textContent=msg||'取得できませんでした'; }
+}
+function setProg(done,total){ $('#prog').style.width=Math.round(done/total*100)+'%'; }
+
+/* ===== demo run ===== */
+async function runDemo(){
+  state.mode='demo';
+  $('#chkTitle').textContent='AIに質問しています…（サンプル）';
+  $('#chkSub').textContent='サンプルデータで診断の流れを再現しています。';
+  buildRows(DEMO.questions);
+  show('#scr-check');
+  let done=0;
+  for(let i=0;i<DEMO.questions.length;i++){
+    rowPhase(i,'ask');   await wait(REDUCED?50:520+Math.random()*420);
+    rowPhase(i,'judge'); await wait(REDUCED?50:380+Math.random()*260);
+    const q=DEMO.questions[i];
+    if(q.mentioned) rowPhase(i,'ok',`${q.position}位で登場（${q.stores.length}店中）`);
+    else rowPhase(i,'ng','登場せず');
+    done++; setProg(done,DEMO.questions.length);
+  }
+  await wait(REDUCED?80:650);
+  renderReport(DEMO); show('#scr-report'); animateReport(DEMO);
+}
+
+/* ===== live run (Claude API — claude.aiプレビュー内でのみ動作) ===== */
+const API='https://api.anthropic.com/v1/messages';
+async function api(body){
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok) throw new Error('API '+r.status);
+  return r.json();
+}
+const texts=d=>(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+
+async function askAI(q){
+  const d=await api({
+    model:'claude-sonnet-4-6', max_tokens:1000,
+    messages:[{role:'user',content:
+      'あなたは地元のお店に詳しいグルメアシスタントです。必要に応じてWeb検索を使い、次の質問に日本語で答えてください。\n\n質問:「'+q+'」\n\n実在するお店を最大5店、番号付きリストで挙げてください。各行は「店名 — 一言の理由」の形式で簡潔に。前置きやまとめの文章は不要です。'}],
+    tools:[{type:'web_search_20250305',name:'web_search'}]
+  });
+  return texts(d);
+}
+async function judgeMention(answer,store){
+  const d=await api({
+    model:'claude-sonnet-4-6', max_tokens:1000,
+    messages:[{role:'user',content:
+      '次のテキストは、AIがおすすめのお店を挙げた回答です。この中に「'+store+'」というお店（表記ゆれ・カタカナ/英字表記・略称を含む）への言及があるか判定してください。\n\nテキスト:\n"""\n'+answer+'\n"""\n\n以下のJSONのみを出力してください（マークダウン記法や説明は不要）:\n{"mentioned": true/false, "position": リスト内の順位の数字またはnull, "matched_text": "一致した表記" またはnull, "stores": ["回答に登場した全店名を順番に"]}'}]
+  });
+  const t=texts(d).replace(/```json|```/g,'').trim();
+  const j=JSON.parse(t);
+  j.position=Number(j.position)||null;
+  return j;
+}
+function fallbackJudge(answer,store){
+  const hit=norm(answer).includes(norm(store));
+  return {mentioned:hit,position:null,matched_text:hit?store:null,stores:[]};
+}
+function trimExcerpt(t){
+  t=String(t||'').trim();
+  const lines=t.split('\n').filter(x=>x.trim()).slice(0,6).join('\n');
+  return lines.length>280?lines.slice(0,280)+'…':lines;
+}
+function autoSummary(rs,store){
+  const total=rs.filter(r=>!r.error).length, hit=rs.filter(r=>r.mentioned).length;
+  if(total===0)return '';
+  if(hit===0)return '今回の'+total+'問で「'+store+'」は一度も登場しませんでした。AIが参照できる情報 — 直近の口コミ、オーナー返信、構造化された店舗情報、第三者メディアの言及 — を増やすことが、登場への最短ルートです。詳細な要因分析はフルレポートでお送りします。';
+  if(hit===total)return '全'+total+'問で登場しました。この状態を維持するには、口コミの鮮度とオーナー返信の継続が重要です。定点観測でスコアの推移を追いましょう。';
+  return total+'問中'+hit+'問で登場しました。登場しなかった質問の文脈（周辺キーワード）に対する情報が不足している可能性があります。詳細な要因分析はフルレポートでお送りします。';
+}
+async function runLive(){
+  const store=$('#inStore').value.trim();
+  if(!store){ toast('店名を入力してください'); $('#inStore').focus(); return; }
+  const area=$('#inArea').value.trim()||'神戸';
+  const genre=$('#inGenre').value.trim()||'カフェ';
+  const qs=[area+' '+genre+' おすすめ', area+'で人気の'+genre+'を教えて', area+' '+genre+' 隠れた名店']
+    .map(q=>({q,engine:'Claude'}));
+  state.mode='live';
+  $('#chkTitle').textContent='Claudeに質問しています…';
+  $('#chkSub').textContent='実際にAIへ質問し、Web検索を伴う回答を待っています（30〜90秒ほどかかります）。';
+  buildRows(qs); show('#scr-check');
+  let done=0;
+  const results=await Promise.all(qs.map(async(it,i)=>{
+    try{
+      rowPhase(i,'ask');
+      const answer=await askAI(it.q);
+      rowPhase(i,'judge');
+      let j; try{ j=await judgeMention(answer,store); }catch(e){ j=fallbackJudge(answer,store); }
+      const res={ q:it.q, engine:'Claude', mentioned:!!j.mentioned, position:j.position||null,
+        stores:Array.isArray(j.stores)?j.stores.slice(0,8):[], matched:j.matched_text||null,
+        excerpt:trimExcerpt(answer) };
+      if(res.mentioned) rowPhase(i,'ok',(res.position?res.position+'位で登場':'登場')+(res.stores.length?'（'+res.stores.length+'店中）':''));
+      else rowPhase(i,'ng','登場せず');
+      done++; setProg(done,qs.length); return res;
+    }catch(e){
+      rowPhase(i,'err'); done++; setProg(done,qs.length);
+      return {q:it.q,engine:'Claude',error:true,mentioned:false,stores:[],excerpt:''};
+    }
+  }));
+  if(results.every(r=>r.error)){ $('#chkBanner').classList.add('on'); return; }
+  const res={ mode:'live', store, aliases:[], area, genre, engines:['Claude'],
+    questions:results, factors:null, summary:autoSummary(results,store) };
+  await wait(REDUCED?80:600);
+  renderReport(res); show('#scr-report'); animateReport(res);
+}
+
+/* ===== report ===== */
+function isTarget(name,res){
+  const n=norm(name); if(!n)return false;
+  const t=norm(res.store);
+  if(n.includes(t)||t.includes(n))return true;
+  return (res.aliases||[]).some(a=>{const na=norm(a);return na&&(n.includes(na)||na.includes(n));});
+}
+function competitors(res){
+  const m=new Map();
+  res.questions.forEach(q=>(q.stores||[]).forEach(s=>{ if(!s||isTarget(s,res))return; m.set(s,(m.get(s)||0)+1); }));
+  return [...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6);
+}
+function hl(text,res,matched){
+  let out=esc(text);
+  const names=[res.store,...(res.aliases||[]),matched].filter(Boolean)
+    .sort((a,b)=>b.length-a.length);
+  names.forEach(n=>{ const e=esc(n); if(!e)return; out=out.split(e).join('<mark class="me">'+e+'</mark>'); });
+  return out;
+}
+function renderReport(res){
+  const valid=res.questions.filter(q=>!q.error);
+  const errN=res.questions.length-valid.length;
+  const score=calcScore(valid); const rk=rankOf(score);
+  res._score=score; res._rank=rk;
+  const total=valid.length, hits=valid.filter(q=>q.mentioned).length;
+  const now=new Date();
+  const dateStr=now.getFullYear()+'/'+(now.getMonth()+1)+'/'+now.getDate()+' '
+    +String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  const modeChip=res.mode==='demo'
+    ?'<span class="pill">サンプルデータ</span>'
+    :'<span class="pill ok">Claude 実測</span>';
+  const C=2*Math.PI*42;
+
+  const qcards=res.questions.map(q=>{
+    const badge=q.error?'<span class="pill">取得失敗</span>'
+      :q.mentioned?'<span class="pill ok">✓ '+(q.position?q.position+'位で登場':'登場')+'</span>'
+      :'<span class="pill ng">✗ 登場せず</span>';
+    const chips=(q.stores&&q.stores.length)
+      ?'<div class="qc-stores">'+q.stores.map(s=>'<span class="st '+(isTarget(s,res)?'hit':'')+'">'+esc(s)+'</span>').join('')+'</div>':'';
+    const ex=q.excerpt?'<div class="qc-ex">'+hl(q.excerpt,res,q.matched)+'</div>':'';
+    return '<div class="qcard"><div class="qc-top"><div class="qc-q">「'+esc(q.q)+'」<span class="mini-eng">'+esc(q.engine)+'</span></div>'+badge+'</div>'+ex+chips+'</div>';
+  }).join('');
+
+  const comps=competitors(res);
+  const maxC=comps.length?comps[0][1]:1;
+  const compHtml=comps.length?comps.map(c=>
+    '<div class="comp-row"><div class="comp-name">'+esc(c[0])+'</div>'
+    +'<div class="comp-bar"><i data-w="'+Math.round(c[1]/maxC*100)+'"></i></div>'
+    +'<div class="comp-n">'+c[1]+'<small>回</small></div></div>').join('')
+    :'<p class="sum">集計できる店舗リストがありませんでした。</p>';
+
+  let factHtml;
+  if(res.factors){
+    factHtml=res.factors.map(f=>{
+      const col=f.v>=70?'var(--good)':f.v>=45?'var(--warn)':'var(--bad)';
+      return '<div class="fact-row"><div class="fact-top"><span class="fact-name">'+esc(f.name)+'</span>'
+        +'<span class="fact-score">'+f.v+'<small>/100</small></span></div>'
+        +'<div class="fact-bar"><i data-w="'+f.v+'" style="background:'+col+'"></i></div>'
+        +'<p class="fact-note">'+esc(f.note)+'</p></div>';
+    }).join('');
+  }else{
+    factHtml='<p class="sum">口コミ件数・オーナー返信率・情報の鮮度・構造化データなどの<b>要因分析</b>は、フルレポート（無料）でお送りします。下のフォームからお申し込みください。</p>';
+  }
+
+  $('#repRoot').innerHTML=
+    '<div class="rep-head"><div><p class="eyebrow">AI Visibility Report</p><h2>'+esc(res.store)+' 様</h2></div>'
+    +'<div class="meta">'+esc(res.area)+'・'+esc(res.genre)+'<br>診断日時: '+dateStr+'　'+modeChip+'</div></div>'
+
+    +'<div class="card sec verdict" style="animation-delay:.05s">'
+    +'<p class="eyebrow">Result</p>'
+    +'<p class="v-lead">AIへの<b>'+total+'</b>つの質問のうち、<br>「'+esc(res.store)+'」が登場したのは</p>'
+    +'<div class="v-main"><span class="v-num" id="vNum">0</span><span class="v-unit">問</span></div>'
+    +'<div class="stamp" id="stamp" style="color:'+rk.color+'"><b>'+rk.r+'</b><span>判 定</span></div>'
+    +'<div class="v-score">'
+    +'<svg class="ring" viewBox="0 0 100 100"><circle class="tr" cx="50" cy="50" r="42"></circle>'
+    +'<circle class="fg" id="ringFg" cx="50" cy="50" r="42" stroke="'+rk.color+'" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+C.toFixed(1)+'"></circle></svg>'
+    +'<div><div class="vs-num"><span id="vsNum">0</span><small>/100</small></div>'
+    +'<div class="vs-label">AI視認性スコア</div>'
+    +'<div class="vs-rank" style="color:'+rk.color+'">'+rk.r+'判定 — '+rk.label+'</div></div>'
+    +'</div></div>'
+
+    +'<div class="card sec" style="animation-delay:.14s"><div class="s-head"><span class="eyebrow">01 · Questions</span><b style="font-size:15px">質問別の結果</b></div><div class="s-line"></div><div class="s-body">'
+    +(errN>0?'<p class="fact-note" style="margin-bottom:10px">※ '+errN+'問は取得に失敗したため、スコア集計から除外しています。</p>':'')
+    +qcards+'</div></div>'
+
+    +'<div class="card sec" style="animation-delay:.22s"><div class="s-head"><span class="eyebrow">02 · Instead of You</span><b style="font-size:15px">AIが代わりに推薦しているお店</b></div><div class="s-line"></div><div class="s-body">'+compHtml+'</div></div>'
+
+    +'<div class="card sec" style="animation-delay:.30s"><div class="s-head"><span class="eyebrow">03 · Why</span><b style="font-size:15px">要因分析</b></div><div class="s-line"></div><div class="s-body fact">'+factHtml+'</div></div>'
+
+    +'<div class="card sec" style="animation-delay:.38s"><div class="s-head"><span class="eyebrow">04 · Summary</span><b style="font-size:15px">総評</b></div><div class="s-line"></div><div class="s-body"><p class="sum">'+esc(res.summary||'')+'</p></div></div>'
+
+    +'<div class="card sec cta" style="animation-delay:.46s">'
+    +'<p class="eyebrow" style="color:#A8842B">Next Step</p>'
+    +'<h3>AIに見えるお店に、変えていく。</h3>'
+    +'<p>GOOD REVIEW は「計測 → 改善 → 再計測」を回し続ける、AI時代の店舗集客サービスです。掲載を約束する魔法ではなく、AIが参照する情報を着実に増やす仕組みを提供します。</p>'
+    +'<div class="cta-steps">'
+    +'<div><span class="cs-n">01</span><b>計測</b><p>毎月、AIへの質問を定点観測してスコアの推移を記録します。</p></div>'
+    +'<div><span class="cs-n">02</span><b>改善</b><p>口コミ導線・オーナー返信・店舗情報の整備をテンプレートで支援。</p></div>'
+    +'<div><span class="cs-n">03</span><b>報告</b><p>何が効いたかを月次レポートでご報告します。</p></div>'
+    +'</div>'
+    +'<div class="cta-form"><input id="ctaMail" type="email" placeholder="メールアドレス" autocomplete="email"><button class="btn btn-accent" id="btnMail">フルレポートを受け取る（無料）</button></div>'
+    +'<p class="fine">β版のため、送信ボタンは動作のデモです。</p>'
+    +'</div>';
+}
+function countUp(el,to,dur){
+  if(!el)return;
+  if(REDUCED){el.textContent=to;return;}
+  const t0=performance.now();
+  (function st(t){
+    const p=Math.min(1,(t-t0)/dur), v=Math.round(to*(1-Math.pow(1-p,3)));
+    el.textContent=v; if(p<1)requestAnimationFrame(st);
+  })(t0);
+}
+function animateReport(res){
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    const valid=res.questions.filter(q=>!q.error);
+    const hits=valid.filter(q=>q.mentioned).length;
+    $('#stamp').classList.add('in');
+    countUp($('#vNum'),hits,750);
+    countUp($('#vsNum'),res._score,1100);
+    const C=2*Math.PI*42;
+    const fg=$('#ringFg'); if(fg)fg.style.strokeDashoffset=(C*(1-res._score/100)).toFixed(1);
+    document.querySelectorAll('[data-w]').forEach(el=>{ el.style.width=el.getAttribute('data-w')+'%'; });
+  }));
+}
+
+/* ===== toast & wiring ===== */
+let toastT;
+function toast(msg){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2600);
+}
+$('#btnDemo').addEventListener('click',runDemo);
+$('#btnLive').addEventListener('click',runLive);
+$('#btnBannerDemo').addEventListener('click',runDemo);
+$('#btnBannerBack').addEventListener('click',()=>show('#scr-input'));
+$('#btnAgain').addEventListener('click',()=>show('#scr-input'));
+['inStore','inArea','inGenre'].forEach(id=>{
+  document.getElementById(id).addEventListener('keydown',e=>{ if(e.key==='Enter')runLive(); });
+});
+document.addEventListener('click',e=>{
+  if(e.target&&e.target.id==='btnMail'){
+    const v=($('#ctaMail')?.value||'').trim();
+    toast(v?'受け付けました（プロトタイプのため送信は行われません）':'メールアドレスを入力してください');
+  }
+});
+
+</script>
+</body>
+</html>

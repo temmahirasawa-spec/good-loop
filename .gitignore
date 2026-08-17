@@ -11,6 +11,8 @@
 
 # next.js
 /.next/
+# npm run check のビルド出力（devサーバーの /.next/ を壊さないよう分けている。next.config.mjs 参照）
+/.next-check/
 /out/
 
 # production
