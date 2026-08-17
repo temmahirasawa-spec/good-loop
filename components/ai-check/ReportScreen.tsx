@@ -5,9 +5,11 @@ import { AiBadge } from "@/components/rating-flow/AiBadge";
 import type { CheckReport } from "@/lib/ai-check/types";
 import { Card, Eyebrow } from "./Card";
 import { CompetitorList } from "./CompetitorList";
-import { FullReportNotice } from "./FullReportNotice";
+import { FactorTeaser } from "./FactorTeaser";
 import { GhostButton } from "./GhostButton";
 import { LeadForm } from "./LeadForm";
+import { LockedContent } from "./LockedContent";
+import { Pill } from "./Pill";
 import { QuestionResultCard } from "./QuestionResultCard";
 import { ShareSection } from "./ShareSection";
 import { VerdictCard } from "./VerdictCard";
@@ -21,6 +23,23 @@ import { VerdictCard } from "./VerdictCard";
  *   ツールのURLだけで、店名・スコア・順位は一切含めない（2026-08-17 天真の指示）。
  */
 
+/** メールアドレス欄の位置。鍵のかかった区画から運ぶために使う */
+const LEAD_FORM_ID = "ai-check-lead-form";
+
+/**
+ * メールアドレス欄まで運んで、入力できる状態にする。
+ * 共通部品の `LoopInput` は id を受け取らないため、囲みの要素から辿っている。
+ */
+function goToLeadForm() {
+  const target = document.getElementById(LEAD_FORM_ID);
+  if (!target) return;
+
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+  // スクロールの途中で焦点を移すと位置が飛ぶので、少し待ってから
+  window.setTimeout(() => target.querySelector("input")?.focus(), reduced ? 0 : 500);
+}
+
 function formatCheckedAt(iso: string): string {
   const date = new Date(iso);
   const pad = (value: number) => String(value).padStart(2, "0");
@@ -30,10 +49,13 @@ function formatCheckedAt(iso: string): string {
 function ReportSection({
   no,
   title,
+  badge,
   children,
 }: {
   no: string;
   title: string;
+  /** 見出しの右に出す小さな印（「サンプル」など） */
+  badge?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -43,6 +65,7 @@ function ReportSection({
         <b className="text-[15px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
           {title}
         </b>
+        {badge}
       </div>
       <div
         className="mx-[var(--product-space-20)] mt-[var(--product-space-12)] h-px"
@@ -108,17 +131,47 @@ export function ReportScreen({
         <CompetitorList competitors={report.competitors} />
       </ReportSection>
 
-      <ReportSection no="03 · Why" title="要因分析">
-        <FullReportNotice />
+      {/*
+        ⚠ 「サンプル」の印を外さないこと。中の点数は架空で、実測していない
+          （components/ai-check/FactorTeaser.tsx の冒頭を参照）。
+      */}
+      <ReportSection no="03 · Why" title="要因分析" badge={<Pill tone="muted">サンプル</Pill>}>
+        {/*
+          ⚠ この一文を消さないこと。中の点数は架空で、実測していない。
+            ぼかしの外（必ず読める位置）に置いてある。
+        */}
+        <p
+          className="mb-[var(--product-space-12)] text-xs leading-[1.8]"
+          style={{ color: "var(--product-color-text-secondary)" }}
+        >
+          ※ この項目は<b className="font-bold" style={{ color: "var(--product-color-text-primary)" }}>表示例</b>です。あなたのお店を測った値ではありません。実測はフルレポートでお送りします。
+        </p>
+        <LockedContent visibleHeight={244} onUnlock={goToLeadForm}>
+          <FactorTeaser />
+        </LockedContent>
       </ReportSection>
 
       <ReportSection no="04 · Summary" title="総評">
-        <p className="text-[13.5px] leading-[2]" style={{ color: "var(--product-color-text-secondary)" }}>
-          {report.summary}
-        </p>
+        <LockedContent visibleHeight={120} onUnlock={goToLeadForm}>
+          {/* 実測から組み立てた本物の総評。ここは必ず読める位置に置く */}
+          <p className="text-[13.5px] leading-[2]" style={{ color: "var(--product-color-text-secondary)" }}>
+            {report.summary}
+          </p>
+          {/*
+            この先はフルレポートの内容の予告。
+            ⚠ 店舗別に見える数値や断定を書かないこと。ここは「何をするか」の説明であって、
+              測っていないことを測ったように書くと作り話になる。
+          */}
+          <p
+            className="mt-[var(--product-space-12)] text-[13.5px] leading-[2]"
+            style={{ color: "var(--product-color-text-secondary)" }}
+          >
+            フルレポートでは、登場しなかった質問に共通する文脈を洗い出し、AIが参照している情報源のどこに空白があるのかを整理します。あわせて、次の30日で着手する順番を、費用のかからないものから並べてご提案します。今の状態を起点に、何をどの順で埋めていくかが分かる形でお送りします。
+          </p>
+        </LockedContent>
       </ReportSection>
 
-      <div className="mt-[var(--product-space-16)]">
+      <div className="mt-[var(--product-space-16)]" id={LEAD_FORM_ID}>
         <LeadForm onSubmit={onSubmitLead} />
       </div>
 
