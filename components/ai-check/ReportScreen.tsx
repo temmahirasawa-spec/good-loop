@@ -9,6 +9,7 @@ import { FactorTeaser } from "./FactorTeaser";
 import { GhostButton } from "./GhostButton";
 import { LeadForm } from "./LeadForm";
 import { LockedContent } from "./LockedContent";
+import { Pill } from "./Pill";
 import { QuestionResultCard } from "./QuestionResultCard";
 import { ShareSection } from "./ShareSection";
 import { VerdictCard } from "./VerdictCard";
@@ -48,10 +49,13 @@ function formatCheckedAt(iso: string): string {
 function ReportSection({
   no,
   title,
+  badge,
   children,
 }: {
   no: string;
   title: string;
+  /** 見出しの右に出す小さな印（「サンプル」など） */
+  badge?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -61,6 +65,7 @@ function ReportSection({
         <b className="text-[15px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
           {title}
         </b>
+        {badge}
       </div>
       <div
         className="mx-[var(--product-space-20)] mt-[var(--product-space-12)] h-px"
@@ -126,8 +131,12 @@ export function ReportScreen({
         <CompetitorList competitors={report.competitors} />
       </ReportSection>
 
-      <ReportSection no="03 · Why" title="要因分析">
-        <LockedContent visibleHeight={232} onUnlock={goToLeadForm}>
+      {/*
+        ⚠ 「サンプル」の印を外さないこと。中の点数は架空で、実測していない
+          （components/ai-check/FactorTeaser.tsx の冒頭を参照）。
+      */}
+      <ReportSection no="03 · Why" title="要因分析" badge={<Pill tone="muted">サンプル</Pill>}>
+        <LockedContent visibleHeight={244} onUnlock={goToLeadForm}>
           <FactorTeaser />
         </LockedContent>
       </ReportSection>
