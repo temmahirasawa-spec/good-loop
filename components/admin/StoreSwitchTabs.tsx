@@ -11,6 +11,9 @@ import { usePathname } from "next/navigation";
  * リロードしても・タブを行き来しても同じ店舗のままになる。
  *
  * 店舗が1つしか無いテナントでは、選ぶものが無いので何も描画しない。
+ *
+ * 見た目は `Loop / Segment Chip`（Figma node 39:816、期間フィルターと同じピル）に合わせる。
+ * 生のスタイルを起こさず既存のデザインを写し取る（docs/specs/design-rules.md 2-3）。
  */
 export function StoreSwitchTabs({ stores, selectedId }: { stores: { id: string; name: string }[]; selectedId: string }) {
   const pathname = usePathname();
@@ -21,7 +24,7 @@ export function StoreSwitchTabs({ stores, selectedId }: { stores: { id: string; 
       <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
         設定する店舗
       </p>
-      <div className="flex w-full items-start gap-2 overflow-x-auto">
+      <div className="flex w-full items-start gap-1 overflow-x-auto">
         {stores.map((store) => {
           const selected = store.id === selectedId;
           return (
@@ -29,16 +32,12 @@ export function StoreSwitchTabs({ stores, selectedId }: { stores: { id: string; 
               key={store.id}
               href={`${pathname}?store=${store.id}`}
               scroll={false}
-              className="flex shrink-0 items-center rounded-full border px-4 py-2"
-              style={{
-                backgroundColor: selected ? "var(--loop-accent-wash)" : "var(--product-color-surface-white)",
-                borderWidth: selected ? 2 : 1,
-                borderColor: selected ? "var(--loop-accent-primary)" : "var(--product-color-border-divider)",
-              }}
+              className="flex min-h-[44px] shrink-0 items-center rounded-full px-5 py-[13px]"
+              style={{ backgroundColor: selected ? "var(--loop-accent-primary)" : "transparent" }}
             >
               <span
-                className="whitespace-nowrap text-xs"
-                style={{ color: "var(--product-color-text-primary)", fontWeight: selected ? 700 : 500 }}
+                className="whitespace-nowrap text-xs font-medium"
+                style={{ color: selected ? "var(--loop-accent-on-primary)" : "var(--product-color-text-secondary)" }}
               >
                 {store.name}
               </span>
