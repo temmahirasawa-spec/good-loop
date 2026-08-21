@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogoutButton } from "./LogoutButton";
 import { useStoreName } from "./StoreNameContext";
 
 /**
@@ -101,9 +100,7 @@ export function AdminMobileTopBar({
                 </Link>
               );
             })}
-            <div className="min-h-px w-full flex-1" />
-            <LogoutButton className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }} />
-          </div>
+                </div>
         </div>
       )}
     </>

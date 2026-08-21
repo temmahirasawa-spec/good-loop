@@ -31,6 +31,11 @@
   /* 管理画面のQR読み取り注意バッジ。Figma側で変数未バインドの直書き値だが、
      status-warningの薄色版として実測どおり写した */
   --product-color-status-warning-wash: #fff2e0;
+  /* status/error・status/error-subtle（2026-08-22追加）。
+     Figma側には最初から変数として存在していたが、実装側に写し忘れていた。
+     「URL未設定」バッジがアンバーになっていた不整合の修正で追加（docs/ui-review.md Q12） */
+  --product-color-status-error: #dc2626;
+  --product-color-status-error-subtle: #fceeee;
 
   /* ── 角丸 ──────────────────────────────────────────── */
   --product-radius-md: 12px;

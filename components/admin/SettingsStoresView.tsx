@@ -77,7 +77,7 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
                   className="rounded-full px-2 py-1 text-[11px] font-medium"
                   style={{
                     backgroundColor: linked ? "var(--loop-accent-wash)" : "var(--product-color-bg-primary)",
-                    color: linked ? "var(--loop-accent-action)" : "var(--product-color-status-warning)",
+                    color: linked ? "var(--loop-accent-action)" : "var(--product-color-status-error)",
                   }}
                 >
                   {linked ? "Googleマップ連携済み" : "URL未設定"}
