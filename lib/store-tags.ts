@@ -75,11 +75,39 @@ export function byCategory(tags: StoreTag[], category: StoreTagCategory): string
 }
 
 /**
- * 設定（アンケート項目）「プリセットに戻す」の参照元。
- * 店舗の業態に対応するプリセットだけを返す（2026-08-21、業態別プリセットの導入）。
+ * 設定（アンケート項目）のプリセット参照元。店舗の業態に対応する1組だけを返す。
  */
-export async function getTagPresets(supabase: SupabaseClient, businessCategory: string): Promise<{ good: string[]; improve: string[] }> {
-  const presets = await fetchPresetRows(supabase, businessCategory);
+export async function getTagPresets(supabase: SupabaseClient, businessCategory: string): Promise<TagPreset> {
+  return toPreset(await fetchPresetRows(supabase, businessCategory));
+}
+
+export type TagPreset = { good: string[]; improve: string[] };
+
+/**
+ * 全業態のプリセットをまとめて返す（2026-08-22、設定（アンケート項目）の業態ドロップダウン用）。
+ *
+ * 画面側で業態を選ぶたびにサーバーへ問い合わせると1テンポ遅れるため、9業態ぶん（99行）を
+ * 最初にまとめて渡してしまう。テキストだけの小さなデータなので転送量の問題にならない。
+ */
+export async function getAllTagPresets(supabase: SupabaseClient): Promise<Record<string, TagPreset>> {
+  const { data } = await supabase
+    .from("tags_master")
+    .select("business_category, label, category, sort_order")
+    .order("category")
+    .order("sort_order")
+    .returns<(PresetRow & { business_category: string })[]>();
+
+  const byCategory: Record<string, PresetRow[]> = {};
+  for (const row of data ?? []) {
+    (byCategory[row.business_category] ??= []).push(row);
+  }
+
+  const out: Record<string, TagPreset> = {};
+  for (const [slug, rows] of Object.entries(byCategory)) out[slug] = toPreset(rows);
+  return out;
+}
+
+function toPreset(presets: PresetRow[]): TagPreset {
   return {
     good: presets.filter((p) => p.category === "good").map((p) => p.label),
     improve: presets.filter((p) => p.category === "improve").map((p) => p.label),

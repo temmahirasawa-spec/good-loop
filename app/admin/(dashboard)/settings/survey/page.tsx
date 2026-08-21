@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSettingsStores, selectStore } from "@/lib/admin/current-store";
-import { byCategory, getOrSeedStoreTags, getTagPresets } from "@/lib/store-tags";
+import { byCategory, getAllTagPresets, getOrSeedStoreTags } from "@/lib/store-tags";
 import { SettingsSurveyView } from "@/components/admin/SettingsSurveyView";
 import { StoreSwitchTabs } from "@/components/admin/StoreSwitchTabs";
 
@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
  *
  * 2026-08-21、**店舗ごとに設定できるようにした**（天真の依頼）。
  * 対象の店舗は URL の `?store=<店舗ID>` で選ぶ（StoreSwitchTabs）。指定が無ければ最初の店舗。
- * プリセットはその店舗の業態に対応するものを出す（supabase/0010、launch-plan.md 4-B）。
+ * プリセットは業態別（supabase/0010、launch-plan.md 4-B）。2026-08-22、天真の依頼で
+ * 「プリセットに戻す」を業態のドロップダウンに差し替えたため、9業態ぶんをまとめて渡す。
  */
 export default async function SettingsSurveyPage({ searchParams }: { searchParams: { store?: string } }) {
   const stores = await getSettingsStores();
@@ -22,7 +23,7 @@ export default async function SettingsSurveyPage({ searchParams }: { searchParam
   const supabase = await createSupabaseServerClient();
   const [storeTags, presets] = await Promise.all([
     getOrSeedStoreTags(supabase, store.id, store.tenant_id, store.business_category),
-    getTagPresets(supabase, store.business_category),
+    getAllTagPresets(supabase),
   ]);
 
   return (
@@ -33,10 +34,10 @@ export default async function SettingsSurveyPage({ searchParams }: { searchParam
         key={store.id}
         storeId={store.id}
         storeName={store.name}
+        businessCategory={store.business_category}
         initialGoodTags={byCategory(storeTags, "good")}
         initialImproveTags={byCategory(storeTags, "improve")}
-        presetGoodTags={presets.good}
-        presetImproveTags={presets.improve}
+        presets={presets}
       />
     </>
   );

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { LoopButton } from "@/components/rating-flow/Button";
 import { EditTag, AddTagButton } from "@/components/admin/EditTag";
 import { LoopInput } from "@/components/admin/LoopInput";
+import { LoopSelect } from "@/components/admin/LoopSelect";
+import { BUSINESS_CATEGORIES } from "@/lib/admin/constants";
+import type { TagPreset } from "@/lib/store-tags";
 
 const MAX_TAGS = 8;
 const DEFAULT_ERROR = "保存できませんでした。もう一度お試しください。";
@@ -26,25 +28,33 @@ async function persistTags(storeId: string, category: "good" | "improve", labels
 /** タグ編集グループ（Figma node 69:1343 系）— 良かった点／改善点で共通の挙動
  *
  * 楽観的更新（CLAUDE.md 4章）：ローカル状態を先に更新し、保存に失敗したときだけ元に戻す。
+ *
+ * 2026-08-22、天真の依頼で「プリセットに戻す」ボタンを**業態のドロップダウン**に差し替えた。
+ * 業態を選ぶと、このグループの項目がその業態のプリセットに入れ替わる。
+ * 初期値はその店舗の業態。ここで選んでも店舗自体の業態設定（店舗編集で選ぶもの）は変えない
+ * ＝「他の業態の言い回しも借りられる」ための操作、という位置づけ。
  */
 function TagGroup({
   storeId,
   category,
   title,
-  presetTags,
+  presets,
+  defaultCategorySlug,
   tags,
   onChange,
 }: {
   storeId: string;
   category: "good" | "improve";
   title: string;
-  presetTags: string[];
+  presets: Record<string, TagPreset>;
+  defaultCategorySlug: string;
   tags: string[];
   onChange: (tags: string[]) => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [presetSlug, setPresetSlug] = useState(defaultCategorySlug);
 
   async function applyChange(next: string[]) {
     const prev = tags;
@@ -55,6 +65,12 @@ function TagGroup({
       onChange(prev);
       setError(errorMessage);
     }
+  }
+
+  function applyPreset(slug: string) {
+    setPresetSlug(slug);
+    const preset = presets[slug];
+    if (preset) applyChange([...preset[category]]);
   }
 
   function commitAdd() {
@@ -70,10 +86,17 @@ function TagGroup({
         <p className="text-[15px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
           {title}
         </p>
-        <div className="w-full md:w-auto">
-          <LoopButton variant="primary" onClick={() => applyChange([...presetTags])}>
-            プリセットに戻す
-          </LoopButton>
+        <div className="flex w-full flex-col items-start gap-1 md:w-auto md:flex-row md:items-center md:gap-3">
+          <p className="whitespace-nowrap text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            業態のプリセットを読み込む
+          </p>
+          <LoopSelect
+            ariaLabel={`${title}のプリセットを業態から選ぶ`}
+            value={presetSlug}
+            onChange={applyPreset}
+            options={BUSINESS_CATEGORIES.map((c) => ({ value: c.slug, label: c.label }))}
+            className="w-full md:w-[180px]"
+          />
         </div>
       </div>
       {error && (
@@ -112,17 +135,17 @@ function TagGroup({
 export function SettingsSurveyView({
   storeId,
   storeName,
+  businessCategory,
   initialGoodTags,
   initialImproveTags,
-  presetGoodTags,
-  presetImproveTags,
+  presets,
 }: {
   storeId: string;
   storeName: string;
+  businessCategory: string;
   initialGoodTags: string[];
   initialImproveTags: string[];
-  presetGoodTags: string[];
-  presetImproveTags: string[];
+  presets: Record<string, TagPreset>;
 }) {
   const [goodTags, setGoodTags] = useState<string[]>(initialGoodTags);
   const [improveTags, setImproveTags] = useState<string[]>(initialImproveTags);
@@ -133,13 +156,14 @@ export function SettingsSurveyView({
         アンケート項目
       </p>
       <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-        {storeName}の設定です。プリセットは業態に合わせて用意されています。自由に編集できます（各 最大8個）
+        {storeName}の設定です。業態を選ぶとその業態のプリセットを読み込めます。項目は自由に編集できます（各 最大8個）
       </p>
       <TagGroup
         storeId={storeId}
         category="good"
         title="良かった点（★5・4のお客様に表示）"
-        presetTags={presetGoodTags}
+        presets={presets}
+        defaultCategorySlug={businessCategory}
         tags={goodTags}
         onChange={setGoodTags}
       />
@@ -147,7 +171,8 @@ export function SettingsSurveyView({
         storeId={storeId}
         category="improve"
         title="改善点（★3・2・1のお客様に表示）"
-        presetTags={presetImproveTags}
+        presets={presets}
+        defaultCategorySlug={businessCategory}
         tags={improveTags}
         onChange={setImproveTags}
       />
