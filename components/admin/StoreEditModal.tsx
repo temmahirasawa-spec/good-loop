@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { LoopButton } from "@/components/rating-flow/Button";
 import { LoopInput } from "@/components/admin/LoopInput";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { BUSINESS_CATEGORIES } from "@/lib/admin/constants";
 
 type PlaceSuggestion = { placeId: string; name: string; address: string };
 
@@ -11,27 +12,33 @@ type PlaceSuggestion = { placeId: string; name: string; address: string };
  * 店舗編集モーダル（Figma node 75:1416 PC / 76:1658 SP）。
  *
  * 店名検索は POST /api/admin/places/search（Google Places API、サーバー側の鍵を使用）。
- * 保存は stores.name / stores.google_place_id を直接更新する（RLSでテナント分離される
- * ため、admin clientは使わない）。
+ * 保存は stores.name / stores.business_category / stores.google_place_id を直接更新する
+ * （RLSでテナント分離されるため、admin clientは使わない）。
  *
  * 既にGoogleマップと連携済みの店舗を開いたときも、保存済みの google_place_id からは
  * 店名・住所を復元できない（Places Details APIを追加で叩けば可能だが、今回は簡易化のため
  * 未実装）。連携状態を確認・変更したい場合は再検索して選び直す運用とする。
+ *
+ * 業態選択は2026-08-06に追加した（業態と色テーマの分離にともない、店舗追加だけでなく
+ * 編集でも業態を変更できるようにした）。
  */
 export function StoreEditModal({
   storeId,
   storeName,
+  businessCategory,
   linked,
   onClose,
   onSave,
 }: {
   storeId: string;
   storeName: string;
+  businessCategory: string;
   linked: boolean;
   onClose: () => void;
   onSave: (nextName: string) => void;
 }) {
   const [name, setName] = useState(storeName);
+  const [category, setCategory] = useState(businessCategory);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
@@ -69,7 +76,7 @@ export function StoreEditModal({
     const supabase = createSupabaseBrowserClient();
     const { error: updateError } = await supabase
       .from("stores")
-      .update({ name, ...(selected ? { google_place_id: selected.placeId } : {}) })
+      .update({ name, business_category: category, ...(selected ? { google_place_id: selected.placeId } : {}) })
       .eq("id", storeId);
     setSaving(false);
     if (updateError) {
@@ -98,6 +105,37 @@ export function StoreEditModal({
             店舗名（管理画面での表示名）
           </p>
           <LoopInput value={name} onChange={setName} />
+        </div>
+
+        <div className="flex w-full flex-col items-start gap-2">
+          <p className="text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+            業態
+          </p>
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            アンケート項目のプリセットが決まります
+          </p>
+          <div className="flex w-full flex-wrap items-start gap-2 pt-1">
+            {BUSINESS_CATEGORIES.map((c) => {
+              const selected = c.slug === category;
+              return (
+                <button
+                  key={c.slug}
+                  type="button"
+                  onClick={() => setCategory(c.slug)}
+                  className="flex items-center rounded-full border px-4 py-2"
+                  style={{
+                    backgroundColor: selected ? "var(--loop-accent-wash)" : "var(--product-color-surface-white)",
+                    borderWidth: selected ? 2 : 1,
+                    borderColor: selected ? "var(--loop-accent-primary)" : "var(--product-color-border-divider)",
+                  }}
+                >
+                  <span className="whitespace-nowrap text-xs" style={{ color: "var(--product-color-text-primary)", fontWeight: selected ? 700 : 500 }}>
+                    {c.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="flex w-full flex-col items-start gap-2">

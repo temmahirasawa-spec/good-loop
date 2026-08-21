@@ -1,5 +1,6 @@
 import { SettingsStoresView } from "@/components/admin/SettingsStoresView";
 import { getStoreSummaries } from "@/lib/admin/queries";
+import { getStoreQuotaState } from "@/lib/admin/store-quota";
 import { generateQrSvg } from "@/lib/qr-code";
 import { PUBLIC_APP_URL } from "@/lib/site-url";
 
@@ -14,19 +15,27 @@ const LOW_READS_THRESHOLD = 20;
  * 2026-08-06、天真の依頼で旧 /admin/qr（二次元コード発行）をここに統合した。
  * 店舗の追加・編集と二次元コードの発行は同じ単位（店舗）に対する操作のため、
  * 別画面に分けず1画面にまとめている。
+ *
+ * 2026-08-21、店舗枠（supabase/0009）を導入。空きが無いと追加できない。
  */
 export default async function SettingsStoresPage() {
-  const stores = await getStoreSummaries();
+  const [stores, quota] = await Promise.all([getStoreSummaries(), getStoreQuotaState()]);
   const storesWithQr = await Promise.all(
     stores.map(async (s) => ({
       id: s.id,
       name: s.name,
       slug: s.slug,
+      businessCategory: s.businessCategory,
       googlePlaceLinked: s.googlePlaceLinked,
       qrSvg: await generateQrSvg(`${PUBLIC_APP_URL}/r/${s.slug}`),
       qrReads: s.qrReads,
       qrReadsLow: s.qrReads < LOW_READS_THRESHOLD,
     }))
   );
-  return <SettingsStoresView stores={storesWithQr} />;
+  return (
+    <SettingsStoresView
+      stores={storesWithQr}
+      quota={{ quota: quota.quota, used: quota.used, canAddStore: quota.canAddStore }}
+    />
+  );
 }

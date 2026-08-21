@@ -6,11 +6,20 @@ import { LoopButton } from "@/components/rating-flow/Button";
 import { StoreEditModal } from "@/components/admin/StoreEditModal";
 import { AddStoreModal } from "@/components/admin/AddStoreModal";
 import { QrCard, QrCardMobile } from "@/components/admin/QrCard";
+import { BILLING, formatYen } from "@/lib/admin/constants";
+
+/** 店舗枠の状態（lib/admin/store-quota.ts）。表示に必要な分だけ受け取る */
+export type StoreQuotaProps = {
+  quota: number;
+  used: number;
+  canAddStore: boolean;
+};
 
 export type SettingsStoreRow = {
   id: string;
   name: string;
   slug: string;
+  businessCategory: string;
   googlePlaceLinked: boolean;
   qrSvg: string;
   qrReads: number;
@@ -26,8 +35,12 @@ export type SettingsStoreRow = {
  * 「＋ 店舗を追加」は AddStoreModal が /api/admin/settings/stores 経由で新規作成する。
  * Googleマップ紐付けは追加時点でもできるようにした（2026-08-06）ため、店舗を追加した直後から
  * QRコード・お客様の★4/5評価後のGoogleマップ遷移先が有効になる。
+ *
+ * 2026-08-21、**店舗枠**（契約している店舗数）を導入した（supabase/0009）。
+ * 枠に空きが無いときは「＋ 店舗を追加」を押せなくし、お支払い画面へ誘導する。
+ * サーバー側・DB側にも同じ判定があるので、ここは案内のための表示という位置づけ。
  */
-export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
+export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow[]; quota: StoreQuotaProps }) {
   const router = useRouter();
   const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set(stores.filter((s) => s.googlePlaceLinked).map((s) => s.id)));
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -76,9 +89,30 @@ export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
             </div>
           );
         })}
-        <LoopButton variant="primary" onClick={() => setAdding(true)}>
-          ＋ 店舗を追加
-        </LoopButton>
+        <div className="flex w-full items-center justify-between">
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            契約中の店舗枠
+          </p>
+          <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+            {quota.used} / {quota.quota} 店舗
+          </p>
+        </div>
+
+        {quota.canAddStore ? (
+          <LoopButton variant="primary" onClick={() => setAdding(true)}>
+            ＋ 店舗を追加
+          </LoopButton>
+        ) : (
+          <div className="flex w-full flex-col items-start gap-3 rounded-xl p-4" style={{ backgroundColor: "var(--product-color-bg-primary)" }}>
+            <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+              店舗枠がいっぱいです。店舗を追加するには、お支払い画面で店舗枠を追加してください（追加1店舗につき月額
+              {formatYen(BILLING.additionalStoreMonthlyYen)}）
+            </p>
+            <LoopButton variant="primary" onClick={() => router.push("/admin/settings/billing")}>
+              お支払いへ進む
+            </LoopButton>
+          </div>
+        )}
       </div>
 
       <div className="flex w-full flex-wrap items-start gap-4">
@@ -96,6 +130,7 @@ export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
         <StoreEditModal
           storeId={editingStore.id}
           storeName={editingStore.name}
+          businessCategory={editingStore.businessCategory}
           linked={linkedIds.has(editingStore.id)}
           onClose={() => setEditingId(null)}
           onSave={() => {

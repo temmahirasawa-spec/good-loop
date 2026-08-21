@@ -122,7 +122,7 @@ export function SettingsBrandView({
           テーマ
         </p>
         <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-          業態を選ぶと、色とアンケート項目のプリセットが切り替わります
+          お客様側の画面の色を選べます。業態とは関係なく、お好きな色を選んでいただけます
         </p>
         <div className="flex w-full flex-col flex-wrap items-start gap-2 pt-1 md:flex-row">
           {LOOP_THEMES.map((t) => {

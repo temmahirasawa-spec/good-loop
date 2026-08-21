@@ -26,17 +26,17 @@ type PresetRow = { label: string; category: StoreTagCategory; sort_order: number
  * upsertの`.select()`レスポンスをそのまま使えば、書き込みと同じレスポンスなので
  * 必ず反映済みの内容が返る。これを正として使い、再読み込みはしない。
  */
-export async function getOrSeedStoreTags(supabase: SupabaseClient, storeId: string, tenantId: string): Promise<StoreTag[]> {
+export async function getOrSeedStoreTags(
+  supabase: SupabaseClient,
+  storeId: string,
+  tenantId: string,
+  businessCategory: string
+): Promise<StoreTag[]> {
   const existing = await fetchStoreTags(supabase, storeId);
   if (existing.length > 0) return existing;
 
-  const { data: presets } = await supabase
-    .from("tags_master")
-    .select("label, category, sort_order")
-    .order("category")
-    .order("sort_order")
-    .returns<PresetRow[]>();
-  if (!presets || presets.length === 0) return [];
+  const presets = await fetchPresetRows(supabase, businessCategory);
+  if (presets.length === 0) return [];
 
   const { data: inserted } = await supabase
     .from("store_tags")
@@ -74,12 +74,32 @@ export function byCategory(tags: StoreTag[], category: StoreTagCategory): string
   return tags.filter((t) => t.category === category).map((t) => t.label);
 }
 
-/** 設定（アンケート項目）「プリセットに戻す」の参照元 */
-export async function getTagPresets(supabase: SupabaseClient): Promise<{ good: string[]; improve: string[] }> {
-  const { data } = await supabase.from("tags_master").select("label, category, sort_order").order("category").order("sort_order").returns<PresetRow[]>();
-  const presets = data ?? [];
+/**
+ * 設定（アンケート項目）「プリセットに戻す」の参照元。
+ * 店舗の業態に対応するプリセットだけを返す（2026-08-21、業態別プリセットの導入）。
+ */
+export async function getTagPresets(supabase: SupabaseClient, businessCategory: string): Promise<{ good: string[]; improve: string[] }> {
+  const presets = await fetchPresetRows(supabase, businessCategory);
   return {
     good: presets.filter((p) => p.category === "good").map((p) => p.label),
     improve: presets.filter((p) => p.category === "improve").map((p) => p.label),
   };
+}
+
+/**
+ * tags_master から、その業態のプリセットを並び順で取り出す（supabase/0010）。
+ *
+ * tags_master は全店舗共通のマスタ表で、業態ごとに1組ずつ入っている。
+ * 業態の値が想定外（＝マスタに1組も無い）の場合は空を返す。
+ * 店舗のアンケート項目が空になるだけで、来店客の画面は自由記述で成立する。
+ */
+async function fetchPresetRows(supabase: SupabaseClient, businessCategory: string): Promise<PresetRow[]> {
+  const { data } = await supabase
+    .from("tags_master")
+    .select("label, category, sort_order")
+    .eq("business_category", businessCategory)
+    .order("category")
+    .order("sort_order")
+    .returns<PresetRow[]>();
+  return data ?? [];
 }

@@ -50,7 +50,7 @@ function periodSinceIso(period?: "7d" | "14d" | "month" | "90d"): string | undef
   return new Date(`${year}-${month}-01T00:00:00+09:00`).toISOString();
 }
 
-type StoreRow = { id: string; name: string; slug: string; loop_theme: string; google_place_id: string | null };
+type StoreRow = { id: string; name: string; slug: string; loop_theme: string; business_category: string; google_place_id: string | null };
 type ResponseRow = { store_id: string; rating: number; created_at: string };
 type EventRow = { store_id: string; created_at: string };
 type ViewRow = { store_id: string; created_at: string };
@@ -61,7 +61,7 @@ export async function getStoreSummaries(): Promise<StoreSummary[]> {
 
   const { data: stores } = await supabase
     .from("stores")
-    .select("id, name, slug, loop_theme, google_place_id")
+    .select("id, name, slug, loop_theme, business_category, google_place_id")
     .order("name")
     .returns<StoreRow[]>();
   if (!stores || stores.length === 0) return [];
@@ -116,6 +116,7 @@ export async function getStoreSummaries(): Promise<StoreSummary[]> {
       name: store.name,
       slug: store.slug,
       loopTheme: store.loop_theme,
+      businessCategory: store.business_category,
       routeCount,
       routeCountPrev,
       routeRatePercent,

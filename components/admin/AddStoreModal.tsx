@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { LoopButton } from "@/components/rating-flow/Button";
 import { LoopInput } from "@/components/admin/LoopInput";
-import { LOOP_THEMES } from "@/lib/admin/constants";
+import { BUSINESS_CATEGORIES } from "@/lib/admin/constants";
 
 type NewStore = { id: string; name: string; slug: string; loopTheme: string };
 type PlaceSuggestion = { placeId: string; name: string; address: string };
 
 /**
  * 「＋ 店舗を追加」モーダル（Figma『Modal / 店舗を追加 — PC/SP』、2026-08-06 案1で決定。
- * 2026-08-06、天真の依頼でGoogleマップ紐付けを追加時点に統合）。
+ * 2026-08-06、天真の依頼でGoogleマップ紐付けを追加時点に統合。同日、業態と色テーマを分離
+ * したため、ここでは業態だけを選ぶ。色（loop_theme）は「ブランドとテーマ」でいつでも
+ * 選び直せる。ここでは選んだ業態と同じ色を初期値として保存する（あとで自由に変更できる））。
  *
  * URLスラッグは店舗名の入力から400ms後に自動生成される。生成はサーバー側
  * （lib/admin/store-slug.ts、Claude Haikuでローマ字化）。「編集」を押すと直接書き換えられる
@@ -24,7 +26,7 @@ type PlaceSuggestion = { placeId: string; name: string; address: string };
  */
 export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onCreated: (store: NewStore) => void }) {
   const [name, setName] = useState("");
-  const [theme, setTheme] = useState(LOOP_THEMES[1].slug); // 飲食店をデフォルトに（launch-plan.md③、現状の主要業態）
+  const [category, setCategory] = useState(BUSINESS_CATEGORIES[1].slug); // 飲食店をデフォルトに（launch-plan.md③、現状の主要業態）
   const [slug, setSlug] = useState("");
   const [slugLoading, setSlugLoading] = useState(false);
   const [editingSlug, setEditingSlug] = useState(false);
@@ -93,7 +95,8 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          loopTheme: theme,
+          businessCategory: category,
+          loopTheme: category, // 初期値は業態と同じ色。あとで「ブランドとテーマ」から自由に変更できる
           slug: slug.trim(),
           ...(selectedPlace ? { googlePlaceId: selectedPlace.placeId } : {}),
         }),
@@ -139,29 +142,25 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
             業態
           </p>
           <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-            色とアンケート項目のプリセットが決まります
+            アンケート項目のプリセットが決まります。色は後から「ブランドとテーマ」で選べます
           </p>
-          <div className="flex w-full flex-wrap items-start gap-3 pt-1">
-            {LOOP_THEMES.map((t) => {
-              const selected = t.slug === theme;
+          <div className="flex w-full flex-wrap items-start gap-2 pt-1">
+            {BUSINESS_CATEGORIES.map((c) => {
+              const selected = c.slug === category;
               return (
                 <button
-                  key={t.slug}
+                  key={c.slug}
                   type="button"
-                  onClick={() => setTheme(t.slug)}
-                  className="flex w-[calc(50%-6px)] flex-col items-start gap-2 rounded-xl border p-3 md:w-[111.5556px]"
+                  onClick={() => setCategory(c.slug)}
+                  className="flex items-center rounded-full border px-4 py-2"
                   style={{
                     backgroundColor: selected ? "var(--loop-accent-wash)" : "var(--product-color-surface-white)",
                     borderWidth: selected ? 2 : 1,
                     borderColor: selected ? "var(--loop-accent-primary)" : "var(--product-color-border-divider)",
                   }}
                 >
-                  <div className="flex shrink-0 items-start gap-1">
-                    <span className="block size-5 rounded-[6px]" style={{ backgroundColor: t.swatchPrimary }} />
-                    <span className="block size-5 rounded-[6px] border" style={{ backgroundColor: t.swatchLight, borderColor: "rgba(0,0,0,0.06)" }} />
-                  </div>
                   <span className="whitespace-nowrap text-xs" style={{ color: "var(--product-color-text-primary)", fontWeight: selected ? 700 : 500 }}>
-                    {t.label}
+                    {c.label}
                   </span>
                 </button>
               );

@@ -104,17 +104,21 @@ function TagGroup({
 /**
  * 設定（アンケート項目） Figma node 73:1294 PC / 75:1699 SP。
  *
- * プリセットは業態別ではなく tags_master 全体を参照している現状のまま
- * （データ取得は親の app/admin/(dashboard)/settings/survey/page.tsx）。
+ * 2026-08-21、店舗ごとの設定になった。どの店舗を編集しているかは、この画面の上にある
+ * 店舗タブ（StoreSwitchTabs）と、このカードの見出しの店舗名で示す。
+ * プリセットはその店舗の業態のもの（データ取得は親の
+ * app/admin/(dashboard)/settings/survey/page.tsx）。
  */
 export function SettingsSurveyView({
   storeId,
+  storeName,
   initialGoodTags,
   initialImproveTags,
   presetGoodTags,
   presetImproveTags,
 }: {
   storeId: string;
+  storeName: string;
   initialGoodTags: string[];
   initialImproveTags: string[];
   presetGoodTags: string[];
@@ -129,7 +133,7 @@ export function SettingsSurveyView({
         アンケート項目
       </p>
       <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-        プリセットは業態テーマに合わせて用意されています。自由に編集できます（各 最大8個）
+        {storeName}の設定です。プリセットは業態に合わせて用意されています。自由に編集できます（各 最大8個）
       </p>
       <TagGroup
         storeId={storeId}
