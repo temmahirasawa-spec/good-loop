@@ -7,6 +7,8 @@ import { SETTINGS_NAV } from "@/lib/admin/settings-nav";
 /** Loop / Admin Sidebar（Figma node 48:851）— LOOP管理画面のサイドナビ */
 const NAV_ITEMS = [
   { href: "/admin", label: "トップ", match: "/admin" },
+  // 集計（2026-08-22 新設。docs/specs/analytics.md）。トップと回答一覧の間に置く
+  { href: "/admin/analytics", label: "集計", match: "/admin/analytics" },
   { href: "/admin/responses", label: "回答一覧", match: "/admin/responses" },
   // PCはタブで切り替えるので、メニュー画面を経由せず最初のタブへ直接送る（UI検証Q6）
   { href: "/admin/settings/brand", label: "設定", match: "/admin/settings" },

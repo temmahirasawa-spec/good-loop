@@ -18,7 +18,7 @@
    **★1〜3** → 店内向けの改善アンケートへ分岐（＝低評価を公開レビューに出さない）
 
 店舗側には、満足度ヒートマップ・NPS・評価内訳・トレンド・AIインサイト・多店舗の一元管理を持つ
-管理画面が載る予定。**業態別テーマ**（Figma の `Loop Theme` ＝9モードの変数コレクション）で、
+管理画面が載る予定。**業態別テーマ**（Figma の `Industry Theme` ＝業態別モードの変数コレクション）で、
 モード切替だけで全画面の色が変わる設計にする。実装は CSS変数で受ける。
 
 スタック: Next.js 14 App Router / TypeScript (strict) / Tailwind / Supabase (Postgres・Auth・RLS) / Vercel
@@ -159,28 +159,34 @@ Figma でデザイン作業を行う場合は、着手前に必ず `docs/specs/d
 ### デザイントークン
 
 - `app/design-tokens.css` が実装側の参照先。**source of truth は Figma Variables**
-  （変数コレクション `Loop Theme` ＝9モード）。Figma で値が変わったらこのファイルを同期する
+  （変数コレクション `Industry Theme`）。Figma で値が変わったらこのファイルを同期する
 
-**`Loop Theme` の所在（2026-08-04 時点。Figma Plugin API `getLocalVariableCollectionsAsync` で実測）**
+**`Industry Theme` の所在（2026-08-22 時点。Figma Plugin API `getLocalVariableCollectionsAsync` で実測）**
 
 | 項目 | 値 |
 |---|---|
 | ファイル | **`i7z9wGL6BpFoC2kwlGA1lV`（GOOD LOOP 専用ファイル）** |
-| コレクション ID | `VariableCollectionId:29:812` |
-| コレクション key | `704fe2858d736c9a125b703d0c58a53ff0737812` |
-| モード（9業態） | Clinic / Restaurant / Salon / Beauty / Seikotsuin / Fitness / School / Pet / Lodging/Sauna |
-| 変数（8） | `accent/primary` `accent/light` `accent/action` `accent/wash` `accent/on-primary` `cta/primary` `cta/action` `cta/on-primary` |
+| コレクション名 | **`Industry Theme`**（旧称 `Loop Theme`。2026-08-22 の実測で改名を確認） |
+| コレクション ID | `VariableCollectionId:29:812`（改名後も同じ） |
+| モード（10） | Clinic / Restaurant / Salon / Beauty / Seikotsuin / Fitness / School / Pet / Lodging/Sauna ＋ **`Default`** |
+| 変数（7） | `industry/accent/primary` `industry/accent/light` `industry/accent/action` `industry/accent/wash` `industry/accent/on-primary` `industry/cta/primary` `industry/cta/on-primary` |
 
-> **同日中に UTUTU から LOOP 専用ファイルへ移設された。値は72個とも変わっていない。**
-> UTUTU 側の `Loop Theme` は削除済み。UTUTU に残っているのは
-> `Spacing` / `Radius` / `Size` / `Color` / `Brand Core` / `Brand Product` の6コレクション。
+> **⚠ `cta/action` は Figma に存在しない。** 実装側（`app/design-tokens.css`）には
+> `--loop-cta-action` が9業態ぶん定義されているが、**画面のコードでは1箇所も使っていない。**
+> 使う場面が出てきたら、先に Figma に変数を足すこと（実装だけに色を足さない）。
+>
+> **色の値は72個とも一致している**（2026-08-22、9業態 × 7変数を突き合わせて確認）。
+> 食い違っていたのはコレクション名・変数名の接頭辞・`Default` モードの有無・`cta/action` の有無だけ。
+>
+> `Default` モードは業態が決まっていないとき（LP・ログイン・管理画面の共通部分）に使う中立の色。
+> 実装側では `:root` の既定値（Clinic）とは別物なので、**混同しないこと。**
 
 **ファイルの役割分担（2026-08-04 に決定）**
 
 | ファイル | 役割 |
 |---|---|
 | `KGPuY4YVRQW6BMRrulBaFN`（UTUTU） | **共通ライブラリ。** 色・余白・角丸・サイズ・文字・共通コンポーネント。ライブラリとして公開する |
-| `i7z9wGL6BpFoC2kwlGA1lV`（GOOD LOOP） | **LOOP のデザイン実体 ＋ LOOP専用トークン（`Loop Theme`）** |
+| `i7z9wGL6BpFoC2kwlGA1lV`（GOOD LOOP） | **LOOP のデザイン実体 ＋ LOOP専用トークン（`Industry Theme`）** |
 
 GOOD ORDER も他サービスも同じ形にする（基本＝UTUTU、専用＝各プロダクトのファイル）。
 

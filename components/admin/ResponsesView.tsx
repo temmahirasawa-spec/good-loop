@@ -106,7 +106,7 @@ export function ResponsesView({
             key={seg.value}
             type="button"
             onClick={() => updateFilters({ branch: seg.value })}
-            className="flex items-center rounded-full px-5 py-[13px]"
+            className="flex min-h-[44px] items-center rounded-full px-5 py-3"
             style={{ backgroundColor: selected ? "var(--loop-accent-primary)" : "transparent" }}
           >
             <span
