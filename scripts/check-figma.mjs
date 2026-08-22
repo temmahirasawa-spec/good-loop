@@ -49,6 +49,23 @@ const FILE_KEY = "i7z9wGL6BpFoC2kwlGA1lV";
 const SKIP_PAGES = ["---", "MTG"];
 
 /**
+ * 検品しないセクション（2026-08-22、天真の判断）。
+ *
+ * **色やロゴを「いろいろ試す」ためのボード**で、画面ではない。
+ * ここにコンポーネントを使わせると、**色違いを見比べるという目的そのものが壊れる**
+ * （インスタンスにするとコンポーネント側の色になってしまう）。
+ * PC / SP の対を要求しても意味がない。MTG ページと同じ理由で対象から外す。
+ *
+ * **画面を作るセクションをここに入れないこと。** 入れた瞬間、その画面は誰にも検査されなくなる。
+ */
+const SKIP_SECTIONS = [
+  "03 Explore / Color Patterns",
+  "04 Explore / Blue Themes",
+  "05 Explore / Brand Direction",
+  "06 Explore / Logo Refinement",
+];
+
+/**
  * 全セクションに PC / SP の対を要求するページ（画面制作のページ）。
  * ここに無いページでも、サブセクションを作った時点で PC / SP の対が必須になる。
  * 画面制作ページを作ったら、このリストに足すこと。
@@ -161,7 +178,7 @@ async function fetchFile() {
 
 // ── ページ ────────────────────────────────────────────
 function checkPage(page) {
-  const sections = (page.children || []).filter((c) => c.type === "SECTION");
+  const sections = (page.children || []).filter((c) => c.type === "SECTION" && !SKIP_SECTIONS.includes(c.name));
   const loose = (page.children || []).filter((c) => c.type !== "SECTION");
 
   if (!sections.length) {
@@ -348,7 +365,7 @@ function wrapsFullSizeComponent(node) {
  * これは Figma の `Spacing` コレクションの写し。実行時に Figma から取れれば
  * そちらを使い、取れないときだけこの表を使う（下の readSpacingScale）。
  */
-const SPACING_SCALE_FALLBACK = [0, 2, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96, 112, 128];
+const SPACING_SCALE_FALLBACK = [0, 2, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96, 112, 128, 160, 192];
 
 /** 検査する余白のプロパティ */
 const SPACING_PROPS = ["paddingTop", "paddingRight", "paddingBottom", "paddingLeft", "itemSpacing", "counterAxisSpacing"];
@@ -481,6 +498,7 @@ for (const page of pages) {
   checkPage(page);
   for (const sec of page.children || []) {
     if (sec.type !== "SECTION") continue;
+    if (SKIP_SECTIONS.includes(sec.name)) continue;
     const subs = (sec.children || []).filter((c) => c.type === "SECTION");
     if (subs.length) {
       // PC / SP に分かれているなら、どちらであるかは名前で決まる。
