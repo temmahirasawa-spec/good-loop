@@ -7,7 +7,6 @@ import { PUBLIC_APP_URL } from "@/lib/site-url";
 // 動的な集計データを毎リクエスト取得する（静的プリレンダーで数値が固定化されるのを防ぐ）
 export const dynamic = "force-dynamic";
 
-const LOW_READS_THRESHOLD = 20;
 
 /**
  * 設定（店舗・二次元コード管理） Figma node 73:1364 PC / 75:1803 SP。
@@ -29,8 +28,6 @@ export default async function SettingsStoresPage() {
       businessCategory: s.businessCategory,
       googlePlaceLinked: s.googlePlaceLinked,
       qrSvg: await generateQrSvg(`${PUBLIC_APP_URL}/r/${s.slug}`),
-      qrReads: s.qrReads,
-      qrReadsLow: s.qrReads < LOW_READS_THRESHOLD,
     }))
   );
   return (

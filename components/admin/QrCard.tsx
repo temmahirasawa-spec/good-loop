@@ -54,14 +54,10 @@ export function QrCard({
   storeName,
   slug,
   qrSvg,
-  reads,
-  low,
 }: {
   storeName: string;
   slug: string;
   qrSvg: string;
-  reads: number;
-  low?: boolean;
 }) {
   return (
     <div
@@ -72,21 +68,6 @@ export function QrCard({
       <p className="whitespace-nowrap text-[15px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
         {storeName}
       </p>
-      <div className="flex items-center gap-1 whitespace-nowrap">
-        <p className="text-xs font-medium" style={{ color: low ? "var(--product-color-status-warning)" : "var(--product-color-text-secondary)" }}>
-          読み取り {reads}回
-        </p>
-        <p className="text-[11px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
-          （直近7日）
-        </p>
-      </div>
-      {low && (
-        <div className="flex items-start rounded-full px-3 py-1" style={{ backgroundColor: "var(--product-color-status-warning-wash)" }}>
-          <p className="whitespace-nowrap text-[11px] font-medium" style={{ color: "var(--product-color-status-warning)" }}>
-            読み取りが少なくなっています。設置場所をご確認ください
-          </p>
-        </div>
-      )}
       <div className="w-full">
         <LoopButton variant="outline" onClick={() => downloadQr(qrSvg, slug)}>
           画像をダウンロード
@@ -105,14 +86,10 @@ export function QrCardMobile({
   storeName,
   slug,
   qrSvg,
-  reads,
-  low,
 }: {
   storeName: string;
   slug: string;
   qrSvg: string;
-  reads: number;
-  low?: boolean;
 }) {
   return (
     <div
@@ -124,14 +101,6 @@ export function QrCardMobile({
         <p className="text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
           {storeName}
         </p>
-        <p className="text-[11.5px] font-medium" style={{ color: low ? "var(--product-color-status-warning)" : "var(--product-color-text-secondary)" }}>
-          読み取り {reads}回（直近7日）
-        </p>
-        {low && (
-          <p className="text-[11px] font-medium" style={{ color: "var(--product-color-status-warning)" }}>
-            読み取りが少なくなっています
-          </p>
-        )}
         <div className="flex items-start gap-4 text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
           <button type="button" onClick={() => downloadQr(qrSvg, slug)}>
             ダウンロード

@@ -26,8 +26,6 @@ export type SettingsStoreRow = {
   businessCategory: string;
   googlePlaceLinked: boolean;
   qrSvg: string;
-  qrReads: number;
-  qrReadsLow: boolean;
 };
 
 /**
@@ -62,8 +60,10 @@ function CopyIcon() {
  * 投稿画面URLの表示とコピー（Figmaコメント 1895820976）。
  *
  * 以前は幅いっぱいの1つのボタンで、URLの右端にコピーの文字だけを置いていた。
- * 「コピーボタンも遠いし押しにくい。アイコンもつけて。URL欄ながすぎ」との指摘で、
- * URLは `https://` を省いて表示し、コピーは独立した44pxのボタンにした。
+ * 「コピーボタンも遠いし押しにくい。アイコンもつけて。URL欄ながすぎ」との指摘で直した。
+ * **「URL欄ながすぎ」は、欄が間延びしているという意味**（2026-08-23 天真より）。
+ * そのため欄は幅いっぱいに伸ばさず、中身の幅に合わせて縮む形にしている（上限340px）。
+ * コピーは独立した44pxのボタンにして、すぐ右隣に置いた。
  */
 function CopyableUrl({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
@@ -81,11 +81,11 @@ function CopyableUrl({ url }: { url: string }) {
   return (
     <div className="flex w-full items-center gap-2">
       <p
-        className="min-w-0 flex-1 truncate rounded-lg px-3 py-2 text-[12px]"
+        className="min-w-0 max-w-[340px] truncate rounded-lg px-3 py-2 text-[12px]"
         style={{ backgroundColor: "var(--product-color-bg-primary)", color: "var(--product-color-text-secondary)" }}
         title={url}
       >
-        {url.replace(/^https?:\/\//, "")}
+        {url}
       </p>
       <button
         type="button"
@@ -187,12 +187,12 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
         <SettingsCardTitle icon={<StoreIcon />}>二次元コード管理</SettingsCardTitle>
         <div className="hidden w-full flex-wrap items-start gap-4 md:flex">
           {stores.map((store) => (
-            <QrCard key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} reads={store.qrReads} low={store.qrReadsLow} />
+            <QrCard key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} />
           ))}
         </div>
         <div className="flex w-full flex-col items-start gap-3 md:hidden">
           {stores.map((store) => (
-            <QrCardMobile key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} reads={store.qrReads} low={store.qrReadsLow} />
+            <QrCardMobile key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} />
           ))}
         </div>
       </div>

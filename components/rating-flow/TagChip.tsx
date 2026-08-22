@@ -22,7 +22,7 @@ export function TagChip({
       }}
     >
       <span
-        className="whitespace-nowrap text-sm font-bold"
+        className="whitespace-nowrap text-base font-bold"
         style={{ color: selected ? "var(--loop-accent-action)" : "var(--product-color-text-primary)" }}
       >
         {label}
