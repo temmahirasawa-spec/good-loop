@@ -1,11 +1,12 @@
 import { ResponsesView } from "@/components/admin/ResponsesView";
 import { getResponseItems, getStoreSummaries } from "@/lib/admin/queries";
-import type { PeriodCode } from "@/components/admin/PeriodSegment";
+import { DATE_PATTERN, PERIOD_PRESETS, type PeriodPresetCode, type PeriodValue } from "@/lib/admin/period";
 
 // 動的な集計データを毎リクエスト取得する（静的プリレンダーで数値が固定化されるのを防ぐ）
 export const dynamic = "force-dynamic";
 
-const PERIOD_CODES: PeriodCode[] = ["7d", "14d", "month", "90d"];
+const PERIOD_CODES = PERIOD_PRESETS.map((p) => p.code) as PeriodPresetCode[];
+
 const BRANCHES = ["good", "improve"] as const;
 
 /**
@@ -16,18 +17,23 @@ const BRANCHES = ["good", "improve"] as const;
 export default async function AdminResponsesPage({
   searchParams,
 }: {
-  searchParams: { store?: string; stars?: string; branch?: string; period?: string };
+  searchParams: { store?: string; stars?: string; branch?: string; period?: string; from?: string; to?: string };
 }) {
   const rating = searchParams.stars ? Number(searchParams.stars) : undefined;
   const branch = BRANCHES.find((b) => b === searchParams.branch);
-  const period = PERIOD_CODES.find((p) => p === searchParams.period) ?? "7d";
+  const from = searchParams.from && DATE_PATTERN.test(searchParams.from) ? searchParams.from : undefined;
+  const to = searchParams.to && DATE_PATTERN.test(searchParams.to) ? searchParams.to : undefined;
+  const preset = PERIOD_CODES.find((p) => p === searchParams.period) ?? "7d";
+  const period: PeriodValue = from ? { from, to: to ?? from } : { preset };
 
   const [responses, stores] = await Promise.all([
     getResponseItems({
       storeId: searchParams.store || undefined,
       rating: rating && rating >= 1 && rating <= 5 ? rating : undefined,
       branch,
-      period,
+      period: preset,
+      from,
+      to,
     }),
     getStoreSummaries(),
   ]);
