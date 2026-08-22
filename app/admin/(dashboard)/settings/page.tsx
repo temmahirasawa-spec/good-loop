@@ -36,7 +36,7 @@ export default function AdminSettingsPage() {
         <Link
           key={href}
           href={href}
-          className="flex flex-col items-start gap-[10px] rounded-2xl p-4"
+          className="flex flex-col items-start gap-2 rounded-2xl px-3 py-4"
           style={{ backgroundColor: "var(--product-color-surface-white)" }}
         >
           <Icon />

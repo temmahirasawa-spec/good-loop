@@ -89,7 +89,7 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
   const activePreset = "preset" in value ? value.preset : null;
 
   const calendar = (
-    <div className="flex flex-col items-start gap-[10px]">
+    <div className="flex flex-col items-start gap-2">
       <div className="flex items-center gap-4">
         <button
           type="button"
@@ -154,7 +154,7 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
             key={preset.code}
             type="button"
             onClick={() => applyPreset(preset.code)}
-            className="flex min-h-11 items-center rounded-full px-4 py-2 md:min-h-0 md:rounded-[10px] md:px-3 md:py-[9px]"
+            className="flex min-h-11 items-center rounded-full px-4 py-2 md:min-h-0 md:rounded-[10px] md:px-3 md:py-2"
             style={{
               backgroundColor: active ? "var(--loop-accent-wash)" : "transparent",
               border: active ? "none" : "1px solid var(--product-color-border-default)",
@@ -167,7 +167,7 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
         );
       })}
       <span
-        className="flex min-h-11 items-center rounded-full px-4 py-2 md:min-h-0 md:rounded-[10px] md:px-3 md:py-[9px]"
+        className="flex min-h-11 items-center rounded-full px-4 py-2 md:min-h-0 md:rounded-[10px] md:px-3 md:py-2"
         style={{
           backgroundColor: from ? "var(--loop-accent-wash)" : "transparent",
           border: from ? "none" : "1px solid var(--product-color-border-default)",
