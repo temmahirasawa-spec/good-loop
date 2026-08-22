@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SETTINGS_NAV } from "@/lib/admin/settings-nav";
 
 /** Loop / Admin Sidebar（Figma node 48:851）— LOOP管理画面のサイドナビ */
 const NAV_ITEMS = [
@@ -47,6 +48,33 @@ export function AdminSidebar({ storeName }: { storeName: string }) {
           </Link>
         );
       })}
+
+      {/*
+        設定の下層ページ。SPのドロワーだけに入れていて、PCのサイドバーに入れ忘れていた
+        （2026-08-22 天真の指摘）。一覧の実体は lib/admin/settings-nav.ts に一本化した。
+      */}
+      <div className="mt-1 flex w-full flex-col items-start gap-0.5 border-l pl-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
+        {SETTINGS_NAV.map((item) => {
+          const active = pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex min-h-9 w-full shrink-0 items-center rounded-[10px] px-3 py-1.5"
+            >
+              <span
+                className="flex-1 text-[12.5px]"
+                style={{
+                  fontWeight: active ? 700 : 400,
+                  color: active ? "var(--loop-accent-action)" : "var(--product-color-text-secondary)",
+                }}
+              >
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
