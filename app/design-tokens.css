@@ -1,12 +1,17 @@
 /*
  * GOOD LOOP デザイントークン — 業態別テーマ
  *
- * 出典: GOOD LOOP 専用ファイル `i7z9wGL6BpFoC2kwlGA1lV` / 変数コレクション `Loop Theme`
+ * 出典: GOOD LOOP 専用ファイル `i7z9wGL6BpFoC2kwlGA1lV` / 変数コレクション `Industry Theme`（旧称 `Loop Theme`）
  *       （VariableCollectionId:29:812 / key 704fe2858d736c9a125b703d0c58a53ff0737812）
  *       2026-08-04 時点の値。
  *       Figma Plugin API `getLocalVariableCollectionsAsync` による実測値。推測値は無い。
  *
- * `Loop Theme` は同日 UTUTU から LOOP 専用ファイルへ移設された。**値は72個とも変わっていない。**
+ * このコレクションは同日 UTUTU から LOOP 専用ファイルへ移設された。**値は72個とも変わっていない。**
+ *
+ * **2026-08-22 再実測。** 9業態 × 7変数の色は全て一致。ただし Figma 側では
+ * コレクション名が `Industry Theme`、変数名が `industry/accent/primary` のような接頭辞つきに変わり、
+ * 業態に依らない `Default` モードが増えている。**`cta/action` は Figma に存在しない**
+ * （下の `--loop-cta-action` は実装だけにある。画面のコードでは未使用）。
  * UTUTU は共通ライブラリ（色・余白・角丸・サイズ・文字・共通コンポーネント）、
  * LOOP 専用ファイルは LOOP のデザイン実体と LOOP専用トークン、という役割分担。
  *
@@ -35,7 +40,7 @@
  *      （CLAUDE.md 4章「業態別テーマはモード切替で成立させる」）
  *   3. 入れ子が効くので、多店舗の管理画面で店舗カードごとに業態色を出せる
  *
- * 属性が無いときは Clinic になる。`Loop Theme` の先頭モードだからで、
+ * 属性が無いときは Clinic になる。コレクションの先頭モードだからで、
  * 「クリニックを主力業態と決めた」という意味ではない。変えるならこのファイルの
  * 最初のセレクタ1行だけを直せばよい。
  *
