@@ -39,6 +39,10 @@
   /* 設定メニューのアイコンで、グリーンと組み合わせる黄色（2026-08-22 新設。Figma `icon/yellow`）。
      status-warning（警告）とは別物。警告の意味では使わないこと */
   --product-color-icon-yellow: #ffc53d;
+  /* 集計画面の「改善点」の棒（2026-08-22 新設。Figma `secondary/primary`）。
+     良かった点は業態色（--loop-accent-primary）で、改善点はこの黄色で描き分ける。
+     警告の意味では使わない（status-warning・icon-yellow とも別物） */
+  --product-color-secondary-primary: #ffc32b;
 
   /* ── 角丸 ──────────────────────────────────────────── */
   /* radius/sm は2026-08-22に新設（UI検証Q4。ボタンの角丸を16→8にする天真の指示） */

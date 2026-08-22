@@ -209,3 +209,104 @@ export async function getResponseItems(
     freeText: r.free_text ?? undefined,
   }));
 }
+
+/* ────────────────────────────────────────────────────────────────
+ * 集計（アンケート項目ごと）— docs/specs/analytics.md
+ * ──────────────────────────────────────────────────────────────── */
+
+export type TagAggregate = {
+  tagId: string;
+  label: string;
+  category: "good" | "improve";
+  /** その項目が選ばれた回数 */
+  count: number;
+  /** 同じ分岐の回答数に対する割合（％）。分母が0のときは null */
+  percent: number | null;
+};
+
+export type TagAggregates = {
+  good: TagAggregate[];
+  improve: TagAggregate[];
+  /** 割合の分母。良かった点＝★4〜5、改善点＝★1〜3（語彙が違うので分母を混ぜない） */
+  goodResponseCount: number;
+  improveResponseCount: number;
+  responseCount: number;
+  /**
+   * 期間を無視した、その店舗の全回答数。
+   * 「まだ回答がありません（0件）」と「この期間の回答はありません」を区別するために使う。
+   */
+  responseCountAllTime: number;
+};
+
+type StoreTagRow = { id: string; label: string; category: "good" | "improve"; sort_order: number };
+type BranchRow = { id: string; branch: "good" | "improve" };
+type ResponseTagRow = { tag_id: string; response_id: string };
+
+/**
+ * 1店舗ぶんの、アンケート項目ごとの集計。
+ *
+ * 店舗ごとに項目（store_tags）が違うため、**複数店舗をまたいで合計しない**
+ * （「料理・味」と「味」は別項目なので、横並びに足すと別物を合算してしまう）。
+ * docs/specs/analytics.md 1章の決定。
+ *
+ * 新しいSQLは要らない。survey_responses × response_tags × store_tags の結合で出せる。
+ * RLSはログイン中セッションのクライアントが担保する（このファイル冒頭のコメント参照）。
+ */
+export async function getTagAggregates(options: {
+  storeId: string;
+  period?: "7d" | "14d" | "month" | "90d";
+  from?: string;
+  to?: string;
+}): Promise<TagAggregates> {
+  const supabase = await createSupabaseServerClient();
+
+  const custom = rangeToIso({ from: options.from, to: options.to });
+  const since = custom.since ?? (options.from || options.to ? undefined : periodSinceIso(options.period));
+
+  let responseQuery = supabase.from("survey_responses").select("id, branch").eq("store_id", options.storeId);
+  if (since) responseQuery = responseQuery.gte("created_at", since);
+  if (custom.until) responseQuery = responseQuery.lt("created_at", custom.until);
+
+  const [{ data: tags }, { data: responses }, { count: allTime }] = await Promise.all([
+    supabase
+      .from("store_tags")
+      .select("id, label, category, sort_order")
+      .eq("store_id", options.storeId)
+      .order("sort_order")
+      .returns<StoreTagRow[]>(),
+    responseQuery.returns<BranchRow[]>(),
+    supabase.from("survey_responses").select("id", { count: "exact", head: true }).eq("store_id", options.storeId),
+  ]);
+
+  const responseIds = (responses ?? []).map((r) => r.id);
+  const { data: links } = responseIds.length
+    ? await supabase.from("response_tags").select("tag_id, response_id").in("response_id", responseIds).returns<ResponseTagRow[]>()
+    : { data: [] as ResponseTagRow[] };
+
+  const counts = new Map<string, number>();
+  for (const link of links ?? []) counts.set(link.tag_id, (counts.get(link.tag_id) ?? 0) + 1);
+
+  const goodResponseCount = (responses ?? []).filter((r) => r.branch === "good").length;
+  const improveResponseCount = (responses ?? []).filter((r) => r.branch === "improve").length;
+
+  const toAggregate = (tag: StoreTagRow, denominator: number): TagAggregate => {
+    const count = counts.get(tag.id) ?? 0;
+    return {
+      tagId: tag.id,
+      label: tag.label,
+      category: tag.category,
+      count,
+      percent: denominator === 0 ? null : Math.round((count / denominator) * 100),
+    };
+  };
+  const byCountDesc = (a: TagAggregate, b: TagAggregate) => b.count - a.count;
+
+  return {
+    good: (tags ?? []).filter((t) => t.category === "good").map((t) => toAggregate(t, goodResponseCount)).sort(byCountDesc),
+    improve: (tags ?? []).filter((t) => t.category === "improve").map((t) => toAggregate(t, improveResponseCount)).sort(byCountDesc),
+    goodResponseCount,
+    improveResponseCount,
+    responseCount: responses?.length ?? 0,
+    responseCountAllTime: allTime ?? 0,
+  };
+}

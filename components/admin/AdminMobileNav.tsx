@@ -13,6 +13,8 @@ import { SETTINGS_NAV } from "@/lib/admin/settings-nav";
  */
 const NAV_ITEMS = [
   { href: "/admin", label: "トップ" },
+  // 集計（2026-08-22 新設。docs/specs/analytics.md）
+  { href: "/admin/analytics", label: "集計" },
   { href: "/admin/responses", label: "回答一覧" },
   { href: "/admin/settings", label: "設定" },
 ];
