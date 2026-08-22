@@ -20,7 +20,7 @@ export type SettingsNavItem = {
 
 export const SETTINGS_NAV: SettingsNavItem[] = [
   { href: "/admin/settings/brand", label: "ブランドとテーマ", description: "お客様に見える色とロゴ", icon: "brand" },
-  { href: "/admin/settings/stores", label: "店舗・二次元コード管理", description: "店舗の追加と二次元コード", icon: "store" },
+  { href: "/admin/settings/stores", label: "店舗管理", description: "店舗の追加と二次元コード", icon: "store" },
   { href: "/admin/settings/pop", label: "卓上POPを作る", description: "印刷して席に置く", icon: "store" },
   { href: "/admin/settings/survey", label: "アンケート項目", description: "お客様に選んでもらう項目", icon: "survey" },
   { href: "/admin/settings/notifications", label: "通知", description: "低評価が来たときのメール", icon: "notification" },

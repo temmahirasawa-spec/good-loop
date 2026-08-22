@@ -204,7 +204,7 @@ export function AnalyticsView({
           className="w-full shrink-0 rounded-lg px-4 py-3"
           style={{ backgroundColor: "var(--loop-accent-wash)" }}
         >
-          <p className="text-xs md:text-[13px]" style={{ color: "var(--product-color-text-secondary)" }}>
+          <p className="text-xs md:text-[13px]" style={{ color: "var(--product-color-text-primary)" }}>
             {NOTE}
           </p>
         </div>

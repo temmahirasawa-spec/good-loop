@@ -105,7 +105,7 @@ export function SettingsBrandView({
               ロゴをアップロード
             </LoopButton>
             <p className="text-xs font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
-              推奨: 正方形・PNG（背景透過）。未設定の間はブランド名の文字がロゴの代わりに表示されます
+              PNG（背景透過）がおすすめです。横長でも縦長でも構いません。未設定の間はブランド名の文字がロゴの代わりに表示されます
             </p>
           </div>
         </div>
@@ -122,7 +122,7 @@ export function SettingsBrandView({
           テーマ
         </p>
         <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-          お客様側の画面の色を選べます。業態とは関係なく、お好きな色を選んでいただけます
+          お客様側の画面の色を選べます
         </p>
         <div className="flex w-full flex-col flex-wrap items-start gap-2 pt-1 md:flex-row">
           {LOOP_THEMES.map((t) => {

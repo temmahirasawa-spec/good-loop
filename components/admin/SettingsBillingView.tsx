@@ -142,7 +142,7 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
               店舗枠の追加を承りました
             </p>
             <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-              担当者が確認のうえご連絡します。手続きが済むと、店舗・二次元コード管理から店舗を追加できるようになります
+              担当者が確認のうえご連絡します。手続きが済むと、店舗管理から店舗を追加できるようになります
             </p>
           </div>
         ) : (

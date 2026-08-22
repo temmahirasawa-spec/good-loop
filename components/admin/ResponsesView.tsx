@@ -10,7 +10,6 @@ import type { ResponseItem } from "@/lib/admin/types";
 type StoreOption = { id: string; name: string };
 type Filters = {
   store: string;
-  stars: string;
   branch: "good" | "improve" | "all";
   /** 期間。プリセットか、任意の期間（YYYY-MM-DD）のどちらか */
   period: PeriodValue;
@@ -21,8 +20,6 @@ const BRANCH_SEGMENTS: { value: "all" | "good" | "improve"; label: string }[] = 
   { value: "good", label: "★5・4" },
   { value: "improve", label: "★3・2・1" },
 ];
-
-const STAR_OPTIONS = [5, 4, 3, 2, 1];
 
 /** 見た目は据え置きのまま、実際のvalueを持つセレクト（矢印は自前で描き、ブラウザ既定の矢印は消す） */
 function FilterSelect({
@@ -85,7 +82,6 @@ export function ResponsesView({
     const merged = { ...filters, ...next };
     const params = new URLSearchParams();
     if (merged.store) params.set("store", merged.store);
-    if (merged.stars) params.set("stars", merged.stars);
     if (merged.branch !== "all") params.set("branch", merged.branch);
     if ("preset" in merged.period) {
       if (merged.period.preset !== "7d") params.set("period", merged.period.preset);
@@ -152,13 +148,6 @@ export function ResponsesView({
           placeholder="すべての店舗"
           widthClassName="md:w-[180px]"
           options={storeOptions.map((s) => ({ value: s.id, label: s.name }))}
-        />
-        <FilterSelect
-          value={filters.stars}
-          onChange={(v) => updateFilters({ stars: v })}
-          placeholder="すべての評価"
-          widthClassName="md:w-[150px]"
-          options={STAR_OPTIONS.map((n) => ({ value: String(n), label: "★".repeat(n) }))}
         />
         <div className="hidden md:flex">{routeSegment}</div>
       </div>
