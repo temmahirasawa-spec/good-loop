@@ -7,8 +7,11 @@ import { SETTINGS_NAV, tabLabel } from "@/lib/admin/settings-nav";
 /**
  * Loop / Settings Tab Bar（Figma node 79:1541 等）— 設定画面のタブ切り替え。URLで状態を持つ。
  *
- * 2026-08-22から**PC専用**（docs/ui-review.md Q6）。スマホでは6タブの約45%が画面の外に
- * あり、しかも横スクロールできる印が無かったため、`/admin/settings` のメニュー画面に置き換えた。
+ * 2026-08-22にPC専用にした（docs/ui-review.md Q6。スマホでは6タブの約45%が画面の外にあり、
+ * 横スクロールできる印が無かったため）。**2026-08-23、天真の指示でSPでもタブに戻した**
+ * （Figmaコメント 1895812707「上部に各設定画面へのタブを付けてください」。一度動かして判断したい、とのこと）。
+ * SPでは横スクロールになるので、端が切れて見えることで「まだ先がある」と分かるよう、
+ * 右端に余白を残している。メニュー画面（`/admin/settings`）は残してあるので、戻すのは1行。
  *
  * 同日、**アクティブの示し方をベタ塗りのピルから下線に変えた**（天真のFigmaコメント）。
  * ピルのままだとボタンと見分けがつかないため。ピル型は `Loop / Segment Chip`
@@ -19,7 +22,7 @@ export function SettingsTabBar() {
   const pathname = usePathname();
 
   return (
-    <div className="hidden w-full shrink-0 items-start gap-2 overflow-x-auto md:flex">
+    <div className="flex w-full shrink-0 items-start gap-2 overflow-x-auto pr-6 md:pr-0">
       {SETTINGS_NAV.map((tab) => {
         const active = pathname.startsWith(tab.href);
         return (
