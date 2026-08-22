@@ -101,7 +101,7 @@ export function SettingsBrandView({
           </div>
           <div className="flex flex-1 flex-col items-start gap-2">
             <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleFileSelect} className="hidden" />
-            <LoopButton variant="primary" onClick={() => fileInputRef.current?.click()}>
+            <LoopButton variant="outline" onClick={() => fileInputRef.current?.click()}>
               ロゴをアップロード
             </LoopButton>
             <p className="text-xs font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>

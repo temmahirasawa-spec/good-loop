@@ -24,6 +24,10 @@ export async function POST() {
   }
 
   const quota = await getStoreQuotaState();
+  if (quota.quota === null) {
+    // 枠が読み取れていない状態で申し込むと、記録される数字が事実と食い違う
+    return NextResponse.json({ error: "店舗枠を取得できませんでした。時間をおいてお試しください。" }, { status: 503 });
+  }
   if (quota.hasPendingRequest) {
     return NextResponse.json({ error: "すでに申し込み済みです。担当者からのご連絡をお待ちください。" }, { status: 409 });
   }

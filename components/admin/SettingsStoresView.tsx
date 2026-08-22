@@ -10,7 +10,8 @@ import { BILLING, formatYen } from "@/lib/admin/constants";
 
 /** 店舗枠の状態（lib/admin/store-quota.ts）。表示に必要な分だけ受け取る */
 export type StoreQuotaProps = {
-  quota: number;
+  /** 契約している店舗数。読み取れなかったときは null（数字を出さない） */
+  quota: number | null;
   used: number;
   canAddStore: boolean;
 };
@@ -94,7 +95,7 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
             契約中の店舗枠
           </p>
           <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-            {quota.used} / {quota.quota} 店舗
+            {quota.quota === null ? "—" : `${quota.used} / ${quota.quota} 店舗`}
           </p>
         </div>
 
@@ -105,12 +106,15 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
         ) : (
           <div className="flex w-full flex-col items-start gap-3 rounded-xl p-4" style={{ backgroundColor: "var(--product-color-bg-primary)" }}>
             <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-              店舗枠がいっぱいです。店舗を追加するには、お支払い画面で店舗枠を追加してください（追加1店舗につき月額
-              {formatYen(BILLING.additionalStoreMonthlyYen)}）
+              {quota.quota === null
+                ? "店舗枠を取得できませんでした。時間をおいてページを開き直してください"
+                : `店舗枠がいっぱいです。店舗を追加するには、お支払い画面で店舗枠を追加してください（追加1店舗につき月額${formatYen(BILLING.additionalStoreMonthlyYen)}）`}
             </p>
-            <LoopButton variant="primary" onClick={() => router.push("/admin/settings/billing")}>
-              お支払いへ進む
-            </LoopButton>
+            {quota.quota !== null && (
+              <LoopButton variant="primary" onClick={() => router.push("/admin/settings/billing")}>
+                お支払いへ進む
+              </LoopButton>
+            )}
           </div>
         )}
       </div>

@@ -48,24 +48,16 @@ export function WithdrawModal({
 
         <div className="flex w-full items-center justify-between pt-2">
           <div className="w-fit">
-            <LoopButton variant="primary" onClick={onClose}>
+            <LoopButton variant="outline" onClick={onClose}>
               退会せずに続ける
             </LoopButton>
           </div>
-          <button
-            type="button"
-            disabled={!canConfirm}
-            onClick={onConfirm}
-            className="flex h-11 items-center rounded-xl border px-4"
-            style={{
-              borderColor: "var(--product-color-status-warning)",
-              opacity: canConfirm ? 1 : 0.4,
-            }}
-          >
-            <span className="text-[13px] font-bold" style={{ color: "var(--product-color-status-warning)" }}>
+          <div className="w-fit">
+            {/* 取り消せない操作なので danger（白地＋赤の枠）。UI検証Q4で決めた体系 */}
+            <LoopButton variant="danger" disabled={!canConfirm} onClick={onConfirm}>
               {confirming ? "処理中…" : "退会する"}
-            </span>
-          </button>
+            </LoopButton>
+          </div>
         </div>
       </div>
     </div>

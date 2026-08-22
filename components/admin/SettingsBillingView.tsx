@@ -11,7 +11,7 @@ const INVOICES = [
   { month: "2026年5月", amount: "9,800円" },
 ];
 
-type QuotaProps = { quota: number; used: number; hasPendingRequest: boolean };
+type QuotaProps = { quota: number | null; used: number; hasPendingRequest: boolean };
 
 /**
  * 設定（お支払い） Figma node 73:1399 PC / 75:1862 SP の表示部分。
@@ -33,8 +33,9 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const extraStores = Math.max(0, quota.quota - BILLING.includedStores);
-  const monthlyTotal = BILLING.planMonthlyYen + extraStores * BILLING.additionalStoreMonthlyYen;
+  // 枠が読み取れなかったときは金額を計算できない（数字を出さず「—」にする）
+  const extraStores = quota.quota === null ? null : Math.max(0, quota.quota - BILLING.includedStores);
+  const monthlyTotal = extraStores === null ? null : BILLING.planMonthlyYen + extraStores * BILLING.additionalStoreMonthlyYen;
   const requested = done || quota.hasPendingRequest;
 
   async function submit() {
@@ -105,7 +106,7 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
             </p>
           </div>
         ))}
-        <LoopButton variant="primary">請求履歴をすべて見る</LoopButton>
+        <LoopButton variant="outline">請求履歴をすべて見る</LoopButton>
       </div>
 
       {/* ── 店舗枠（2026-08-21 追加） ───────────────────────── */}
@@ -122,7 +123,7 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
             契約中の店舗枠
           </p>
           <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-            {quota.used} / {quota.quota} 店舗
+            {quota.quota === null ? "—" : `${quota.used} / ${quota.quota} 店舗`}
           </p>
         </div>
         <div className="flex w-full items-center justify-between border-b py-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
@@ -130,7 +131,7 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
             現在の月額
           </p>
           <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-            {formatYen(monthlyTotal)}
+            {monthlyTotal === null ? "—" : formatYen(monthlyTotal)}
           </p>
         </div>
 
@@ -144,7 +145,7 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
             </p>
           </div>
         ) : (
-          <LoopButton variant="primary" onClick={() => setConfirming(true)}>
+          <LoopButton variant="primary" disabled={quota.quota === null} onClick={() => setConfirming(true)}>
             ＋ 店舗枠を追加する
           </LoopButton>
         )}
@@ -166,8 +167,9 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
               店舗枠を追加する
             </p>
             <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-              店舗枠を {quota.quota} 店舗から {quota.quota + 1} 店舗に増やします。月額は {formatYen(monthlyTotal)} から
-              {formatYen(monthlyTotal + BILLING.additionalStoreMonthlyYen)} になります。
+              店舗枠を {quota.quota} 店舗から {(quota.quota ?? 0) + 1} 店舗に増やします。月額は{" "}
+              {monthlyTotal === null ? "—" : formatYen(monthlyTotal)} から{" "}
+              {monthlyTotal === null ? "—" : formatYen(monthlyTotal + BILLING.additionalStoreMonthlyYen)} になります。
               お申し込み後、担当者が確認のうえご連絡します
             </p>
             {error && (

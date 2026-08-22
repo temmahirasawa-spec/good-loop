@@ -38,6 +38,8 @@
   --product-color-status-error-subtle: #fceeee;
 
   /* ── 角丸 ──────────────────────────────────────────── */
+  /* radius/sm は2026-08-22に新設（UI検証Q4。ボタンの角丸を16→8にする天真の指示） */
+  --product-radius-sm: 8px;
   --product-radius-md: 12px;
   --product-radius-lg: 16px;
   --product-radius-full: 999px;

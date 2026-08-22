@@ -87,7 +87,7 @@ export function QrCard({
         </div>
       )}
       <div className="w-full">
-        <LoopButton variant="primary" onClick={() => downloadQr(qrSvg, slug)}>
+        <LoopButton variant="outline" onClick={() => downloadQr(qrSvg, slug)}>
           画像をダウンロード
         </LoopButton>
       </div>
