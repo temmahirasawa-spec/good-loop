@@ -12,9 +12,12 @@ import { BrandIcon } from "@/components/admin/SettingsMenuIcons";
 /**
  * 設定（ブランドとテーマ） Figma node 69:1261 PC / 75:1613 SP。
  *
+ * 保存はブランドとテーマで分かれている（2026-08-23、Figmaコメント 1895812528
+ * 「全体の保存になる位置になっているので、ブランド、テーマそれぞれに保存ボタンをつける配置に」）。
+ *
  * ロゴは選択直後にプレビューし、「保存する」を押した時点でSupabase Storage
  * （store-logosバケット、supabase/0005参照）にアップロードしてから stores を更新する。
- * ブランド名・テーマも同じ「保存する」でまとめて保存する（Figmaに個別保存ボタンは無い）。
+ * ブランド名はロゴと同じボタン、テーマは別のボタンで保存する。
  */
 export function SettingsBrandView({
   storeId,
@@ -34,8 +37,8 @@ export function SettingsBrandView({
   const [theme, setTheme] = useState(initialTheme);
   const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl);
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
+  const [saving, setSaving] = useState<"brand" | "theme" | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saved-brand" | "saved-theme" | "error">("idle");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -45,8 +48,9 @@ export function SettingsBrandView({
     setLogoUrl(URL.createObjectURL(file));
   }
 
-  async function handleSave() {
-    setSaving(true);
+  /** ブランド（ロゴ・ブランド名）の保存 */
+  async function handleSaveBrand() {
+    setSaving("brand");
     setSaveState("idle");
     const supabase = createSupabaseBrowserClient();
 
@@ -56,7 +60,7 @@ export function SettingsBrandView({
       const path = `${tenantId}/${storeId}/logo.${ext}`;
       const { error: uploadError } = await supabase.storage.from("store-logos").upload(path, logoFile, { upsert: true });
       if (uploadError) {
-        setSaving(false);
+        setSaving(null);
         setSaveState("error");
         return;
       }
@@ -67,18 +71,52 @@ export function SettingsBrandView({
 
     const { error: updateError } = await supabase
       .from("stores")
-      .update({ name: brandName, loop_theme: theme, logo_url: nextLogoUrl })
+      .update({ name: brandName, logo_url: nextLogoUrl })
       .eq("id", storeId);
 
-    setSaving(false);
+    setSaving(null);
     if (updateError) {
       setSaveState("error");
       return;
     }
     setLogoUrl(nextLogoUrl);
     setLogoFile(null);
-    setSaveState("saved");
+    setSaveState("saved-brand");
     router.refresh();
+  }
+
+  /** テーマ（色）の保存 */
+  async function handleSaveTheme() {
+    setSaving("theme");
+    setSaveState("idle");
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.from("stores").update({ loop_theme: theme }).eq("id", storeId);
+    setSaving(null);
+    setSaveState(error ? "error" : "saved-theme");
+    if (!error) router.refresh();
+  }
+
+  /** 各カードの下に置く保存ボタンと結果表示 */
+  function SaveRow({ section, onSave }: { section: "brand" | "theme"; onSave: () => void }) {
+    return (
+      <div className="flex w-full items-center gap-3 pt-1">
+        <div className="w-fit">
+          <LoopButton variant="primary" onClick={onSave} disabled={saving !== null}>
+            {saving === section ? "保存中…" : "保存する"}
+          </LoopButton>
+        </div>
+        {saveState === `saved-${section}` && (
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
+            保存しました
+          </p>
+        )}
+        {saveState === "error" && saving === null && (
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-status-error)" }}>
+            保存できませんでした。もう一度お試しください。
+          </p>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -115,6 +153,7 @@ export function SettingsBrandView({
           </p>
           <LoopInput value={brandName} onChange={setBrandName} />
         </div>
+        <SaveRow section="brand" onSave={handleSaveBrand} />
       </div>
 
       <div className="flex w-full flex-col items-start gap-4 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
@@ -161,24 +200,7 @@ export function SettingsBrandView({
             );
           })}
         </div>
-      </div>
-
-      <div className="flex w-full items-center gap-3">
-        <div className="w-fit">
-          <LoopButton variant="primary" onClick={handleSave} disabled={saving}>
-            {saving ? "保存中…" : "保存する"}
-          </LoopButton>
-        </div>
-        {saveState === "saved" && (
-          <p className="text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
-            保存しました
-          </p>
-        )}
-        {saveState === "error" && (
-          <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-status-warning)" }}>
-            保存できませんでした。もう一度お試しください。
-          </p>
-        )}
+        <SaveRow section="theme" onSave={handleSaveTheme} />
       </div>
     </>
   );

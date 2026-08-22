@@ -26,7 +26,7 @@ export function SettingsTabBar() {
           <Link
             key={tab.href}
             href={tab.href}
-            className="flex shrink-0 items-center px-4 py-3"
+            className="flex min-h-[44px] shrink-0 items-center px-4"
             style={{
               borderBottom: active ? "2px solid var(--loop-accent-action)" : "2px solid transparent",
             }}

@@ -122,14 +122,15 @@ export function StoreEditModal({
                   key={c.slug}
                   type="button"
                   onClick={() => setCategory(c.slug)}
-                  className="flex items-center rounded-full border px-4 py-2"
+                  className="flex min-h-[44px] items-center rounded-full border px-5 py-3"
                   style={{
                     backgroundColor: selected ? "var(--loop-accent-wash)" : "var(--product-color-surface-white)",
                     borderWidth: selected ? 2 : 1,
                     borderColor: selected ? "var(--loop-accent-primary)" : "var(--product-color-border-divider)",
                   }}
                 >
-                  <span className="whitespace-nowrap text-xs" style={{ color: "var(--product-color-text-primary)", fontWeight: selected ? 700 : 500 }}>
+                  {/* ひとまわり大きく（2026-08-23、Figmaコメント 1895821748「タグのサイズが小さすぎる」） */}
+                  <span className="whitespace-nowrap text-sm" style={{ color: "var(--product-color-text-primary)", fontWeight: selected ? 700 : 500 }}>
                     {c.label}
                   </span>
                 </button>
