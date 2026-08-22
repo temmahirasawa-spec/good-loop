@@ -8,7 +8,6 @@ import { StoreIcon } from "@/components/admin/SettingsMenuIcons";
 import { StoreEditModal } from "@/components/admin/StoreEditModal";
 import { AddStoreModal } from "@/components/admin/AddStoreModal";
 import { QrCard, QrCardMobile } from "@/components/admin/QrCard";
-import { BILLING, formatYen } from "@/lib/admin/constants";
 
 /** 店舗枠の状態（lib/admin/store-quota.ts）。表示に必要な分だけ受け取る */
 export type StoreQuotaProps = {
@@ -97,7 +96,7 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
   return (
     <>
       <div className="flex w-full flex-col items-start gap-4 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
-        <SettingsCardTitle icon={<StoreIcon />}>店舗・二次元コード管理</SettingsCardTitle>
+        <SettingsCardTitle icon={<StoreIcon />}>店舗管理</SettingsCardTitle>
         <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
           店舗ごとに Googleマップ上のお店を店名で検索して紐付けます。紐付けると、お客様をクチコミ投稿画面へ直接誘導できます。
           印刷して店舗に置くだけで、アンケートとレビュー送客が始まります
@@ -147,26 +146,29 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
             <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
               {quota.quota === null
                 ? "店舗枠を取得できませんでした。時間をおいてページを開き直してください"
-                : `店舗枠がいっぱいです。店舗を追加するには、お支払い画面で店舗枠を追加してください（追加1店舗につき月額${formatYen(BILLING.additionalStoreMonthlyYen)}）`}
+                : "店舗枠がいっぱいです。店舗を増やす手続きは、アカウント管理からご案内します"}
             </p>
             {quota.quota !== null && (
               <LoopButton variant="primary" onClick={() => router.push("/admin/settings/billing")}>
-                お支払いへ進む
+                アカウント管理へ
               </LoopButton>
             )}
           </div>
         )}
       </div>
 
-      <div className="flex w-full flex-wrap items-start gap-4">
-        {stores.map((store) => (
-          <QrCard key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} reads={store.qrReads} low={store.qrReadsLow} />
-        ))}
-      </div>
-      <div className="flex w-full flex-col items-start gap-3 md:hidden">
-        {stores.map((store) => (
-          <QrCardMobile key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} reads={store.qrReads} low={store.qrReadsLow} />
-        ))}
+      <div className="flex w-full flex-col items-start gap-4">
+        <SettingsCardTitle icon={<StoreIcon />}>二次元コード管理</SettingsCardTitle>
+        <div className="hidden w-full flex-wrap items-start gap-4 md:flex">
+          {stores.map((store) => (
+            <QrCard key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} reads={store.qrReads} low={store.qrReadsLow} />
+          ))}
+        </div>
+        <div className="flex w-full flex-col items-start gap-3 md:hidden">
+          {stores.map((store) => (
+            <QrCardMobile key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} reads={store.qrReads} low={store.qrReadsLow} />
+          ))}
+        </div>
       </div>
 
       {editingStore && (
