@@ -7,6 +7,17 @@ import {
   StoreIcon,
   SurveyIcon,
 } from "@/components/admin/SettingsMenuIcons";
+import { SETTINGS_NAV } from "@/lib/admin/settings-nav";
+
+/** 一覧は lib/admin/settings-nav.ts が正。ここではアイコンの実体だけ対応づける */
+const ICONS = {
+  brand: BrandIcon,
+  store: StoreIcon,
+  survey: SurveyIcon,
+  notification: NotificationIcon,
+  billing: BillingIcon,
+  account: AccountIcon,
+} as const;
 
 /**
  * 設定のメニュー（Figma `設定（メニュー） — SP 390`）。
@@ -20,22 +31,13 @@ import {
  * この画面はスマホのドロワーから来たときの入口。
  */
 
-const MENU = [
-  { href: "/admin/settings/brand", label: "ブランドとテーマ", description: "お客様に見える色とロゴ", Icon: BrandIcon },
-  { href: "/admin/settings/stores", label: "店舗・二次元コード管理", description: "店舗の追加と二次元コード", Icon: StoreIcon },
-  { href: "/admin/settings/survey", label: "アンケート項目", description: "お客様に選んでもらう項目", Icon: SurveyIcon },
-  { href: "/admin/settings/notifications", label: "通知", description: "低評価が来たときのメール", Icon: NotificationIcon },
-  { href: "/admin/settings/billing", label: "お支払い", description: "プラン・店舗枠・請求", Icon: BillingIcon },
-  { href: "/admin/settings/account", label: "アカウント", description: "メールとパスワード", Icon: AccountIcon },
-  // 卓上POPは店舗・二次元コード管理と対になる作業なので、メニューにも直接の導線を置く
-  // （2026-08-22 天真のFigmaコメント「卓上POPを作るへの導線を」）
-  { href: "/admin/settings/pop", label: "卓上POPを作る", description: "印刷して席に置く", Icon: StoreIcon },
-];
 
 export default function AdminSettingsPage() {
   return (
     <div className="grid w-full grid-cols-2 gap-3 md:max-w-[720px]">
-      {MENU.map(({ href, label, description, Icon }) => (
+      {SETTINGS_NAV.map(({ href, label, description, icon }) => {
+        const Icon = ICONS[icon];
+        return (
         <Link
           key={href}
           href={href}
@@ -52,7 +54,8 @@ export default function AdminSettingsPage() {
             </span>
           </span>
         </Link>
-      ))}
+        );
+      })}
     </div>
   );
 }
