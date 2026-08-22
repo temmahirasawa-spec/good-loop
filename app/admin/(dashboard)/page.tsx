@@ -1,9 +1,9 @@
 import { AdminMobileTopBar } from "@/components/admin/AdminMobileNav";
-import { KpiCard } from "@/components/admin/KpiCard";
+import { KpiCard, toDelta } from "@/components/admin/KpiCard";
 import { PeriodSegment } from "@/components/admin/PeriodSegment";
 import { TrendChart } from "@/components/admin/TrendChart";
 import { StoreBreakdownTable } from "@/components/admin/StoreBreakdownTable";
-import { TREND_WEEK_LABELS } from "@/lib/admin/constants";
+import { LOW_READS_THRESHOLD, TREND_WEEK_LABELS } from "@/lib/admin/constants";
 import { totals, sumTrend } from "@/lib/admin/metrics";
 import { getStoreSummaries } from "@/lib/admin/queries";
 
@@ -15,6 +15,9 @@ export default async function AdminTopPage() {
   const stores = await getStoreSummaries();
   const total = totals(stores);
   const allStoresTrend = sumTrend(stores);
+  // 二次元コードの読み取りが少ない店舗（2026-08-23、設定＞店舗管理からここへ移した。
+  // Figmaコメント 1895821315「ここは集計や分析画面ではないので、トップページに移動する」）
+  const lowReadStores = stores.filter((s) => s.qrReads < LOW_READS_THRESHOLD);
 
   return (
     <>
@@ -44,18 +47,39 @@ export default async function AdminTopPage() {
         <PeriodSegment />
       </div>
 
+      {lowReadStores.length > 0 && (
+        <div
+          className="flex w-full shrink-0 flex-col items-start gap-1 rounded-2xl px-4 py-3 md:px-6 md:py-4"
+          style={{ backgroundColor: "var(--product-color-status-warning-wash)" }}
+        >
+          <p className="text-[13px] font-bold" style={{ color: "var(--product-color-status-warning)" }}>
+            二次元コードの読み取りが少なくなっています
+          </p>
+          <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            {lowReadStores.map((s) => s.name).join("・")}（直近7日）。卓上POPが片付けられていないか、置き場所をご確認ください
+          </p>
+        </div>
+      )}
+
       <div className="flex w-full shrink-0 flex-col items-start gap-2 md:flex-row md:gap-4">
         <KpiCard
           label="Googleへ送客（誘導数）"
           value={String(total.routeCount)}
           prevLabel={`前期 ${total.routeCountPrev}件`}
+          delta={toDelta(total.routeCount, total.routeCountPrev, "件")}
           note="レビュー画面を開いた数です。実際に投稿された数ではありません"
         />
-        <KpiCard label="回答数" value={String(total.responseCount)} prevLabel={`前期 ${total.responseCountPrev}件`} />
+        <KpiCard
+          label="回答数"
+          value={String(total.responseCount)}
+          prevLabel={`前期 ${total.responseCountPrev}件`}
+          delta={toDelta(total.responseCount, total.responseCountPrev, "件")}
+        />
         <KpiCard
           label="送客率"
           value={total.routeRatePercent === null ? "—" : `${total.routeRatePercent}%`}
           prevLabel={`前期 ${total.routeRatePercentPrev === null ? "—" : `${total.routeRatePercentPrev}%`}`}
+          delta={toDelta(total.routeRatePercent, total.routeRatePercentPrev, "pt")}
           unit=""
         />
       </div>

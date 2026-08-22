@@ -40,9 +40,9 @@
  *      （CLAUDE.md 4章「業態別テーマはモード切替で成立させる」）
  *   3. 入れ子が効くので、多店舗の管理画面で店舗カードごとに業態色を出せる
  *
- * 属性が無いときは Clinic になる。コレクションの先頭モードだからで、
- * 「クリニックを主力業態と決めた」という意味ではない。変えるならこのファイルの
- * 最初のセレクタ1行だけを直せばよい。
+ * **属性が無いときは `Default`（LOOPのミント #34CA9B）になる**（2026-08-23 変更）。
+ * 管理画面・LP・規約ページなど「特定の店舗のページではないもの」はすべてこれになる。
+ * 業態別の色が付くのは、お客様側の `/r/[storeSlug]` だけ。
  *
  * ── 変数の意味 ──────────────────────────────────────────
  * accent は業態そのものの色、cta は行動を促すボタンの色。別系統なので混ぜない。
@@ -64,8 +64,31 @@
  *     cta が黒文字   … Clinic / Beauty / Seikotsuin / Fitness / Pet / Lodging-Sauna
  */
 
-/* Clinic / クリニック（緑・清潔）— 属性が無いときの既定 */
+/*
+ * Default / LOOPのミント — 属性が無いときの既定（2026-08-23、天真の判断で変更）
+ *
+ * **管理画面はLOOPのブランド色で固定し、業態別の色はお客様側の画面だけにする。**
+ * 以前は既定が Clinic（#00C471）だったため、管理画面がクリニックの緑になっていた
+ * （Figmaコメント「どこで間違えたのか、この色が蔓延しちゃいました」への回答）。
+ *
+ * 値は Figma の `Industry Theme` コレクションの **`Default` モード**の実測値。
+ * 業態に依らない中立の色として、もともとFigma側に用意されていたもの。
+ * `cta/action`（押したときのCTA色）は Figma の Default モードに存在しないため、
+ * `cta/primary` と同値にしてある。**押下時の色が要るときは、先にFigmaに変数を足すこと。**
+ */
 :root,
+[data-loop-theme="default"] {
+  --loop-accent-primary: #34CA9B;
+  --loop-accent-light: #6FDCBB;
+  --loop-accent-action: #1A8060;
+  --loop-accent-wash: #DFF3EC;
+  --loop-accent-on-primary: #FFFFFF;
+  --loop-cta-primary: #FFC32B;
+  --loop-cta-action: #FFC32B;
+  --loop-cta-on-primary: #233029;
+}
+
+/* Clinic / クリニック（緑・清潔） */
 [data-loop-theme="clinic"] {
   --loop-accent-primary: #00C471;
   --loop-accent-light: #34E39A;

@@ -7,13 +7,13 @@ import { SettingsTabBar } from "@/components/admin/SettingsTabBar";
 /**
  * 設定画面の共通ヘッダー（Figma node 69:1278 系 / SP 75:1613 系）。
  *
- * 2026-08-22、天真の決定（docs/ui-review.md Q6）でPCとSPの構造を分けた。
+ * 2026-08-22にPCとSPの構造を分けた（docs/ui-review.md Q6）が、
+ * **2026-08-23、天真の指示でSPもタブに戻した**（Figmaコメント 1895812707）。
+ * PC・SPとも上部にタブバーを出し、SPでは横スクロールする。
  *
- *   PC … これまでどおりタブバー
- *   SP … `/admin/settings` のメニューから入り、個別ページでは左上の戻る矢印でメニューへ戻る
- *
- * メニュー画面自身（`/admin/settings`）ではタブも戻る矢印も出さない。
- * どのページにいるかで出し分けるため、レイアウト（サーバー側）ではなくここで判定する。
+ * メニュー画面（`/admin/settings`）は残してある。SPのメニューからは今も開けるが、
+ * 個別ページからはタブで移動するので戻る矢印は出さない。
+ * メニュー画面自身ではタブを出さない（そこは入口なので）。
  */
 export function SettingsHeader() {
   const pathname = usePathname();
@@ -21,7 +21,7 @@ export function SettingsHeader() {
 
   return (
     <>
-      <AdminMobileTopBar title="設定" backHref={isMenu ? undefined : "/admin/settings"} />
+      <AdminMobileTopBar title="設定" />
       <p className="hidden text-xl font-bold md:block" style={{ color: "var(--product-color-text-primary)" }}>
         設定
       </p>

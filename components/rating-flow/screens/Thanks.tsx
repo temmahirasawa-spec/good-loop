@@ -18,20 +18,21 @@ export function Thanks({ googleReviewUrl }: { googleReviewUrl: string | null }) 
         <br />
         改善に活かしてまいります
       </p>
+      {/*
+        Googleへの導線（2026-08-23、Figmaコメント 1895789775）。
+        「小さめに」→「やっぱり小さめだとわざとらしいので、普通サイズで、
+        下過ぎるのもわざとらしいので、少し上げる」との指示。
+        枠付きのカードをやめて普通サイズの文字リンクにし、本文のすぐ下に置いた。
+      */}
       {googleReviewUrl && (
         <a
           href={googleReviewUrl}
           target="_blank"
           rel="noreferrer"
-          className="flex w-full flex-col items-center gap-[var(--product-space-8)] rounded-[14px] border-solid p-[var(--product-space-16)]"
-          style={{ backgroundColor: "var(--product-color-surface-white)", borderWidth: 1, borderColor: "var(--product-color-border-divider)" }}
+          className="mt-[var(--product-space-8)] flex min-h-[var(--product-touch-min)] items-center text-sm font-bold tracking-[0.14px] underline underline-offset-4"
+          style={{ color: "var(--product-color-text-secondary)" }}
         >
-          <p className="text-sm font-bold tracking-[0.14px]" style={{ color: "var(--product-color-text-secondary)" }}>
-            Googleにクチコミを投稿する
-          </p>
-          <p className="text-center text-[11px] font-medium tracking-[0.22px]" style={{ color: "var(--product-color-text-tertiary)" }}>
-            評価にかかわらずご投稿いただけます
-          </p>
+          Googleにクチコミを投稿する
         </a>
       )}
     </div>

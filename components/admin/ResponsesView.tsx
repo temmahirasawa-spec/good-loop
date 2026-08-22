@@ -10,7 +10,6 @@ import type { ResponseItem } from "@/lib/admin/types";
 type StoreOption = { id: string; name: string };
 type Filters = {
   store: string;
-  stars: string;
   branch: "good" | "improve" | "all";
   /** 期間。プリセットか、任意の期間（YYYY-MM-DD）のどちらか */
   period: PeriodValue;
@@ -21,8 +20,6 @@ const BRANCH_SEGMENTS: { value: "all" | "good" | "improve"; label: string }[] = 
   { value: "good", label: "★5・4" },
   { value: "improve", label: "★3・2・1" },
 ];
-
-const STAR_OPTIONS = [5, 4, 3, 2, 1];
 
 /** 見た目は据え置きのまま、実際のvalueを持つセレクト（矢印は自前で描き、ブラウザ既定の矢印は消す） */
 function FilterSelect({
@@ -85,7 +82,6 @@ export function ResponsesView({
     const merged = { ...filters, ...next };
     const params = new URLSearchParams();
     if (merged.store) params.set("store", merged.store);
-    if (merged.stars) params.set("stars", merged.stars);
     if (merged.branch !== "all") params.set("branch", merged.branch);
     if ("preset" in merged.period) {
       if (merged.period.preset !== "7d") params.set("period", merged.period.preset);
@@ -97,6 +93,11 @@ export function ResponsesView({
     router.push(qs ? `${pathname}?${qs}` : pathname);
   }
 
+  /*
+    分岐の切り替え（2026-08-23、Figmaコメント 1895820122「ここは下線でアクティブを表現するタブに変更」）。
+    ベタ塗りのピルはボタンと見分けがつかないため、設定のタブと同じ下線の形に揃えた。
+    ピル型は期間の絞り込み（Loop / Segment Chip）に残している。
+  */
   const routeSegment = (
     <div className="flex items-start gap-1">
       {BRANCH_SEGMENTS.map((seg) => {
@@ -106,12 +107,16 @@ export function ResponsesView({
             key={seg.value}
             type="button"
             onClick={() => updateFilters({ branch: seg.value })}
-            className="flex min-h-[44px] items-center rounded-full px-5 py-3"
-            style={{ backgroundColor: selected ? "var(--loop-accent-primary)" : "transparent" }}
+            aria-pressed={selected}
+            className="flex min-h-[44px] items-center px-4"
+            style={{ borderBottom: selected ? "2px solid var(--loop-accent-action)" : "2px solid transparent" }}
           >
             <span
-              className="whitespace-nowrap text-xs font-medium"
-              style={{ color: selected ? "var(--loop-accent-on-primary)" : "var(--product-color-text-secondary)" }}
+              className="whitespace-nowrap text-xs"
+              style={{
+                color: selected ? "var(--loop-accent-action)" : "var(--product-color-text-secondary)",
+                fontWeight: selected ? 700 : 400,
+              }}
             >
               {seg.label}
             </span>
@@ -152,13 +157,6 @@ export function ResponsesView({
           placeholder="すべての店舗"
           widthClassName="md:w-[180px]"
           options={storeOptions.map((s) => ({ value: s.id, label: s.name }))}
-        />
-        <FilterSelect
-          value={filters.stars}
-          onChange={(v) => updateFilters({ stars: v })}
-          placeholder="すべての評価"
-          widthClassName="md:w-[150px]"
-          options={STAR_OPTIONS.map((n) => ({ value: String(n), label: "★".repeat(n) }))}
         />
         <div className="hidden md:flex">{routeSegment}</div>
       </div>

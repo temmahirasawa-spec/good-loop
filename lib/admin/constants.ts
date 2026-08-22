@@ -66,3 +66,11 @@ export const BILLING = {
 export function formatYen(yen: number): string {
   return `${yen.toLocaleString("ja-JP")}円`;
 }
+
+/**
+ * 「二次元コードの読み取りが少なくなっている」と見なす直近7日の読み取り回数。
+ *
+ * 2026-08-23、この警告を設定＞店舗管理からトップへ移した（Figmaコメント 1895821315
+ * 「ここは集計や分析画面ではないので、この読み取り低下機能はトップページに移動する」）。
+ */
+export const LOW_READS_THRESHOLD = 20;

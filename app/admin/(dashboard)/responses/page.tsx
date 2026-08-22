@@ -17,9 +17,8 @@ const BRANCHES = ["good", "improve"] as const;
 export default async function AdminResponsesPage({
   searchParams,
 }: {
-  searchParams: { store?: string; stars?: string; branch?: string; period?: string; from?: string; to?: string };
+  searchParams: { store?: string; branch?: string; period?: string; from?: string; to?: string };
 }) {
-  const rating = searchParams.stars ? Number(searchParams.stars) : undefined;
   const branch = BRANCHES.find((b) => b === searchParams.branch);
   const from = searchParams.from && DATE_PATTERN.test(searchParams.from) ? searchParams.from : undefined;
   const to = searchParams.to && DATE_PATTERN.test(searchParams.to) ? searchParams.to : undefined;
@@ -29,7 +28,6 @@ export default async function AdminResponsesPage({
   const [responses, stores] = await Promise.all([
     getResponseItems({
       storeId: searchParams.store || undefined,
-      rating: rating && rating >= 1 && rating <= 5 ? rating : undefined,
       branch,
       period: preset,
       from,
@@ -42,7 +40,7 @@ export default async function AdminResponsesPage({
     <ResponsesView
       responses={responses}
       storeOptions={stores.map((s) => ({ id: s.id, name: s.name }))}
-      filters={{ store: searchParams.store ?? "", stars: searchParams.stars ?? "", branch: branch ?? "all", period }}
+      filters={{ store: searchParams.store ?? "", branch: branch ?? "all", period }}
     />
   );
 }

@@ -113,7 +113,7 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
           ›
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-0.5">
+      <div className="mx-auto grid w-fit grid-cols-7 gap-0.5 md:mx-0">
         {WEEKDAYS.map((d) => (
           <div key={d} className="flex h-6 items-center justify-center text-[11px]" style={{ color: "var(--product-color-text-secondary)" }}>
             {d}

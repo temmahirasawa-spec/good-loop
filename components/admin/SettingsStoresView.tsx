@@ -8,7 +8,6 @@ import { StoreIcon } from "@/components/admin/SettingsMenuIcons";
 import { StoreEditModal } from "@/components/admin/StoreEditModal";
 import { AddStoreModal } from "@/components/admin/AddStoreModal";
 import { QrCard, QrCardMobile } from "@/components/admin/QrCard";
-import { BILLING, formatYen } from "@/lib/admin/constants";
 
 /** 店舗枠の状態（lib/admin/store-quota.ts）。表示に必要な分だけ受け取る */
 export type StoreQuotaProps = {
@@ -27,8 +26,6 @@ export type SettingsStoreRow = {
   businessCategory: string;
   googlePlaceLinked: boolean;
   qrSvg: string;
-  qrReads: number;
-  qrReadsLow: boolean;
 };
 
 /**
@@ -49,6 +46,25 @@ export type SettingsStoreRow = {
  * お客様が開く投稿画面のURL。押すとコピーできる（2026-08-22 天真のFigmaコメント
  * 「コピーできる投稿画面のURLを表示」）。SNSやLINEで直接送りたいときに使う。
  */
+/** コピーの2枚重ねアイコン（Figmaコメント 1895820976「アイコンもつけて」） */
+function CopyIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden>
+      <rect x="5.5" y="5.5" width="8" height="8" rx="1.8" />
+      <path d="M10.5 3.2A1.7 1.7 0 0 0 8.8 2H4.2A2.2 2.2 0 0 0 2 4.2v4.6c0 .8.5 1.5 1.2 1.7" />
+    </svg>
+  );
+}
+
+/**
+ * 投稿画面URLの表示とコピー（Figmaコメント 1895820976）。
+ *
+ * 以前は幅いっぱいの1つのボタンで、URLの右端にコピーの文字だけを置いていた。
+ * 「コピーボタンも遠いし押しにくい。アイコンもつけて。URL欄ながすぎ」との指摘で直した。
+ * **「URL欄ながすぎ」は、欄が間延びしているという意味**（2026-08-23 天真より）。
+ * そのため欄は幅いっぱいに伸ばさず、中身の幅に合わせて縮む形にしている（上限340px）。
+ * コピーは独立した44pxのボタンにして、すぐ右隣に置いた。
+ */
 function CopyableUrl({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -63,19 +79,28 @@ function CopyableUrl({ url }: { url: string }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={copy}
-      className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2"
-      style={{ backgroundColor: "var(--product-color-bg-primary)" }}
-    >
-      <span className="truncate text-[12px]" style={{ color: "var(--product-color-text-secondary)" }}>
+    <div className="flex w-full items-center gap-2">
+      <p
+        className="min-w-0 max-w-[340px] truncate rounded-lg px-3 py-2 text-[12px]"
+        style={{ backgroundColor: "var(--product-color-bg-primary)", color: "var(--product-color-text-secondary)" }}
+        title={url}
+      >
         {url}
-      </span>
-      <span className="shrink-0 text-[12px] font-bold" style={{ color: "var(--loop-accent-action)" }}>
-        {copied ? "コピーしました" : "コピー"}
-      </span>
-    </button>
+      </p>
+      <button
+        type="button"
+        onClick={copy}
+        className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg border px-3"
+        style={{
+          borderColor: copied ? "var(--loop-accent-primary)" : "var(--product-color-border-default)",
+          color: copied ? "var(--loop-accent-action)" : "var(--product-color-text-primary)",
+          backgroundColor: "var(--product-color-surface-white)",
+        }}
+      >
+        <CopyIcon />
+        <span className="whitespace-nowrap text-[12px] font-bold">{copied ? "コピーしました" : "コピー"}</span>
+      </button>
+    </div>
   );
 }
 
@@ -96,8 +121,8 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
 
   return (
     <>
-      <div className="flex w-full flex-col items-start gap-4 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
-        <SettingsCardTitle icon={<StoreIcon />}>店舗・二次元コード管理</SettingsCardTitle>
+      <div className="flex w-full flex-col items-start gap-5 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
+        <SettingsCardTitle icon={<StoreIcon />}>店舗管理</SettingsCardTitle>
         <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
           店舗ごとに Googleマップ上のお店を店名で検索して紐付けます。紐付けると、お客様をクチコミ投稿画面へ直接誘導できます。
           印刷して店舗に置くだけで、アンケートとレビュー送客が始まります
@@ -105,7 +130,7 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
         {stores.map((store) => {
           const linked = linkedIds.has(store.id);
           return (
-            <div key={store.id} className="flex w-full flex-col items-start gap-2 border-b px-1 py-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
+            <div key={store.id} className="flex w-full flex-col items-start gap-3 border-b px-1 py-4" style={{ borderColor: "var(--product-color-border-divider)" }}>
               <div className="flex w-full items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
@@ -147,26 +172,29 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
             <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
               {quota.quota === null
                 ? "店舗枠を取得できませんでした。時間をおいてページを開き直してください"
-                : `店舗枠がいっぱいです。店舗を追加するには、お支払い画面で店舗枠を追加してください（追加1店舗につき月額${formatYen(BILLING.additionalStoreMonthlyYen)}）`}
+                : "店舗枠がいっぱいです。店舗を増やす手続きは、アカウント管理からご案内します"}
             </p>
             {quota.quota !== null && (
               <LoopButton variant="primary" onClick={() => router.push("/admin/settings/billing")}>
-                お支払いへ進む
+                アカウント管理へ
               </LoopButton>
             )}
           </div>
         )}
       </div>
 
-      <div className="flex w-full flex-wrap items-start gap-4">
-        {stores.map((store) => (
-          <QrCard key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} reads={store.qrReads} low={store.qrReadsLow} />
-        ))}
-      </div>
-      <div className="flex w-full flex-col items-start gap-3 md:hidden">
-        {stores.map((store) => (
-          <QrCardMobile key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} reads={store.qrReads} low={store.qrReadsLow} />
-        ))}
+      <div className="flex w-full flex-col items-start gap-4">
+        <SettingsCardTitle icon={<StoreIcon />}>二次元コード管理</SettingsCardTitle>
+        <div className="hidden w-full flex-wrap items-start gap-4 md:flex">
+          {stores.map((store) => (
+            <QrCard key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} />
+          ))}
+        </div>
+        <div className="flex w-full flex-col items-start gap-3 md:hidden">
+          {stores.map((store) => (
+            <QrCardMobile key={store.id} storeName={store.name} slug={store.slug} qrSvg={store.qrSvg} />
+          ))}
+        </div>
       </div>
 
       {editingStore && (

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Toggle } from "@/components/admin/Toggle";
 import { LoopInput } from "@/components/admin/LoopInput";
+import { LoopButton } from "@/components/rating-flow/Button";
 import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
 import { NotificationIcon } from "@/components/admin/SettingsMenuIcons";
 
@@ -50,6 +51,19 @@ export default function SettingsNotificationsPage() {
           通知先メールアドレス
         </p>
         <LoopInput value={email} onChange={setEmail} type="email" className="!h-11" />
+      </div>
+      {/*
+        保存ボタン（Figmaコメント 1895820872、2026-08-22）。
+        通知設定の保存先がまだ無いため、押せない状態で置いている。
+        メール送信（Resend）を繋ぐときに、保存先の列を足して有効にする。
+      */}
+      <div className="flex w-full flex-col items-start gap-2 pt-2">
+        <LoopButton variant="primary" disabled>
+          保存する
+        </LoopButton>
+        <p className="text-[11px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
+          メール送信の接続後に保存できるようになります
+        </p>
       </div>
     </div>
   );
