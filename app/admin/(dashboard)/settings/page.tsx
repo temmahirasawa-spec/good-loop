@@ -27,6 +27,9 @@ const MENU = [
   { href: "/admin/settings/notifications", label: "通知", description: "低評価が来たときのメール", Icon: NotificationIcon },
   { href: "/admin/settings/billing", label: "お支払い", description: "プラン・店舗枠・請求", Icon: BillingIcon },
   { href: "/admin/settings/account", label: "アカウント", description: "メールとパスワード", Icon: AccountIcon },
+  // 卓上POPは店舗・二次元コード管理と対になる作業なので、メニューにも直接の導線を置く
+  // （2026-08-22 天真のFigmaコメント「卓上POPを作るへの導線を」）
+  { href: "/admin/settings/pop", label: "卓上POPを作る", description: "印刷して席に置く", Icon: StoreIcon },
 ];
 
 export default function AdminSettingsPage() {

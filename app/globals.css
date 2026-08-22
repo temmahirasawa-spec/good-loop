@@ -30,3 +30,20 @@ body {
 [data-ai-check] :focus:not(:focus-visible) {
   outline: none;
 }
+
+/*
+ * 卓上POPの印刷（/admin/pop/[storeId]、2026-08-22）。
+ * 別ライブラリでPDFを作らず、ブラウザの印刷でA6のPDFにする。
+ * 用紙をA6に固定し、余白は0にする（POP側が自分でmm指定の余白を持っているため）。
+ */
+@page {
+  size: A6;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff; /* design-qa-allow: 印刷は必ず白地。テーマ変数を紙に持ち込まない */
+  }
+}

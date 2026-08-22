@@ -167,11 +167,16 @@ export function StoreEditModal({
                     key={s.placeId}
                     type="button"
                     onClick={() => setSelected(s)}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left"
-                    style={{ backgroundColor: isSelected ? "var(--loop-accent-wash)" : "transparent" }}
+                    // 選択中を緑の背景で示すと、上の業態チップのアクティブと見分けがつかない
+                    // （2026-08-22 天真のFigmaコメント）。背景は使わず、店名だけ緑にする
+                    className="flex w-full items-center justify-between border-b px-4 py-4 text-left"
+                    style={{ borderColor: "var(--product-color-border-divider)" }}
                   >
                     <div className="flex flex-col items-start gap-1">
-                      <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+                      <p
+                        className="text-[13.5px] font-bold"
+                        style={{ color: isSelected ? "var(--loop-accent-action)" : "var(--product-color-text-primary)" }}
+                      >
                         {s.name}
                       </p>
                       <p className="text-[11.5px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
@@ -191,7 +196,10 @@ export function StoreEditModal({
         </div>
 
         {selected && (
-          <div className="flex w-full flex-col items-start gap-2 rounded-xl p-4" style={{ backgroundColor: "var(--loop-accent-wash)" }}>
+          <div
+            className="flex w-full flex-col items-start gap-2 rounded-xl border p-4"
+            style={{ borderColor: "var(--product-color-border-divider)" }}
+          >
             <p className="text-[13px] font-bold" style={{ color: "var(--loop-accent-action)" }}>
               ✓ 紐付けが完了しました
             </p>

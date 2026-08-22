@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/admin/settings/brand", label: "ブランドとテーマ" },
   { href: "/admin/settings/stores", label: "店舗・二次元コード管理" },
+  { href: "/admin/settings/pop", label: "卓上POP" },
   { href: "/admin/settings/survey", label: "アンケート項目" },
   { href: "/admin/settings/notifications", label: "通知" },
   { href: "/admin/settings/billing", label: "お支払い" },

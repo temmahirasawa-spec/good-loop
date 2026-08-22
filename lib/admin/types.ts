@@ -54,3 +54,7 @@ export type BusinessCategory = {
   slug: string;
   label: string;
 };
+
+/** 卓上POP（印刷用）の設定（supabase/0012、2026-08-22） */
+export type PopPreset = "a" | "b" | "c";
+export type PopQrSize = "sm" | "md" | "lg";

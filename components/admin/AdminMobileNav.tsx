@@ -23,6 +23,7 @@ const NAV_ITEMS = [
 const SETTINGS_ITEMS = [
   { href: "/admin/settings/brand", label: "ブランドとテーマ" },
   { href: "/admin/settings/stores", label: "店舗・二次元コード管理" },
+  { href: "/admin/settings/pop", label: "卓上POPを作る" },
   { href: "/admin/settings/survey", label: "アンケート項目" },
   { href: "/admin/settings/notifications", label: "通知" },
   { href: "/admin/settings/billing", label: "お支払い" },
