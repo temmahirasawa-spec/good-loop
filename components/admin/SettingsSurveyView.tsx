@@ -6,6 +6,8 @@ import { LoopInput } from "@/components/admin/LoopInput";
 import { LoopSelect } from "@/components/admin/LoopSelect";
 import { BUSINESS_CATEGORIES } from "@/lib/admin/constants";
 import type { TagPreset } from "@/lib/store-tags";
+import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
+import { SurveyIcon } from "@/components/admin/SettingsMenuIcons";
 
 const MAX_TAGS = 8;
 const DEFAULT_ERROR = "保存できませんでした。もう一度お試しください。";
@@ -152,9 +154,7 @@ export function SettingsSurveyView({
 
   return (
     <div className="flex w-full flex-col items-start gap-6 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
-      <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-        アンケート項目
-      </p>
+      <SettingsCardTitle icon={<SurveyIcon />}>アンケート項目</SettingsCardTitle>
       <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
         {storeName}の設定です。業態を選ぶとその業態のプリセットを読み込めます。項目は自由に編集できます（各 最大8個）
       </p>

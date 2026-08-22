@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoopButton } from "@/components/rating-flow/Button";
 import { BILLING, formatYen } from "@/lib/admin/constants";
+import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
+import { BillingIcon } from "@/components/admin/SettingsMenuIcons";
 
 const INVOICES = [
   { month: "2026年7月", amount: "9,800円" },
@@ -60,16 +62,15 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
   return (
     <>
       <div className="flex w-full flex-col items-start gap-4 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
-        <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-          お支払い
-        </p>
+        <SettingsCardTitle icon={<BillingIcon />}>お支払い</SettingsCardTitle>
 
-        <div className="flex h-12 w-full items-center justify-between">
-          <div className="flex items-center gap-4">
-            <p className="w-[140px] text-[12.5px]" style={{ color: "var(--product-color-text-secondary)" }}>
+        {/* SPは値が長いと右端で切れるので、ラベルと値を2行にする（2026-08-22 天真のFigmaコメント） */}
+        <div className="flex w-full items-start justify-between gap-3 py-2 md:h-12 md:items-center md:py-0">
+          <div className="flex min-w-0 flex-col items-start gap-0.5 md:flex-row md:items-center md:gap-4">
+            <p className="text-[12.5px] md:w-[140px] md:shrink-0" style={{ color: "var(--product-color-text-secondary)" }}>
               プラン
             </p>
-            <p className="whitespace-nowrap text-[13.5px]" style={{ color: "var(--product-color-text-primary)" }}>
+            <p className="text-[13.5px] md:whitespace-nowrap" style={{ color: "var(--product-color-text-primary)" }}>
               {BILLING.planLabel}（月額 {formatYen(BILLING.planMonthlyYen)}・{BILLING.includedStores}店舗まで）
             </p>
           </div>
@@ -78,12 +79,12 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
           </p>
         </div>
 
-        <div className="flex h-12 w-full items-center justify-between">
-          <div className="flex items-center gap-4">
-            <p className="w-[140px] text-[12.5px]" style={{ color: "var(--product-color-text-secondary)" }}>
+        <div className="flex w-full items-start justify-between gap-3 py-2 md:h-12 md:items-center md:py-0">
+          <div className="flex min-w-0 flex-col items-start gap-0.5 md:flex-row md:items-center md:gap-4">
+            <p className="text-[12.5px] md:w-[140px] md:shrink-0" style={{ color: "var(--product-color-text-secondary)" }}>
               お支払い方法
             </p>
-            <p className="whitespace-nowrap text-[13.5px]" style={{ color: "var(--product-color-text-primary)" }}>
+            <p className="text-[13.5px] md:whitespace-nowrap" style={{ color: "var(--product-color-text-primary)" }}>
               Visa •••• 6411
             </p>
           </div>
@@ -96,7 +97,7 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
           請求履歴
         </p>
         {INVOICES.map((inv) => (
-          <div key={inv.month} className="flex h-11 w-full items-center justify-between border-b" style={{ borderColor: "var(--product-color-border-divider)" }}>
+          <div key={inv.month} className="flex w-full flex-col items-start gap-1 border-b py-2 md:h-11 md:flex-row md:items-center md:justify-between md:gap-0 md:py-0" style={{ borderColor: "var(--product-color-border-divider)" }}>
             <div className="flex items-center gap-4 text-[12.5px]">
               <p style={{ color: "var(--product-color-text-primary)" }}>{inv.month}</p>
               <p style={{ color: "var(--product-color-text-secondary)" }}>{inv.amount}</p>

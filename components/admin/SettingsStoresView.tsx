@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoopButton } from "@/components/rating-flow/Button";
+import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
+import { StoreIcon } from "@/components/admin/SettingsMenuIcons";
 import { StoreEditModal } from "@/components/admin/StoreEditModal";
 import { AddStoreModal } from "@/components/admin/AddStoreModal";
 import { QrCard, QrCardMobile } from "@/components/admin/QrCard";
@@ -20,6 +22,8 @@ export type SettingsStoreRow = {
   id: string;
   name: string;
   slug: string;
+  /** お客様が開く投稿画面のURL（コピーして共有できるように表示する） */
+  publicUrl: string;
   businessCategory: string;
   googlePlaceLinked: boolean;
   qrSvg: string;
@@ -41,6 +45,40 @@ export type SettingsStoreRow = {
  * 枠に空きが無いときは「＋ 店舗を追加」を押せなくし、お支払い画面へ誘導する。
  * サーバー側・DB側にも同じ判定があるので、ここは案内のための表示という位置づけ。
  */
+/**
+ * お客様が開く投稿画面のURL。押すとコピーできる（2026-08-22 天真のFigmaコメント
+ * 「コピーできる投稿画面のURLを表示」）。SNSやLINEで直接送りたいときに使う。
+ */
+function CopyableUrl({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2"
+      style={{ backgroundColor: "var(--product-color-bg-primary)" }}
+    >
+      <span className="truncate text-[12px]" style={{ color: "var(--product-color-text-secondary)" }}>
+        {url}
+      </span>
+      <span className="shrink-0 text-[12px] font-bold" style={{ color: "var(--loop-accent-action)" }}>
+        {copied ? "コピーしました" : "コピー"}
+      </span>
+    </button>
+  );
+}
+
 export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow[]; quota: StoreQuotaProps }) {
   const router = useRouter();
   const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set(stores.filter((s) => s.googlePlaceLinked).map((s) => s.id)));
@@ -59,9 +97,7 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
   return (
     <>
       <div className="flex w-full flex-col items-start gap-4 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
-        <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-          店舗・二次元コード管理
-        </p>
+        <SettingsCardTitle icon={<StoreIcon />}>店舗・二次元コード管理</SettingsCardTitle>
         <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
           店舗ごとに Googleマップ上のお店を店名で検索して紐付けます。紐付けると、お客様をクチコミ投稿画面へ直接誘導できます。
           印刷して店舗に置くだけで、アンケートとレビュー送客が始まります
@@ -69,8 +105,9 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
         {stores.map((store) => {
           const linked = linkedIds.has(store.id);
           return (
-            <div key={store.id} className="flex w-full items-center justify-between border-b px-1 py-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
-              <div className="flex items-center gap-3">
+            <div key={store.id} className="flex w-full flex-col items-start gap-2 border-b px-1 py-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
+              <div className="flex w-full items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
                   {store.name}
                 </p>
@@ -84,9 +121,11 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
                   {linked ? "Googleマップ連携済み" : "URL未設定"}
                 </span>
               </div>
-              <button type="button" onClick={() => setEditingId(store.id)} className="text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
+              <button type="button" onClick={() => setEditingId(store.id)} className="shrink-0 text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
                 編集
               </button>
+              </div>
+              <CopyableUrl url={store.publicUrl} />
             </div>
           );
         })}

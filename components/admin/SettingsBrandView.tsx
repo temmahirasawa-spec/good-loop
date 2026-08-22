@@ -6,6 +6,8 @@ import { LoopButton } from "@/components/rating-flow/Button";
 import { LoopInput } from "@/components/admin/LoopInput";
 import { LOOP_THEMES } from "@/lib/admin/constants";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
+import { BrandIcon } from "@/components/admin/SettingsMenuIcons";
 
 /**
  * 設定（ブランドとテーマ） Figma node 69:1261 PC / 75:1613 SP。
@@ -82,9 +84,7 @@ export function SettingsBrandView({
   return (
     <>
       <div className="flex w-full flex-col items-start gap-4 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
-        <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-          ブランド
-        </p>
+        <SettingsCardTitle icon={<BrandIcon />}>ブランド</SettingsCardTitle>
         <div className="flex w-full items-center gap-4">
           <div
             className="flex size-24 shrink-0 flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed"

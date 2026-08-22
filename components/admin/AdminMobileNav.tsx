@@ -16,6 +16,19 @@ const NAV_ITEMS = [
   { href: "/admin/settings", label: "設定" },
 ];
 
+/**
+ * 設定の下層ページ。ドロワーにも一覧で出す（2026-08-22 天真のFigmaコメント
+ * 「設定は下層ページも一覧で表示する」）。ドロワーから2タップで目的のページに着けるようにするため。
+ */
+const SETTINGS_ITEMS = [
+  { href: "/admin/settings/brand", label: "ブランドとテーマ" },
+  { href: "/admin/settings/stores", label: "店舗・二次元コード管理" },
+  { href: "/admin/settings/survey", label: "アンケート項目" },
+  { href: "/admin/settings/notifications", label: "通知" },
+  { href: "/admin/settings/billing", label: "お支払い" },
+  { href: "/admin/settings/account", label: "アカウント" },
+];
+
 export function AdminMobileTopBar({
   title,
   backHref,
@@ -100,6 +113,31 @@ export function AdminMobileTopBar({
                 </Link>
               );
             })}
+
+            {/* 設定の下層ページ。設定そのものを開かなくても直接飛べる */}
+            <div className="mt-1 flex w-full flex-col items-start gap-0.5 border-l pl-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
+              {SETTINGS_ITEMS.map((item) => {
+                const active = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className="flex min-h-11 w-full shrink-0 items-center rounded-[10px] px-3 py-2"
+                  >
+                    <span
+                      className="flex-1 text-[13px]"
+                      style={{
+                        fontWeight: active ? 700 : 400,
+                        color: active ? "var(--loop-accent-action)" : "var(--product-color-text-secondary)",
+                      }}
+                    >
+                      {item.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
                 </div>
         </div>
       )}

@@ -36,6 +36,9 @@
      「URL未設定」バッジがアンバーになっていた不整合の修正で追加（docs/ui-review.md Q12） */
   --product-color-status-error: #dc2626;
   --product-color-status-error-subtle: #fceeee;
+  /* 設定メニューのアイコンで、グリーンと組み合わせる黄色（2026-08-22 新設。Figma `icon/yellow`）。
+     status-warning（警告）とは別物。警告の意味では使わないこと */
+  --product-color-icon-yellow: #ffc53d;
 
   /* ── 角丸 ──────────────────────────────────────────── */
   /* radius/sm は2026-08-22に新設（UI検証Q4。ボタンの角丸を16→8にする天真の指示） */

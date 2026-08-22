@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Toggle } from "@/components/admin/Toggle";
 import { LoopInput } from "@/components/admin/LoopInput";
+import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
+import { NotificationIcon } from "@/components/admin/SettingsMenuIcons";
 
 type AlertKey = "lowRating" | "qrDrop" | "routeRateDrop";
 
@@ -25,9 +27,7 @@ export default function SettingsNotificationsPage() {
 
   return (
     <div className="flex w-full flex-col items-start gap-2 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
-      <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-        通知
-      </p>
+      <SettingsCardTitle icon={<NotificationIcon />}>通知</SettingsCardTitle>
       {ALERTS.map((alert, i) => (
         <div
           key={alert.key}

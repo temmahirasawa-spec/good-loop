@@ -25,6 +25,7 @@ export default async function SettingsStoresPage() {
       id: s.id,
       name: s.name,
       slug: s.slug,
+      publicUrl: `${PUBLIC_APP_URL}/r/${s.slug}`,
       businessCategory: s.businessCategory,
       googlePlaceLinked: s.googlePlaceLinked,
       qrSvg: await generateQrSvg(`${PUBLIC_APP_URL}/r/${s.slug}`),
