@@ -1,6 +1,7 @@
 "use client";
 
 import { LoopButton } from "@/components/rating-flow/Button";
+import Link from "next/link";
 
 /**
  * 実際のQRコード（launch-plan.md D-7、2026-08-06実装）。
@@ -87,13 +88,14 @@ export function QrCard({
         </div>
       )}
       <div className="w-full">
-        <LoopButton variant="primary" onClick={() => downloadQr(qrSvg, slug)}>
+        <LoopButton variant="outline" onClick={() => downloadQr(qrSvg, slug)}>
           画像をダウンロード
         </LoopButton>
       </div>
-      <p className="whitespace-nowrap text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
-        印刷用PDFを開く
-      </p>
+      {/* 2026-08-22、卓上POPの編集画面につないだ（それまでは押しても何も起きなかった） */}
+      <Link href="/admin/settings/pop" className="whitespace-nowrap text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
+        印刷用POPを作る
+      </Link>
     </div>
   );
 }
@@ -134,7 +136,7 @@ export function QrCardMobile({
           <button type="button" onClick={() => downloadQr(qrSvg, slug)}>
             ダウンロード
           </button>
-          <p>印刷用PDF</p>
+          <Link href="/admin/settings/pop">印刷用POP</Link>
         </div>
       </div>
     </div>

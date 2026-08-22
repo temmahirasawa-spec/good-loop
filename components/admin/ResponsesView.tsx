@@ -2,12 +2,19 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { AdminMobileTopBar } from "@/components/admin/AdminMobileNav";
-import { PERIOD_OPTIONS, PeriodSegment, type PeriodCode } from "@/components/admin/PeriodSegment";
+import { PeriodPicker } from "@/components/admin/PeriodPicker";
+import type { PeriodValue } from "@/lib/admin/period";
 import { ResponseCard } from "@/components/admin/ResponseCard";
 import type { ResponseItem } from "@/lib/admin/types";
 
 type StoreOption = { id: string; name: string };
-type Filters = { store: string; stars: string; branch: "good" | "improve" | "all"; period: PeriodCode };
+type Filters = {
+  store: string;
+  stars: string;
+  branch: "good" | "improve" | "all";
+  /** 期間。プリセットか、任意の期間（YYYY-MM-DD）のどちらか */
+  period: PeriodValue;
+};
 
 const BRANCH_SEGMENTS: { value: "all" | "good" | "improve"; label: string }[] = [
   { value: "all", label: "すべて" },
@@ -80,12 +87,15 @@ export function ResponsesView({
     if (merged.store) params.set("store", merged.store);
     if (merged.stars) params.set("stars", merged.stars);
     if (merged.branch !== "all") params.set("branch", merged.branch);
-    if (merged.period !== "7d") params.set("period", merged.period);
+    if ("preset" in merged.period) {
+      if (merged.period.preset !== "7d") params.set("period", merged.period.preset);
+    } else {
+      params.set("from", merged.period.from);
+      params.set("to", merged.period.to);
+    }
     const qs = params.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname);
   }
-
-  const periodLabel = PERIOD_OPTIONS.find((o) => o.code === filters.period)?.label ?? PERIOD_OPTIONS[0].label;
 
   const routeSegment = (
     <div className="flex items-start gap-1">
@@ -128,7 +138,7 @@ export function ResponsesView({
           <p className="whitespace-nowrap text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             {countLabel}
           </p>
-          <PeriodSegment value={periodLabel} onChange={(label) => updateFilters({ period: PERIOD_OPTIONS.find((o) => o.label === label)?.code ?? "7d" })} />
+          <PeriodPicker value={filters.period} onChange={(period) => updateFilters({ period })} />
         </div>
       </div>
       <p className="whitespace-nowrap text-[13px] font-medium md:hidden" style={{ color: "var(--product-color-text-secondary)" }}>
@@ -154,7 +164,7 @@ export function ResponsesView({
       </div>
       <div className="flex w-full flex-col items-start gap-3 md:hidden">
         {routeSegment}
-        <PeriodSegment value={periodLabel} onChange={(label) => updateFilters({ period: PERIOD_OPTIONS.find((o) => o.label === label)?.code ?? "7d" })} />
+        <PeriodPicker value={filters.period} onChange={(period) => updateFilters({ period })} />
       </div>
 
       <div className="flex w-full flex-col items-start gap-3">

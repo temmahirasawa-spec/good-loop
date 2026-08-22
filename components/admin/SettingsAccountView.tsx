@@ -6,6 +6,8 @@ import { LoopInput } from "@/components/admin/LoopInput";
 import { LogoutButton } from "@/components/admin/LogoutButton";
 import { WithdrawModal } from "@/components/admin/WithdrawModal";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
+import { AccountIcon } from "@/components/admin/SettingsMenuIcons";
 
 /** メール・パスワードの「変更」行。クリックすると同じ行内に入力欄が開く（Figmaに個別画面は無い） */
 function EditableRow({
@@ -41,12 +43,13 @@ function EditableRow({
 
   return (
     <div className="flex w-full flex-col items-start gap-2">
-      <div className="flex h-12 w-full items-center justify-between">
-        <div className="flex items-center gap-4">
-          <p className="w-[140px] text-[12.5px]" style={{ color: "var(--product-color-text-secondary)" }}>
+      {/* SPは値が長いと右端で切れるので、ラベルと値を2行にする（2026-08-22 天真のFigmaコメント） */}
+      <div className="flex w-full items-start justify-between gap-3 py-2 md:h-12 md:items-center md:py-0">
+        <div className="flex min-w-0 flex-col items-start gap-0.5 md:flex-row md:items-center md:gap-4">
+          <p className="text-[12.5px] md:w-[140px] md:shrink-0" style={{ color: "var(--product-color-text-secondary)" }}>
             {label}
           </p>
-          <p className="whitespace-nowrap text-[13.5px]" style={{ color: "var(--product-color-text-primary)" }}>
+          <p className="break-all text-[13.5px] md:whitespace-nowrap" style={{ color: "var(--product-color-text-primary)" }}>
             {displayValue}
           </p>
         </div>
@@ -57,7 +60,7 @@ function EditableRow({
             setDone(false);
             setError(null);
           }}
-          className="text-[12.5px]"
+          className="shrink-0 text-[12.5px]"
           style={{ color: "var(--loop-accent-action)" }}
         >
           {editing ? "キャンセル" : "変更"}
@@ -118,9 +121,7 @@ export function SettingsAccountView({ initialEmail }: { initialEmail: string }) 
   return (
     <>
       <div className="flex w-full flex-col items-start gap-4 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
-        <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-          アカウント
-        </p>
+        <SettingsCardTitle icon={<AccountIcon />}>アカウント</SettingsCardTitle>
 
         <EditableRow
           label="メールアドレス"

@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { RatingTop } from "./screens/RatingTop";
 import { GoodFeedback } from "./screens/GoodFeedback";
 import { DraftResult, REGENERATE_LIMIT, type DraftStatus } from "./screens/DraftResult";
 import { ImproveSurvey } from "./screens/ImproveSurvey";
 import { Thanks } from "./screens/Thanks";
-import { AlreadyAnswered } from "./screens/AlreadyAnswered";
 
 /**
  * お客様側フロー（docs/specs/rating-flow.md）のクライアント側オーケストレーター。
@@ -18,12 +17,11 @@ import { AlreadyAnswered } from "./screens/AlreadyAnswered";
  * POST /api/rating-flow/regenerate-draft に接続済み（2026-08-06）。
  * ★4以上の初回下書きは responses のレスポンスに同梱される（A-1「同時に」に対応）。
  *
- * E-5（重複回答対策・ブラウザ側でやんわり抑止）実装済み（2026-08-06）。回答成功時に
- * `localStorage` の `goodloop:${store.slug}:answered` を立て、次回訪問時は01画面の代わりに
- * AlreadyAnswered を出す。サーバー側の重複検知はしない（rating-flow.md E-5で決定済み）。
+ * E-5（重複回答対策・ブラウザ側でやんわり抑止）は2026-08-18に天真の指示で解除した。
+ * 同じ端末から何度でも回答できる。画面（screens/AlreadyAnswered.tsx）は再開に備えて残してある。
  */
 
-type Step = "rating" | "good-feedback" | "draft" | "improve-survey" | "thanks" | "already-answered";
+type Step = "rating" | "good-feedback" | "draft" | "improve-survey" | "thanks";
 
 type Store = {
   id: string;
@@ -53,21 +51,9 @@ function trackEvent(responseId: string, eventType: "copied_draft" | "opened_goog
   }).catch(() => {});
 }
 
-/** E-5用の重複回答フラグのキー（rating-flow.md E-5） */
-function answeredStorageKey(slug: string): string {
-  return `goodloop:${slug}:answered`;
-}
-
 export function RatingFlow({ store, tags }: { store: Store; tags: Tags }) {
   const [step, setStep] = useState<Step>("rating");
   const [rating, setRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
-
-  // SSRではlocalStorageが無いため、初期表示は常に「rating」。マウント後にフラグを見て切り替える
-  useEffect(() => {
-    if (window.localStorage.getItem(answeredStorageKey(store.slug)) === "1") {
-      setStep("already-answered");
-    }
-  }, [store.slug]);
 
   const [goodTags, setGoodTags] = useState<string[]>([]);
   const [goodFreeText, setGoodFreeText] = useState("");
@@ -107,7 +93,6 @@ export function RatingFlow({ store, tags }: { store: Store; tags: Tags }) {
       setDraftText(data.draft.text);
       setDraftStatus(data.draft.status);
       setSubmittingGood(false);
-      window.localStorage.setItem(answeredStorageKey(store.slug), "1");
       setStep("draft");
     } catch {
       setSubmittingGood(false);
@@ -160,7 +145,6 @@ export function RatingFlow({ store, tags }: { store: Store; tags: Tags }) {
       });
       if (!res.ok) throw new Error(`unexpected status ${res.status}`);
       setSubmittingImprove(false);
-      window.localStorage.setItem(answeredStorageKey(store.slug), "1");
       setStep("thanks");
     } catch {
       setSubmittingImprove(false);
@@ -222,7 +206,5 @@ export function RatingFlow({ store, tags }: { store: Store; tags: Tags }) {
       );
     case "thanks":
       return <Thanks googleReviewUrl={googleReviewUrl(store)} />;
-    case "already-answered":
-      return <AlreadyAnswered storeName={store.name} />;
   }
 }

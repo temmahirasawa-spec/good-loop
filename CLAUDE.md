@@ -219,12 +219,23 @@ GOOD ORDER も他サービスも同じ形にする（基本＝UTUTU、専用＝�
 - `scripts/figma-check-baseline.json` は「既存分として見逃す違反」の一覧。
   ここを増やすのは、返済されない負債を増やすということ。
   検品が落ちたときに `--update-baseline` へ逃げないこと
-- **⚠ 現行トークンには `file_variables:read` スコープがありません。**
-  そのため Variables API（`/v1/files/:key/variables/local`）は 403 で落ちます。
+- **⚠ 現行トークンのスコープは `file_content:read` だけです。** そのため次の2つが 403 で落ちます。
   プランの制限ではなく**スコープの不足**です（`Invalid scope(s): file_content:read.`）。
-  変数の値を機械的に取りたい場合は、`file_content:read` ＋ `file_variables:read` の
-  2スコープでトークンを発行し直すこと。**発行し直したら GitHub のシークレットも更新する**
+  - Variables API（`/v1/files/:key/variables/local`）… 変数の値を機械的に取れない
+  - Comments API（`/v1/files/:key/comments`）… **天真がFigmaに刺したコメントをAIが読めない**
+  発行し直すときは **`file_content:read` ＋ `file_variables:read` ＋ `file_comments:read`
+  ＋ `file_comments:write`** の4スコープを付けること。
+  **発行し直したら GitHub のシークレットも更新する**
   （`~/.zshrc` だけ直すと CI 側が古いトークンのままになる）
+
+- **Figmaのコメントを読む・返信する（2026-08-22 新設）**
+  ```
+  npm run design:comments                          未解決のコメントを一覧
+  npm run design:comments -- --all                 解決済みも含めて一覧
+  npm run design:comments -- --reply <id> "本文"    そのスレッドに返信
+  ```
+  `scripts/figma-comments.mjs`。**コメントは Plugin API（`use_figma`）からは読めない**
+  （ドキュメントの中身しか触れないため）。REST API 専用で、上記スコープが要る
 - **⚠ Figma のパーソナルアクセストークンの有効期限は 2026-11-01 です。**
   切れると `npm run design:figma` が **403** で落ちます。スクリプトのバグではありません。
   Figma で発行し直して `~/.zshrc` の `export FIGMA_TOKEN="figd_..."` を更新してください。

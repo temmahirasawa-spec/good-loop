@@ -73,7 +73,7 @@ export function RatingTop({
       <div className="min-h-px w-full flex-1" />
 
       <div className="flex w-full max-w-[342px] flex-col items-center gap-[var(--product-space-12)]">
-        <LoopButton variant="primary" disabled={rating === null} onClick={onSubmit}>
+        <LoopButton variant="primary" size="lg" disabled={rating === null} onClick={onSubmit}>
           回答する
         </LoopButton>
         <p

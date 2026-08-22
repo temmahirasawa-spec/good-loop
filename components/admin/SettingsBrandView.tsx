@@ -6,6 +6,8 @@ import { LoopButton } from "@/components/rating-flow/Button";
 import { LoopInput } from "@/components/admin/LoopInput";
 import { LOOP_THEMES } from "@/lib/admin/constants";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
+import { BrandIcon } from "@/components/admin/SettingsMenuIcons";
 
 /**
  * 設定（ブランドとテーマ） Figma node 69:1261 PC / 75:1613 SP。
@@ -82,9 +84,7 @@ export function SettingsBrandView({
   return (
     <>
       <div className="flex w-full flex-col items-start gap-4 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
-        <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-          ブランド
-        </p>
+        <SettingsCardTitle icon={<BrandIcon />}>ブランド</SettingsCardTitle>
         <div className="flex w-full items-center gap-4">
           <div
             className="flex size-24 shrink-0 flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed"
@@ -101,7 +101,7 @@ export function SettingsBrandView({
           </div>
           <div className="flex flex-1 flex-col items-start gap-2">
             <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleFileSelect} className="hidden" />
-            <LoopButton variant="primary" onClick={() => fileInputRef.current?.click()}>
+            <LoopButton variant="outline" onClick={() => fileInputRef.current?.click()}>
               ロゴをアップロード
             </LoopButton>
             <p className="text-xs font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
@@ -122,7 +122,7 @@ export function SettingsBrandView({
           テーマ
         </p>
         <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-          業態を選ぶと、色とアンケート項目のプリセットが切り替わります
+          お客様側の画面の色を選べます。業態とは関係なく、お好きな色を選んでいただけます
         </p>
         <div className="flex w-full flex-col flex-wrap items-start gap-2 pt-1 md:flex-row">
           {LOOP_THEMES.map((t) => {

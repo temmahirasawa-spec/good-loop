@@ -88,7 +88,7 @@ export function ImproveSurvey({
             {error}
           </p>
         )}
-        <LoopButton variant="primary" disabled={checked.length === 0 || submitting} onClick={onSubmit}>
+        <LoopButton variant="primary" size="lg" disabled={checked.length === 0 || submitting} onClick={onSubmit}>
           {submitting ? "送信中…" : "送信する"}
         </LoopButton>
         <p

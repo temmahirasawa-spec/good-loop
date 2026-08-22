@@ -3,14 +3,28 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoopButton } from "@/components/rating-flow/Button";
+import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
+import { StoreIcon } from "@/components/admin/SettingsMenuIcons";
 import { StoreEditModal } from "@/components/admin/StoreEditModal";
 import { AddStoreModal } from "@/components/admin/AddStoreModal";
 import { QrCard, QrCardMobile } from "@/components/admin/QrCard";
+import { BILLING, formatYen } from "@/lib/admin/constants";
+
+/** 店舗枠の状態（lib/admin/store-quota.ts）。表示に必要な分だけ受け取る */
+export type StoreQuotaProps = {
+  /** 契約している店舗数。読み取れなかったときは null（数字を出さない） */
+  quota: number | null;
+  used: number;
+  canAddStore: boolean;
+};
 
 export type SettingsStoreRow = {
   id: string;
   name: string;
   slug: string;
+  /** お客様が開く投稿画面のURL（コピーして共有できるように表示する） */
+  publicUrl: string;
+  businessCategory: string;
   googlePlaceLinked: boolean;
   qrSvg: string;
   qrReads: number;
@@ -26,8 +40,46 @@ export type SettingsStoreRow = {
  * 「＋ 店舗を追加」は AddStoreModal が /api/admin/settings/stores 経由で新規作成する。
  * Googleマップ紐付けは追加時点でもできるようにした（2026-08-06）ため、店舗を追加した直後から
  * QRコード・お客様の★4/5評価後のGoogleマップ遷移先が有効になる。
+ *
+ * 2026-08-21、**店舗枠**（契約している店舗数）を導入した（supabase/0009）。
+ * 枠に空きが無いときは「＋ 店舗を追加」を押せなくし、お支払い画面へ誘導する。
+ * サーバー側・DB側にも同じ判定があるので、ここは案内のための表示という位置づけ。
  */
-export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
+/**
+ * お客様が開く投稿画面のURL。押すとコピーできる（2026-08-22 天真のFigmaコメント
+ * 「コピーできる投稿画面のURLを表示」）。SNSやLINEで直接送りたいときに使う。
+ */
+function CopyableUrl({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2"
+      style={{ backgroundColor: "var(--product-color-bg-primary)" }}
+    >
+      <span className="truncate text-[12px]" style={{ color: "var(--product-color-text-secondary)" }}>
+        {url}
+      </span>
+      <span className="shrink-0 text-[12px] font-bold" style={{ color: "var(--loop-accent-action)" }}>
+        {copied ? "コピーしました" : "コピー"}
+      </span>
+    </button>
+  );
+}
+
+export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow[]; quota: StoreQuotaProps }) {
   const router = useRouter();
   const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set(stores.filter((s) => s.googlePlaceLinked).map((s) => s.id)));
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,9 +97,7 @@ export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
   return (
     <>
       <div className="flex w-full flex-col items-start gap-4 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
-        <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-          店舗・二次元コード管理
-        </p>
+        <SettingsCardTitle icon={<StoreIcon />}>店舗・二次元コード管理</SettingsCardTitle>
         <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
           店舗ごとに Googleマップ上のお店を店名で検索して紐付けます。紐付けると、お客様をクチコミ投稿画面へ直接誘導できます。
           印刷して店舗に置くだけで、アンケートとレビュー送客が始まります
@@ -55,8 +105,9 @@ export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
         {stores.map((store) => {
           const linked = linkedIds.has(store.id);
           return (
-            <div key={store.id} className="flex w-full items-center justify-between border-b px-1 py-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
-              <div className="flex items-center gap-3">
+            <div key={store.id} className="flex w-full flex-col items-start gap-2 border-b px-1 py-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
+              <div className="flex w-full items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
                   {store.name}
                 </p>
@@ -64,21 +115,47 @@ export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
                   className="rounded-full px-2 py-1 text-[11px] font-medium"
                   style={{
                     backgroundColor: linked ? "var(--loop-accent-wash)" : "var(--product-color-bg-primary)",
-                    color: linked ? "var(--loop-accent-action)" : "var(--product-color-status-warning)",
+                    color: linked ? "var(--loop-accent-action)" : "var(--product-color-status-error)",
                   }}
                 >
                   {linked ? "Googleマップ連携済み" : "URL未設定"}
                 </span>
               </div>
-              <button type="button" onClick={() => setEditingId(store.id)} className="text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
+              <button type="button" onClick={() => setEditingId(store.id)} className="shrink-0 text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
                 編集
               </button>
+              </div>
+              <CopyableUrl url={store.publicUrl} />
             </div>
           );
         })}
-        <LoopButton variant="primary" onClick={() => setAdding(true)}>
-          ＋ 店舗を追加
-        </LoopButton>
+        <div className="flex w-full items-center justify-between">
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            契約中の店舗枠
+          </p>
+          <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+            {quota.quota === null ? "—" : `${quota.used} / ${quota.quota} 店舗`}
+          </p>
+        </div>
+
+        {quota.canAddStore ? (
+          <LoopButton variant="primary" onClick={() => setAdding(true)}>
+            ＋ 店舗を追加
+          </LoopButton>
+        ) : (
+          <div className="flex w-full flex-col items-start gap-3 rounded-xl p-4" style={{ backgroundColor: "var(--product-color-bg-primary)" }}>
+            <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+              {quota.quota === null
+                ? "店舗枠を取得できませんでした。時間をおいてページを開き直してください"
+                : `店舗枠がいっぱいです。店舗を追加するには、お支払い画面で店舗枠を追加してください（追加1店舗につき月額${formatYen(BILLING.additionalStoreMonthlyYen)}）`}
+            </p>
+            {quota.quota !== null && (
+              <LoopButton variant="primary" onClick={() => router.push("/admin/settings/billing")}>
+                お支払いへ進む
+              </LoopButton>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex w-full flex-wrap items-start gap-4">
@@ -96,6 +173,7 @@ export function SettingsStoresView({ stores }: { stores: SettingsStoreRow[] }) {
         <StoreEditModal
           storeId={editingStore.id}
           storeName={editingStore.name}
+          businessCategory={editingStore.businessCategory}
           linked={linkedIds.has(editingStore.id)}
           onClose={() => setEditingId(null)}
           onSave={() => {

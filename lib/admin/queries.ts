@@ -36,7 +36,22 @@ function formatDateLabel(iso: string): string {
   return `${get("month")}/${get("day")} ${get("hour")}:${get("minute")}`;
 }
 
-/** 回答一覧の期間フィルタ（launch-plan.md D-8）。「今月」だけはJST（Asia/Tokyo）の暦月で区切る */
+/**
+ * 回答一覧の期間フィルタ（launch-plan.md D-8）。「今月」だけはJST（Asia/Tokyo）の暦月で区切る。
+ *
+ * 2026-08-22、任意の期間（`from`〜`to`）にも対応した（UI検証Q9）。
+ * 日付は「YYYY-MM-DD」で受け取り、JSTのその日の00:00〜翌日00:00で挟む。
+ */
+export function rangeToIso(range?: { from?: string; to?: string }): { since?: string; until?: string } {
+  if (!range?.from && !range?.to) return {};
+  const dayStart = (d: string) => new Date(`${d}T00:00:00+09:00`).toISOString();
+  const dayEnd = (d: string) => new Date(new Date(`${d}T00:00:00+09:00`).getTime() + 24 * 60 * 60 * 1000).toISOString();
+  return {
+    since: range.from ? dayStart(range.from) : undefined,
+    until: range.to ? dayEnd(range.to) : undefined,
+  };
+}
+
 function periodSinceIso(period?: "7d" | "14d" | "month" | "90d"): string | undefined {
   if (!period) return undefined;
   const now = Date.now();
@@ -50,7 +65,7 @@ function periodSinceIso(period?: "7d" | "14d" | "month" | "90d"): string | undef
   return new Date(`${year}-${month}-01T00:00:00+09:00`).toISOString();
 }
 
-type StoreRow = { id: string; name: string; slug: string; loop_theme: string; google_place_id: string | null };
+type StoreRow = { id: string; name: string; slug: string; loop_theme: string; business_category: string; google_place_id: string | null };
 type ResponseRow = { store_id: string; rating: number; created_at: string };
 type EventRow = { store_id: string; created_at: string };
 type ViewRow = { store_id: string; created_at: string };
@@ -61,7 +76,7 @@ export async function getStoreSummaries(): Promise<StoreSummary[]> {
 
   const { data: stores } = await supabase
     .from("stores")
-    .select("id, name, slug, loop_theme, google_place_id")
+    .select("id, name, slug, loop_theme, business_category, google_place_id")
     .order("name")
     .returns<StoreRow[]>();
   if (!stores || stores.length === 0) return [];
@@ -116,6 +131,7 @@ export async function getStoreSummaries(): Promise<StoreSummary[]> {
       name: store.name,
       slug: store.slug,
       loopTheme: store.loop_theme,
+      businessCategory: store.business_category,
       routeCount,
       routeCountPrev,
       routeRatePercent,
@@ -157,6 +173,9 @@ export async function getResponseItems(
     /** ★4以上＝good・★3以下＝improve（rating-flow.md A-2の分岐と同じ） */
     branch?: "good" | "improve";
     period?: "7d" | "14d" | "month" | "90d";
+    /** 任意の期間（YYYY-MM-DD）。指定されていれば period より優先する */
+    from?: string;
+    to?: string;
   } = {}
 ): Promise<ResponseItem[]> {
   const supabase = await createSupabaseServerClient();
@@ -170,8 +189,10 @@ export async function getResponseItems(
   if (options.storeId) query = query.eq("store_id", options.storeId);
   if (options.rating) query = query.eq("rating", options.rating);
   if (options.branch) query = query.eq("branch", options.branch);
-  const since = periodSinceIso(options.period);
+  const custom = rangeToIso({ from: options.from, to: options.to });
+  const since = custom.since ?? (options.from || options.to ? undefined : periodSinceIso(options.period));
   if (since) query = query.gte("created_at", since);
+  if (custom.until) query = query.lt("created_at", custom.until);
   if (options.limit) query = query.limit(options.limit);
 
   const { data } = await query.returns<ResponseWithJoinsRow[]>();

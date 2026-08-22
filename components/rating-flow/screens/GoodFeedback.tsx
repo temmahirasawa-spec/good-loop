@@ -94,7 +94,7 @@ export function GoodFeedback({
             {error}
           </p>
         )}
-        <LoopButton variant="primary" disabled={selectedTags.length === 0 || submitting} onClick={onSubmit}>
+        <LoopButton variant="primary" size="lg" disabled={selectedTags.length === 0 || submitting} onClick={onSubmit}>
           {submitting ? "送信中…" : "回答する"}
         </LoopButton>
         <p

@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogoutButton } from "./LogoutButton";
 
 /** Loop / Admin Sidebar（Figma node 48:851）— LOOP管理画面のサイドナビ */
 const NAV_ITEMS = [
-  { href: "/admin", label: "トップ" },
-  { href: "/admin/responses", label: "回答一覧" },
-  { href: "/admin/settings", label: "設定" },
+  { href: "/admin", label: "トップ", match: "/admin" },
+  { href: "/admin/responses", label: "回答一覧", match: "/admin/responses" },
+  // PCはタブで切り替えるので、メニュー画面を経由せず最初のタブへ直接送る（UI検証Q6）
+  { href: "/admin/settings/brand", label: "設定", match: "/admin/settings" },
 ];
 
 export function AdminSidebar({ storeName }: { storeName: string }) {
@@ -27,7 +27,7 @@ export function AdminSidebar({ storeName }: { storeName: string }) {
       </p>
       <div className="h-5 w-full shrink-0" />
       {NAV_ITEMS.map((item) => {
-        const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+        const active = item.match === "/admin" ? pathname === "/admin" : pathname.startsWith(item.match);
         return (
           <Link
             key={item.href}
@@ -47,8 +47,6 @@ export function AdminSidebar({ storeName }: { storeName: string }) {
           </Link>
         );
       })}
-      <div className="min-h-px w-full flex-1" />
-      <LogoutButton className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }} />
     </div>
   );
 }

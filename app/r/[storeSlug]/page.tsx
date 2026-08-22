@@ -19,7 +19,7 @@ export default async function RatingFlowPage({ params }: { params: { storeSlug: 
   const supabase = createSupabaseAdminClient();
   const { data: store } = await supabase
     .from("stores")
-    .select("id, tenant_id, name, slug, loop_theme, google_place_id, google_maps_fallback_url")
+    .select("id, tenant_id, name, slug, loop_theme, business_category, google_place_id, google_maps_fallback_url")
     .eq("slug", params.storeSlug)
     .maybeSingle();
 
@@ -31,10 +31,12 @@ export default async function RatingFlowPage({ params }: { params: { storeSlug: 
     .insert({ tenant_id: store.tenant_id, store_id: store.id })
     .then(() => {}, () => {});
 
-  const storeTags = await getOrSeedStoreTags(supabase, store.id, store.tenant_id);
+  // プリセットの種まきは店舗の業態に対応するものだけを使う（supabase/0010、2026-08-21）
+  const storeTags = await getOrSeedStoreTags(supabase, store.id, store.tenant_id, store.business_category);
 
   return (
-    // Figmaのフレームは390px固定（02基本形）。data-loop-theme は店舗の業態をそのまま渡す
+    // Figmaのフレームは390px固定（02基本形）。data-loop-theme は店舗が選んだ色テーマをそのまま渡す
+    // （2026-08-06、業態とは分離した。値は変えていない。詳細はlib/admin/constants.ts参照）
     <div className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-col" data-loop-theme={store.loop_theme}>
       <RatingFlow
         store={{
