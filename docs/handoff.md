@@ -2052,7 +2052,41 @@ PR #44 のマージ後に取り残されていた4コミットを `fix/settings-
 `Agg-C｜カードのグリッド`（638:11724）。x=12000〜13600, y=2800。
 中身は3案とも揃えてあり、器だけが違う。**選定待ち。**
 
-### 見つかった規約とFigmaの食い違い（未解決）
+### 案Aに決定し、Figmaと実装を同じ回で仕上げた
+
+天真が**案A（横棒ランキング）**を選択。以下をすべて同じセッションで揃えた
+（28回目の反省「Figmaと実装は同じコミットで直す」に従った）。
+
+**Figma（`05 集計 / Analytics` を新設）**
+
+- PC 1440 × SP 390 の対で、5状態（通常／回答なし／この期間は0件／読み込み中／エラー）＝10フレーム
+- `Loop / Admin Sidebar` に `NavItem:集計` を追加（PC管理画面すべてに1行増えた）。SPドロワーにも追加
+- **`05` を間に挿したので、以降のセクション番号を1つずつ繰り下げた**
+  （回答一覧 `06` ／設定 `07` ／オンボーディング `08` ／コーチマーク `09` ／ログイン `10`）。
+  セクションの間隔は全て100pxのまま。`design-rules.md`・`onboarding.md` の参照も直した
+- 検品は**着手前と同じ数字**（構造31件・負債249件・合計747件、増加0）
+
+**実装**
+
+| ファイル | 中身 |
+|---|---|
+| `lib/admin/queries.ts` | `getTagAggregates()`。**新しいSQLは無い**（`survey_responses` × `response_tags` × `store_tags`） |
+| `app/admin/(dashboard)/analytics/page.tsx` | `/admin/analytics`。店舗・期間は searchParams |
+| `components/admin/AnalyticsView.tsx` | 案Aの横棒。PCは1行、SPは2段に折り返す |
+| `components/admin/AdminSidebar.tsx`・`AdminMobileNav.tsx` | 「集計」をトップと回答一覧の間に追加 |
+| `app/product-tokens.css` | `--product-color-secondary-primary: #ffc32b`（改善点の棒。Figma `secondary/primary`） |
+
+**色の対応を揃えた。** 良かった点の棒＝`industry/accent/primary`（業態色）、
+注記の背景＝`industry/accent/wash`、改善点の棒＝`secondary/primary`（業態に依らない黄色）。
+Figma側も同じ変数にバインドし直した。
+
+**未実装（判断待ち）：項目を押したときの行き先。** 回答一覧に項目での絞り込みが無いため、
+いまは棒を押しても何も起きない。実装するなら `getResponseItems` に `tag` を足す。
+
+**スクリーンショットは撮っていない。** 管理画面はログインが要り、ヘッドレスのブラウザでは
+ログイン画面しか写らないため。**天真の指示で今回は省略**（実際にログインしたときに確認する）。
+
+### 見つかった規約とFigmaの食い違い（解消済み）
 
 Plugin API で変数コレクションを実測したところ、**CLAUDE.md の記載と食い違っていた。**
 
@@ -2063,8 +2097,12 @@ Plugin API で変数コレクションを実測したところ、**CLAUDE.md の
 | モード | 9業態 | **9業態 ＋ `Default`（10モード）** |
 | 欠けている変数 | — | **`cta/action` が無い**（他の7つは存在する） |
 
-`app/design-tokens.css` は `--loop-cta-action` を9業態ぶん持っているので、
-**実装にはあるが Figma には無い**状態。どちらに合わせるか天真の判断が要る（規約の変更にあたるため未着手）。
+**色の値は72個とも一致していた**（9業態 × 7変数を突き合わせて確認）。食い違いは名前とモードと
+`cta/action` の有無だけだった。
+
+**天真の判断で「CLAUDE.md を実物に合わせる」。** `CLAUDE.md` と `app/design-tokens.css` の
+記述を実測値に直した。`--loop-cta-action` は**実装だけにあり画面のコードでは未使用**である旨を明記した。
+使う場面が出てきたら、先に Figma に変数を足すこと。
 
 ---
 
