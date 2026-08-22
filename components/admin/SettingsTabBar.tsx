@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SETTINGS_NAV, tabLabel } from "@/lib/admin/settings-nav";
 
 /**
  * Loop / Settings Tab Bar（Figma node 79:1541 等）— 設定画面のタブ切り替え。URLで状態を持つ。
@@ -13,22 +14,13 @@ import { usePathname } from "next/navigation";
  * ピルのままだとボタンと見分けがつかないため。ピル型は `Loop / Segment Chip`
  * （期間・分岐などの絞り込み）に残す。Figmaは `Loop / Tab Item`。
  */
-const TABS = [
-  { href: "/admin/settings/brand", label: "ブランドとテーマ" },
-  { href: "/admin/settings/stores", label: "店舗・二次元コード管理" },
-  { href: "/admin/settings/pop", label: "卓上POP" },
-  { href: "/admin/settings/survey", label: "アンケート項目" },
-  { href: "/admin/settings/notifications", label: "通知" },
-  { href: "/admin/settings/billing", label: "お支払い" },
-  { href: "/admin/settings/account", label: "アカウント" },
-];
 
 export function SettingsTabBar() {
   const pathname = usePathname();
 
   return (
     <div className="hidden w-full shrink-0 items-start gap-2 overflow-x-auto md:flex">
-      {TABS.map((tab) => {
+      {SETTINGS_NAV.map((tab) => {
         const active = pathname.startsWith(tab.href);
         return (
           <Link
@@ -46,7 +38,7 @@ export function SettingsTabBar() {
                 fontWeight: active ? 700 : 400,
               }}
             >
-              {tab.label}
+              {tabLabel(tab)}
             </span>
           </Link>
         );

@@ -114,6 +114,15 @@ const skipped = [];
 const stats = { unboundFills: 0, noTextStyle: 0, nodes: 0 };
 
 const box = (n) => n.absoluteBoundingBox || { x: 0, y: 0, width: 0, height: 0 };
+
+/**
+ * フレーム1枚が PC 用か SP 用か（2026-08-22、PCとSPを同じセクションに置く構成の導入）。
+ * 名前の「— SP」「— PC」を第一の根拠にし、書かれていない場合だけ幅で判断する
+ * （SPフレームは390px、モーダルはPC側で560px前後）。
+ */
+const SP_MAX_WIDTH = 430;
+const isSpFrame = (n) => /[-—]\s*SP\b/i.test(n.name || "") || (!/[-—]\s*PC\b/i.test(n.name || "") && box(n).width <= SP_MAX_WIDTH);
+const isPcFrame = (n) => !isSpFrame(n);
 const near = (a, b) => Math.abs(a - b) <= TOL;
 const H = (sec, msg) => hard.push({ sec, msg });
 const S = (sec, msg) => soft.push({ sec, msg });
@@ -208,9 +217,9 @@ function checkSection(page, sec, depth = 0) {
     H(label, `「${b.name}」は PC / SP ではありません。セクションの直下には PC と SP だけを置いてください`);
   }
 
-  if (!isUtility && (subs.length || requirePair)) {
+  if (subs.length) {
+    // ── 旧構成：セクション ＞ PC / SP サブセクション ＞ フレーム ──
     const names = subs.map((s) => s.name);
-    // 除外セクション（片側しか存在しない画面）は対を要求しない
     if (!PAIR_EXEMPT_SECTIONS.includes(sec.name)) {
       if (!names.includes("PC")) H(label, "PC セクションがありません（PC を作るときは SP も対で作る）");
       if (!names.includes("SP")) H(label, "SP セクションがありません（PC を作るときは SP も対で作る）");
@@ -221,6 +230,14 @@ function checkSection(page, sec, depth = 0) {
       checkSectionColor(`${label} / ${sub.name}`, sub, SECTION_COLOR_INNER, "中枠の");
       checkFit(`${label} / ${sub.name}`, sub, true);
     }
+  } else if (requirePair && kids.some((c) => c.type === "FRAME" || c.type === "COMPONENT" || c.type === "COMPONENT_SET")) {
+    // ── 新構成（2026-08-22、天真の指示）：セクション ＞ フレーム（PCとSPが同居） ──
+    // 機能の軸（トップ・回答一覧・設定・オンボーディング・チュートリアル）でセクションを分け、
+    // 同じ機能のPCとSPは同じセクションに置く。サブセクションは作らない。
+    // メモのテキストは数に入れない（作り始める前の空セクションを落とさないため）
+    const frames = kids.filter((c) => c.type === "FRAME" || c.type === "COMPONENT" || c.type === "COMPONENT_SET");
+    if (!frames.some(isPcFrame)) H(label, "PC のフレームがありません（PC を作るときは SP も対で作る）");
+    if (!frames.some(isSpFrame)) H(label, "SP のフレームがありません（PC を作るときは SP も対で作る）");
   }
 
   checkFit(label, sec, false);
@@ -245,9 +262,13 @@ function checkFit(label, node, spaceChildren) {
   if (!near(b2, PAD)) H(label, `下パディングが ${Math.round(b2)}px です（${PAD}px）`);
 
   if (spaceChildren) {
+    // PCの行とSPの行が縦に並ぶ構成があるので、**縦に重なっているもの同士＝同じ行**でだけ
+    // 横の間隔を見る。行をまたいで比べると、SP行の先頭がPC行の末尾と比較されて誤検知になる。
     const ordered = kids.slice().sort((a, b) => box(a).x - box(b).x);
     for (let i = 1; i < ordered.length; i++) {
       const p = box(ordered[i - 1]), c = box(ordered[i]);
+      const sameRow = c.y < p.y + p.height && p.y < c.y + c.height;
+      if (!sameRow) continue;
       const gap = c.x - (p.x + p.width);
       if (gap < -TOL) H(label, `「${ordered[i].name}」が前のフレームと重なっています`);
       else if (!near(gap, PAD)) H(label, `「${ordered[i].name}」の左の間隔が ${Math.round(gap)}px です（${PAD}px）`);
@@ -470,8 +491,15 @@ for (const page of pages) {
       // （1440px の LP に「タップ領域44px以上」を要求することになる）
       for (const sub of subs) walk(sub, `${page.name} / ${sec.name} / ${sub.name}`, sub.name === "SP", false);
     } else {
-      // 分かれていない免除セクションは SP 専用の画面。SP として品質を見る
-      walk(sec, `${page.name} / ${sec.name}`, PAIR_EXEMPT_SECTIONS.includes(sec.name), false);
+      // 分かれていないセクションは、フレーム1枚ごとに PC / SP を見分ける
+      // （PCとSPが同じセクションに同居する新しい構成。2026-08-22）。
+      // ただし素材置き場（99〜）と探索用のページには広げない。1440pxの検討ボードに
+      // 「タップ領域44px以上」を要求しても意味がないため、従来どおりの扱いに戻す。
+      const spOnly = PAIR_EXEMPT_SECTIONS.includes(sec.name);
+      const perFrame = SCREEN_PAGES.includes(page.name) && !/^\s*99/.test(sec.name) && !spOnly;
+      for (const kid of sec.children || []) {
+        walk(kid, `${page.name} / ${sec.name}`, spOnly || (perFrame && isSpFrame(kid)), false);
+      }
     }
   }
 }
