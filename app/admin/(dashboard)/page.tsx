@@ -1,5 +1,5 @@
 import { AdminMobileTopBar } from "@/components/admin/AdminMobileNav";
-import { KpiCard } from "@/components/admin/KpiCard";
+import { KpiCard, toDelta } from "@/components/admin/KpiCard";
 import { PeriodSegment } from "@/components/admin/PeriodSegment";
 import { TrendChart } from "@/components/admin/TrendChart";
 import { StoreBreakdownTable } from "@/components/admin/StoreBreakdownTable";
@@ -66,13 +66,20 @@ export default async function AdminTopPage() {
           label="Googleへ送客（誘導数）"
           value={String(total.routeCount)}
           prevLabel={`前期 ${total.routeCountPrev}件`}
+          delta={toDelta(total.routeCount, total.routeCountPrev, "件")}
           note="レビュー画面を開いた数です。実際に投稿された数ではありません"
         />
-        <KpiCard label="回答数" value={String(total.responseCount)} prevLabel={`前期 ${total.responseCountPrev}件`} />
+        <KpiCard
+          label="回答数"
+          value={String(total.responseCount)}
+          prevLabel={`前期 ${total.responseCountPrev}件`}
+          delta={toDelta(total.responseCount, total.responseCountPrev, "件")}
+        />
         <KpiCard
           label="送客率"
           value={total.routeRatePercent === null ? "—" : `${total.routeRatePercent}%`}
           prevLabel={`前期 ${total.routeRatePercentPrev === null ? "—" : `${total.routeRatePercentPrev}%`}`}
+          delta={toDelta(total.routeRatePercent, total.routeRatePercentPrev, "pt")}
           unit=""
         />
       </div>
