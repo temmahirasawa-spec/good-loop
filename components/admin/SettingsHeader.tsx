@@ -50,11 +50,17 @@ export function SettingsHeader() {
         const item = SETTINGS_NAV.find((n) => pathname.startsWith(n.href));
         const Icon = item ? ICONS[item.icon] : null;
         return (
-          <div className="hidden items-center gap-3 md:flex">
+          <div className="hidden w-full items-center gap-3 md:flex">
             {Icon && <Icon />}
             <p className="text-xl font-bold" style={{ color: "var(--product-color-text-primary)" }}>
               {item ? item.label : "設定"}
             </p>
+            {/*
+              ページ固有の操作ボタンの差し込み口（2026-08-23、Figmaコメント 1895968468
+              「店舗を追加はこの位置に配置」）。ヘッダーは共通レイアウト側にあるため、
+              各ページからは createPortal でここに流し込む。
+            */}
+            <div id="settings-header-action" className="ml-auto" />
           </div>
         );
       })()}

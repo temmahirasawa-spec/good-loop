@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { LoopButton } from "@/components/rating-flow/Button";
 import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
@@ -119,8 +120,24 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
 
   const editingStore = stores.find((s) => s.id === editingId) ?? null;
 
+  // ヘッダー右端の差し込み口（SettingsHeader が描画する）。マウント後にしか存在しない
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setHeaderSlot(document.getElementById("settings-header-action"));
+  }, []);
+
   return (
     <>
+      {headerSlot &&
+        quota.canAddStore &&
+        createPortal(
+          <div className="w-fit">
+            <LoopButton variant="primary" onClick={() => setAdding(true)}>
+              ＋ 店舗を追加
+            </LoopButton>
+          </div>,
+          headerSlot,
+        )}
       <div className="flex w-full flex-col items-start gap-5 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
         <SettingsCardTitle icon={<StoreIcon />}>店舗管理</SettingsCardTitle>
         <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
@@ -163,10 +180,17 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
           </p>
         </div>
 
+        {/*
+          「＋ 店舗を追加」はPCではページ見出しの右端に置く（2026-08-23、Figmaコメント
+          1895968438「このボタンは削除」・1895968468「店舗を追加はこの位置に配置」）。
+          SPは見出しが細いので、従来どおりカードの下に残す。
+        */}
         {quota.canAddStore ? (
-          <LoopButton variant="primary" onClick={() => setAdding(true)}>
-            ＋ 店舗を追加
-          </LoopButton>
+          <div className="w-full md:hidden">
+            <LoopButton variant="primary" onClick={() => setAdding(true)}>
+              ＋ 店舗を追加
+            </LoopButton>
+          </div>
         ) : (
           <div className="flex w-full flex-col items-start gap-3 rounded-xl p-4" style={{ backgroundColor: "var(--product-color-bg-primary)" }}>
             <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>

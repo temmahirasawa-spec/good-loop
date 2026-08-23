@@ -57,7 +57,8 @@ export default function SettingsNotificationsPage() {
         通知設定の保存先がまだ無いため、押せない状態で置いている。
         メール送信（Resend）を繋ぐときに、保存先の列を足して有効にする。
       */}
-      <div className="flex w-full flex-col items-start gap-2 pt-2">
+      {/* PCは右寄せ（2026-08-23、Figmaコメント 1895968371）。SPは従来どおり左 */}
+      <div className="flex w-full flex-col items-start gap-2 pt-2 md:items-end">
         <LoopButton variant="primary" disabled>
           保存する
         </LoopButton>
