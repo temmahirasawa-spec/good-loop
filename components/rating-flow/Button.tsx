@@ -98,7 +98,7 @@ export function LoopButton(props: Props) {
           borderWidth: copied ? 1.2 : 2,
           borderStyle: copied ? "solid" : "dashed",
           borderColor: "var(--loop-accent-primary)",
-          color: "var(--loop-accent-action)",
+          color: "var(--loop-accent-primary)",
         }}
       >
         <CopyIcon className="size-[17px] shrink-0" />

@@ -16,7 +16,7 @@ export function Pill({ tone = "muted", children }: { tone?: PillTone; children: 
       ? {
           backgroundColor: "var(--loop-accent-wash)",
           borderColor: "var(--loop-accent-light)",
-          color: "var(--loop-accent-action)",
+          color: "var(--loop-accent-primary)",
         }
       : {
           backgroundColor: "var(--product-color-bg-secondary)",

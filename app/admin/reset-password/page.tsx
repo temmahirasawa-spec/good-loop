@@ -48,7 +48,7 @@ export default function ResetPasswordPage() {
             <p className="w-full text-center text-[13px] font-medium" style={{ color: "var(--product-color-text-primary)" }}>
               ご登録のメールアドレスの場合、再設定用のリンクをお送りしています。メールをご確認ください。
             </p>
-            <a href="/admin/login" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--loop-accent-action)" }}>
+            <a href="/admin/login" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--loop-accent-primary)" }}>
               ログイン画面に戻る
             </a>
           </>
@@ -63,7 +63,7 @@ export default function ResetPasswordPage() {
             <LoopButton variant="primary" type="submit" disabled={submitting}>
               {submitting ? "送信中…" : "再設定用のリンクを送る"}
             </LoopButton>
-            <a href="/admin/login" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--loop-accent-action)" }}>
+            <a href="/admin/login" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--loop-accent-primary)" }}>
               ログイン画面に戻る
             </a>
           </form>

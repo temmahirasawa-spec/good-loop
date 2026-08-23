@@ -23,7 +23,7 @@ export function toDelta(current: number | null, prev: number | null, unit: strin
 }
 
 const DELTA_COLOR: Record<KpiDelta["direction"], string> = {
-  up: "var(--loop-accent-action)",
+  up: "var(--loop-accent-primary)",
   down: "var(--product-color-status-warning)",
   flat: "var(--product-color-text-tertiary)",
 };

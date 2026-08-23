@@ -79,7 +79,7 @@ export default function ResetPasswordConfirmPage() {
             <p className="w-full text-center text-[13px] font-medium" style={{ color: "var(--product-color-status-warning)" }}>
               リンクの有効期限が切れているか、無効です。もう一度お試しください。
             </p>
-            <a href="/admin/reset-password" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--loop-accent-action)" }}>
+            <a href="/admin/reset-password" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--loop-accent-primary)" }}>
               パスワード再設定をやり直す
             </a>
           </>

@@ -81,7 +81,7 @@ export default function AdminLoginPage() {
           {submitting ? "ログイン中…" : "ログイン"}
         </LoopButton>
 
-        <a href="/admin/reset-password" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--loop-accent-action)" }}>
+        <a href="/admin/reset-password" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--loop-accent-primary)" }}>
           パスワードをお忘れの方はこちら
         </a>
       </form>

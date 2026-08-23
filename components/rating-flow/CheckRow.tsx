@@ -29,7 +29,7 @@ export function CheckRow({
       )}
       <span
         className="whitespace-nowrap text-sm font-bold"
-        style={{ color: checked ? "var(--loop-accent-action)" : "var(--product-color-text-primary)" }}
+        style={{ color: checked ? "var(--loop-accent-primary)" : "var(--product-color-text-primary)" }}
       >
         {label}
       </span>

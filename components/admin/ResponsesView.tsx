@@ -109,7 +109,7 @@ export function ResponsesView({
             <span
               className="whitespace-nowrap text-xs"
               style={{
-                color: selected ? "var(--loop-accent-action)" : "var(--product-color-text-secondary)",
+                color: selected ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
                 fontWeight: selected ? 700 : 400,
               }}
             >

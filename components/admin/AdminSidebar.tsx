@@ -93,7 +93,7 @@ export function AdminSidebar({ storeName }: { storeName: string }) {
                 className="flex-1 text-[12.5px]"
                 style={{
                   fontWeight: active ? 700 : 400,
-                  color: active ? "var(--loop-accent-action)" : "var(--product-color-text-secondary)",
+                  color: active ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
                 }}
               >
                 {item.label}

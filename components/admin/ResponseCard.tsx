@@ -38,7 +38,7 @@ export function ResponseCard({ response, showStoreName = true }: { response: Res
         >
           <p
             className="whitespace-nowrap text-[10.5px] font-medium md:text-[11px]"
-            style={{ color: response.routeStatus === "guided" ? "var(--loop-accent-action)" : "var(--product-color-text-secondary)" }}
+            style={{ color: response.routeStatus === "guided" ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)" }}
           >
             {response.routeStatus === "guided" ? "Googleへ誘導済み" : "店舗にのみ共有"}
           </p>
