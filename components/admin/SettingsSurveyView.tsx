@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { EditTag, AddTagButton } from "@/components/admin/EditTag";
 import { LoopInput } from "@/components/admin/LoopInput";
+import { LoopButton } from "@/components/rating-flow/Button";
 import { LoopSelect } from "@/components/admin/LoopSelect";
 import { BUSINESS_CATEGORIES } from "@/lib/admin/constants";
 import type { TagPreset } from "@/lib/store-tags";
@@ -37,7 +38,6 @@ async function persistTags(storeId: string, category: "good" | "improve", labels
  * ＝「他の業態の言い回しも借りられる」ための操作、という位置づけ。
  */
 function TagGroup({
-  storeId,
   category,
   title,
   presets,
@@ -45,7 +45,6 @@ function TagGroup({
   tags,
   onChange,
 }: {
-  storeId: string;
   category: "good" | "improve";
   title: string;
   presets: Record<string, TagPreset>;
@@ -55,18 +54,12 @@ function TagGroup({
 }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [presetSlug, setPresetSlug] = useState(defaultCategorySlug);
 
-  async function applyChange(next: string[]) {
-    const prev = tags;
+  // 編集はローカル状態だけを変える。保存はカード下の「保存する」ボタンで一括
+  // （2026-08-23、Figmaコメント 1895968356。ブランド・テーマ・通知と同じ方式に揃えた）
+  function applyChange(next: string[]) {
     onChange(next);
-    setError(null);
-    const errorMessage = await persistTags(storeId, category, next);
-    if (errorMessage) {
-      onChange(prev);
-      setError(errorMessage);
-    }
   }
 
   function applyPreset(slug: string) {
@@ -103,11 +96,6 @@ function TagGroup({
           />
         </div>
       </div>
-      {error && (
-        <p className="text-[12px] font-medium" style={{ color: "var(--product-color-status-warning)" }}>
-          {error}
-        </p>
-      )}
       <div className="flex w-full flex-wrap items-start gap-3">
         {tags.map((tag) => (
           <EditTag key={tag} label={tag} onRemove={() => applyChange(tags.filter((t) => t !== tag))} />
@@ -153,6 +141,26 @@ export function SettingsSurveyView({
 }) {
   const [goodTags, setGoodTags] = useState<string[]>(initialGoodTags);
   const [improveTags, setImproveTags] = useState<string[]>(initialImproveTags);
+  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string>(DEFAULT_ERROR);
+
+  async function save() {
+    setSaving(true);
+    setSaveState("idle");
+    const [goodError, improveError] = await Promise.all([
+      persistTags(storeId, "good", goodTags),
+      persistTags(storeId, "improve", improveTags),
+    ]);
+    const errorMessage = goodError ?? improveError;
+    setSaving(false);
+    if (errorMessage) {
+      setSaveError(errorMessage);
+      setSaveState("error");
+    } else {
+      setSaveState("saved");
+    }
+  }
 
   return (
     <div className="flex w-full flex-col items-start gap-6 rounded-2xl p-6" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
@@ -161,7 +169,6 @@ export function SettingsSurveyView({
         {storeName}の設定です。業態を選ぶとその業態のプリセットを読み込めます。項目は自由に編集できます（各 最大8個）
       </p>
       <TagGroup
-        storeId={storeId}
         category="good"
         title="良かった点（★5・4のお客様に表示）"
         presets={presets}
@@ -170,7 +177,6 @@ export function SettingsSurveyView({
         onChange={setGoodTags}
       />
       <TagGroup
-        storeId={storeId}
         category="improve"
         title="改善点（★3・2・1のお客様に表示）"
         presets={presets}
@@ -178,6 +184,24 @@ export function SettingsSurveyView({
         tags={improveTags}
         onChange={setImproveTags}
       />
+      {/* 保存ボタン（2026-08-23、Figmaコメント 1895968356）。PCは右寄せ、SPは全幅 */}
+      <div className="flex w-full flex-col items-stretch gap-2 md:flex-row-reverse md:items-center md:justify-start md:gap-3">
+        <div className="w-full md:w-fit">
+          <LoopButton variant="primary" onClick={save} disabled={saving}>
+            {saving ? "保存中…" : "保存する"}
+          </LoopButton>
+        </div>
+        {saveState === "saved" && (
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
+            保存しました
+          </p>
+        )}
+        {saveState === "error" && !saving && (
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-status-error)" }}>
+            {saveError}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
