@@ -116,7 +116,7 @@ function TagGroup({
           (adding ? (
             <div className="flex items-center gap-2">
               <LoopInput value={draft} onChange={setDraft} placeholder="項目名" className="!h-11 !w-[160px]" />
-              <button type="button" onClick={commitAdd} className="text-sm font-bold" style={{ color: "var(--loop-accent-action)" }}>
+              <button type="button" onClick={commitAdd} className="text-sm font-bold" style={{ color: "var(--loop-accent-primary)" }}>
                 追加
               </button>
             </div>

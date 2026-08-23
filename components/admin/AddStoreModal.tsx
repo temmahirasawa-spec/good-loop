@@ -207,7 +207,7 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
                       </p>
                     </div>
                     {isSelected && (
-                      <span className="text-sm font-bold" style={{ color: "var(--loop-accent-action)" }}>
+                      <span className="text-sm font-bold" style={{ color: "var(--loop-accent-primary)" }}>
                         ✓
                       </span>
                     )}
@@ -218,7 +218,7 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
           )}
           {selectedPlace && (
             <div className="flex w-full flex-col items-start gap-1 rounded-xl p-4" style={{ backgroundColor: "var(--loop-accent-wash)" }}>
-              <p className="text-[13px] font-bold" style={{ color: "var(--loop-accent-action)" }}>
+              <p className="text-[13px] font-bold" style={{ color: "var(--loop-accent-primary)" }}>
                 ✓ 紐付けが完了しました
               </p>
               <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
@@ -242,7 +242,7 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
               <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
                 {slugLoading ? "作成中…" : slug ? `app.goodloop.jp/r/${slug}` : "店舗名を入力すると自動で作成されます"}
               </p>
-              <button type="button" onClick={() => setEditingSlug(true)} className="text-xs font-bold shrink-0" style={{ color: "var(--loop-accent-action)" }}>
+              <button type="button" onClick={() => setEditingSlug(true)} className="text-xs font-bold shrink-0" style={{ color: "var(--loop-accent-primary)" }}>
                 編集
               </button>
             </div>

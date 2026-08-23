@@ -74,7 +74,7 @@ export function QrCard({
         </LoopButton>
       </div>
       {/* 2026-08-22、卓上POPの編集画面につないだ（それまでは押しても何も起きなかった） */}
-      <Link href="/admin/settings/pop" className="whitespace-nowrap text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
+      <Link href="/admin/settings/pop" className="whitespace-nowrap text-[12.5px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
         印刷用POPを作る
       </Link>
     </div>
@@ -101,7 +101,7 @@ export function QrCardMobile({
         <p className="text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
           {storeName}
         </p>
-        <div className="flex items-start gap-4 text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
+        <div className="flex items-start gap-4 text-[12.5px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
           <button type="button" onClick={() => downloadQr(qrSvg, slug)}>
             ダウンロード
           </button>

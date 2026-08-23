@@ -2770,3 +2770,16 @@ Figma `02 基本形 / 画面遷移図`、LPの訴求文言、洋輔さんの実�
   タブバーを固定幅→内包（hug）にし、下に16pxを追加。残り7枚のSP画面のタブバーにも波及させ、
   実装は `SettingsTabBar.tsx` に `pb-4` を追加。SPフレームが16px伸びた分、
   07設定セクションを16px広げて下余白100pxを維持。
+
+## 2026-08-23（36回目）文字色の accent/action を全面的に accent/primary へ
+
+- 天真の指示「文字色でindustry/accent/actionを使ってたけど、これを全面的に辞めて、accent/primaryにする」。
+- **実装**: `"var(--loop-accent-action)"` を文字色（`color:`）に使う約50箇所を
+  `--loop-accent-primary` に置換。**文字色以外は残した**：
+  フォーカス枠（`globals.css` の outline）と、タブの下線2箇所
+  （`SettingsTabBar` / `ResponsesView` の `borderBottom`）。トークン定義自体も残す
+  （ボタンの塗りなど文字以外の用途はある）。
+- **Figma**: 全ページを走査し、`industry/accent/action` が文字の塗りにバインドされた
+  TEXT 378個を `industry/accent/primary` に付け替え（App 247・Components 46・MTG 85・Web 0）。
+- 注意: accent/primary は明るい色のため、白地の小さい文字ではコントラストが下がる
+  （action は 5.26:1 を確保していた）。天真の意匠判断としてそのまま反映。

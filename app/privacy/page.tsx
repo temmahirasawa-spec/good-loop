@@ -127,7 +127,7 @@ export default function PrivacyPage() {
       <LegalFooterInfo>
         <p>
           利用規約は
-          <a href="/terms" className="underline" style={{ color: "var(--loop-accent-action)" }}>
+          <a href="/terms" className="underline" style={{ color: "var(--loop-accent-primary)" }}>
             こちら
           </a>
           をご覧ください。

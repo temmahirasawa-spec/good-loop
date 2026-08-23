@@ -61,7 +61,7 @@ function EditableRow({
             setError(null);
           }}
           className="shrink-0 text-[12.5px]"
-          style={{ color: "var(--loop-accent-action)" }}
+          style={{ color: "var(--loop-accent-primary)" }}
         >
           {editing ? "キャンセル" : "変更"}
         </button>
@@ -82,13 +82,13 @@ function EditableRow({
               {error}
             </p>
           )}
-          <button type="button" onClick={handleSave} disabled={saving} className="text-[12.5px] font-bold" style={{ color: "var(--loop-accent-action)" }}>
+          <button type="button" onClick={handleSave} disabled={saving} className="text-[12.5px] font-bold" style={{ color: "var(--loop-accent-primary)" }}>
             {saving ? "保存中…" : "保存する"}
           </button>
         </div>
       )}
       {done && (
-        <p className="pl-[calc(140px+var(--product-space-16))] text-[12px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
+        <p className="pl-[calc(140px+var(--product-space-16))] text-[12px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
           変更しました
         </p>
       )}

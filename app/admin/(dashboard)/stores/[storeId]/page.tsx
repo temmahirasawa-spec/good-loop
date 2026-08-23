@@ -145,7 +145,7 @@ export default async function AdminStoreDetailPage({ params }: { params: { store
           <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
             直近の回答
           </p>
-          <Link href="/admin/responses" className="text-[13px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
+          <Link href="/admin/responses" className="text-[13px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
             すべての回答を見る →
           </Link>
         </div>

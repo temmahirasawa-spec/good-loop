@@ -158,7 +158,7 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
             style={{
               backgroundColor: active ? "var(--loop-accent-wash)" : "transparent",
               border: active ? "none" : "1px solid var(--product-color-border-default)",
-              color: active ? "var(--loop-accent-action)" : "var(--product-color-text-secondary)",
+              color: active ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
               fontWeight: active ? 700 : 400,
             }}
           >
@@ -171,7 +171,7 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
         style={{
           backgroundColor: from ? "var(--loop-accent-wash)" : "transparent",
           border: from ? "none" : "1px solid var(--product-color-border-default)",
-          color: from ? "var(--loop-accent-action)" : "var(--product-color-text-secondary)",
+          color: from ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
           fontWeight: from ? 700 : 400,
         }}
       >

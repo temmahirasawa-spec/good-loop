@@ -119,7 +119,7 @@ export function PopEditor({
                       borderWidth: on ? 2 : 1,
                     }}
                   >
-                    <span className="text-[12.5px] font-bold" style={{ color: on ? "var(--loop-accent-action)" : "var(--product-color-text-primary)" }}>
+                    <span className="text-[12.5px] font-bold" style={{ color: on ? "var(--loop-accent-primary)" : "var(--product-color-text-primary)" }}>
                       {p.label}
                     </span>
                     <span className="text-[11px]" style={{ color: "var(--product-color-text-secondary)" }}>
@@ -172,7 +172,7 @@ export function PopEditor({
                     style={{
                       backgroundColor: on ? "var(--loop-accent-wash)" : "transparent",
                       border: on ? "none" : "1px solid var(--product-color-border-default)",
-                      color: on ? "var(--loop-accent-action)" : "var(--product-color-text-secondary)",
+                      color: on ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
                       fontWeight: on ? 700 : 400,
                     }}
                   >

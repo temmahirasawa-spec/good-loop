@@ -74,7 +74,7 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
               {BILLING.planLabel}（月額 {formatYen(BILLING.planMonthlyYen)}・{BILLING.includedStores}店舗まで）
             </p>
           </div>
-          <p className="whitespace-nowrap text-[12.5px]" style={{ color: "var(--loop-accent-action)" }}>
+          <p className="whitespace-nowrap text-[12.5px]" style={{ color: "var(--loop-accent-primary)" }}>
             プランを変更
           </p>
         </div>
@@ -88,7 +88,7 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
               Visa •••• 6411
             </p>
           </div>
-          <p className="whitespace-nowrap text-[12.5px]" style={{ color: "var(--loop-accent-action)" }}>
+          <p className="whitespace-nowrap text-[12.5px]" style={{ color: "var(--loop-accent-primary)" }}>
             変更
           </p>
         </div>
@@ -102,7 +102,7 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
               <p style={{ color: "var(--product-color-text-primary)" }}>{inv.month}</p>
               <p style={{ color: "var(--product-color-text-secondary)" }}>{inv.amount}</p>
             </div>
-            <p className="text-xs" style={{ color: "var(--loop-accent-action)" }}>
+            <p className="text-xs" style={{ color: "var(--loop-accent-primary)" }}>
               領収書をダウンロード
             </p>
           </div>
@@ -138,7 +138,7 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
 
         {requested ? (
           <div className="flex w-full flex-col items-start gap-1 rounded-xl p-4" style={{ backgroundColor: "var(--loop-accent-wash)" }}>
-            <p className="text-[13px] font-bold" style={{ color: "var(--loop-accent-action)" }}>
+            <p className="text-[13px] font-bold" style={{ color: "var(--loop-accent-primary)" }}>
               店舗枠の追加を承りました
             </p>
             <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
