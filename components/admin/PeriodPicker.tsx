@@ -190,11 +190,9 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
         className="flex h-11 items-center gap-2 rounded-xl border px-4"
         style={{ borderColor: "var(--product-color-border-default)", backgroundColor: "var(--product-color-surface-white)" }}
       >
+        {/* ▾は外した（2026-08-23、Figmaコメント 1895937928「ドロップダウンじゃなくてボタン」） */}
         <span className="whitespace-nowrap text-[13px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
           {labelOf(value)}
-        </span>
-        <span className="text-[11px]" style={{ color: "var(--product-color-text-secondary)" }}>
-          ▾
         </span>
       </button>
 

@@ -3,6 +3,26 @@
 import { usePathname } from "next/navigation";
 import { AdminMobileTopBar } from "@/components/admin/AdminMobileNav";
 import { SettingsTabBar } from "@/components/admin/SettingsTabBar";
+import { SETTINGS_NAV } from "@/lib/admin/settings-nav";
+import {
+  AccountIcon,
+  BillingIcon,
+  BrandIcon,
+  NotificationIcon,
+  PopIcon,
+  StoreIcon,
+  SurveyIcon,
+} from "@/components/admin/SettingsMenuIcons";
+
+const ICONS = {
+  brand: BrandIcon,
+  store: StoreIcon,
+  pop: PopIcon,
+  survey: SurveyIcon,
+  notification: NotificationIcon,
+  billing: BillingIcon,
+  account: AccountIcon,
+} as const;
 
 /**
  * 設定画面の共通ヘッダー（Figma node 69:1278 系 / SP 75:1613 系）。
@@ -22,9 +42,22 @@ export function SettingsHeader() {
   return (
     <>
       <AdminMobileTopBar title="設定" />
-      <p className="hidden text-xl font-bold md:block" style={{ color: "var(--product-color-text-primary)" }}>
-        設定
-      </p>
+      {/*
+        PCの見出しはページ名（2026-08-23、Figmaコメント 1895938126「各ページここはページ名になる。
+        そしてアイコンはここに置く」）。タブを廃止したPCでは、これが現在地の表示を兼ねる。
+      */}
+      {(() => {
+        const item = SETTINGS_NAV.find((n) => pathname.startsWith(n.href));
+        const Icon = item ? ICONS[item.icon] : null;
+        return (
+          <div className="hidden items-center gap-3 md:flex">
+            {Icon && <Icon />}
+            <p className="text-xl font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+              {item ? item.label : "設定"}
+            </p>
+          </div>
+        );
+      })()}
       {!isMenu && <SettingsTabBar />}
     </>
   );

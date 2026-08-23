@@ -14,7 +14,7 @@
 
 const GREEN = "var(--loop-accent-primary)";
 const YELLOW = "var(--product-color-icon-yellow)";
-const LINE = { fill: "none", stroke: GREEN, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+const LINE = { fill: "none", stroke: GREEN, strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
 
 function Svg({ children }: { children: React.ReactNode }) {
   return (
@@ -77,6 +77,18 @@ export function BillingIcon() {
       <rect x="3" y="5" width="22" height="18" rx="4" style={LINE} />
       <path d="M3 11h22" style={LINE} />
       <rect x="7" y="16" width="6" height="3.5" rx="1.5" style={{ fill: YELLOW }} />
+    </Svg>
+  );
+}
+
+/** 卓上POP ＝ 卓上のPOPスタンド（QRは描かない。二次元コード管理のアイコンと見分けるため） */
+export function PopIcon() {
+  return (
+    <Svg>
+      <path d="M9 5h10l2 14H7z" style={LINE} />
+      <path d="M5 23h18" style={LINE} />
+      <path d="M11.5 12h5" style={LINE} />
+      <circle cx="21" cy="4.5" r="2.5" style={{ fill: YELLOW }} />
     </Svg>
   );
 }
