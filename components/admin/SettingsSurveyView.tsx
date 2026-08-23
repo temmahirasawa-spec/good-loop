@@ -83,7 +83,9 @@ function TagGroup({
   }
 
   return (
-    <div className="flex w-full flex-col items-start gap-3 pt-2">
+    // サブカード化（2026-08-23、Figmaコメント 1895943637「レイアウトや並びが悪い。直感的に」）。
+    // 良かった点／改善点のまとまりを薄い背景で切り、操作の対象範囲を目で分かるようにする
+    <div className="flex w-full flex-col items-start gap-4 rounded-xl p-5" style={{ backgroundColor: "var(--product-color-bg-primary)" }}>
       <div className="flex w-full flex-col items-start justify-between gap-2 md:flex-row md:items-center">
         <p className="text-[15px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
           {title}

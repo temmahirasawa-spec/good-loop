@@ -196,15 +196,16 @@ export function StoreEditModal({
           )}
         </div>
 
+        {/* 注釈（Loop / Note）と同じ形（2026-08-23、Figmaコメント 1895841282「同じ部品の載せ替え」） */}
         {selected && (
           <div
-            className="flex w-full flex-col items-start gap-2 rounded-xl border p-4"
-            style={{ borderColor: "var(--product-color-border-divider)" }}
+            className="flex w-full flex-col items-start gap-1 rounded-lg px-4 py-3"
+            style={{ backgroundColor: "var(--loop-accent-wash)" }}
           >
             <p className="text-[13px] font-bold" style={{ color: "var(--loop-accent-action)" }}>
               ✓ 紐付けが完了しました
             </p>
-            <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            <p className="text-xs font-medium" style={{ color: "var(--product-color-text-primary)" }}>
               お客様は「{selected.name}」のクチコミ投稿画面へ直接誘導されます
             </p>
           </div>

@@ -187,7 +187,7 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex h-11 items-center gap-2 rounded-xl border px-4"
+        className="flex h-11 items-center gap-2 rounded-full border px-5"
         style={{ borderColor: "var(--product-color-border-default)", backgroundColor: "var(--product-color-surface-white)" }}
       >
         {/* ▾は外した（2026-08-23、Figmaコメント 1895937928「ドロップダウンじゃなくてボタン」） */}
