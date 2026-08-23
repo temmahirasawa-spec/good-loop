@@ -3,7 +3,7 @@
 import { Header } from "../Header";
 import { ProgressBar } from "../ProgressBar";
 import { TagChip } from "../TagChip";
-import { LoopButton } from "../Button";
+import { ReviewButton } from "../Button";
 
 /**
  * 02 / 良かった点（Figma node 1:360）
@@ -94,9 +94,9 @@ export function GoodFeedback({
             {error}
           </p>
         )}
-        <LoopButton variant="primary" size="lg" disabled={selectedTags.length === 0 || submitting} onClick={onSubmit}>
+        <ReviewButton variant="primary" size="lg" disabled={selectedTags.length === 0 || submitting} onClick={onSubmit}>
           {submitting ? "送信中…" : "回答する"}
-        </LoopButton>
+        </ReviewButton>
         <p
           className="w-full text-center text-[11px] font-medium tracking-[0.22px]"
           style={{ color: "var(--product-color-text-tertiary)" }}

@@ -3,11 +3,11 @@
 import { Header } from "../Header";
 import { ProgressBar } from "../ProgressBar";
 import { RatingButton } from "../RatingButton";
-import { LoopButton } from "../Button";
+import { ReviewButton } from "../Button";
 
 /**
  * 01 / 評価トップ（Figma node 1:324）
- * 星を1つ選ぶまで「回答する」は非活性（2026-08-05 天真指示）。Loop/Button の
+ * 星を1つ選ぶまで「回答する」は非活性（2026-08-05 天真指示）。Review/Button の
  * Primary/Disabled バリアントをそのまま使うので、未選択の状態を示す別文言は不要。
  */
 export function RatingTop({
@@ -36,11 +36,11 @@ export function RatingTop({
           <div className="flex w-full flex-col items-center">
             <div
               className="rounded-full px-[var(--product-space-16)] py-[var(--product-space-8)]"
-              style={{ backgroundColor: "var(--loop-accent-wash)" }}
+              style={{ backgroundColor: "var(--review-accent-wash)" }}
             >
               <p
                 className="whitespace-nowrap text-[11px] font-medium tracking-[0.22px]"
-                style={{ color: "var(--loop-accent-primary)" }}
+                style={{ color: "var(--review-accent-primary)" }}
               >
                 所要時間は約1分です
               </p>
@@ -73,9 +73,9 @@ export function RatingTop({
       <div className="min-h-px w-full flex-1" />
 
       <div className="flex w-full max-w-[342px] flex-col items-center gap-[var(--product-space-12)]">
-        <LoopButton variant="primary" size="lg" disabled={rating === null} onClick={onSubmit}>
+        <ReviewButton variant="primary" size="lg" disabled={rating === null} onClick={onSubmit}>
           回答する
-        </LoopButton>
+        </ReviewButton>
         <p
           className="w-full text-center text-[11px] font-medium tracking-[0.22px]"
           style={{ color: "var(--product-color-text-tertiary)" }}

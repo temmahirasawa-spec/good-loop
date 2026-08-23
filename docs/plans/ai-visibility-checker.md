@@ -7,7 +7,7 @@
 - 結果は **Supabase に保存する**（同上）
 - 参照プロトタイプ: `docs/prototypes/ai-visibility-checker.html`（701行・git未追跡）
 - 配色は **既存デザイントークンだけで作る**（案①。新規トークンは足さない。同上）
-- プロダクト名は **GOOD REVIEW**（GOOD LOOP からの改名は正式決定。同上）
+- プロダクト名は **GOOD REVIEW**（GOOD REVIEW からの改名は正式決定。同上）
 
 > **この文書は計画であり、着手の合意ではありません。**
 > 末尾「9. 判断が必要な点」に、着手前に天真の返事が要る項目を並べています。
@@ -134,7 +134,7 @@
 ### そのまま再利用できるもの — **ありません**
 
 理由をはっきり書きます。既存の共通コンポーネントは**すべて Figma のノード番号に紐づいた
-GOOD LOOP の管理画面・来店客画面専用**で、propsに汎用性がありません。
+GOOD REVIEW の管理画面・来店客画面専用**で、propsに汎用性がありません。
 
 | 既存 | 使えない理由 |
 |---|---|
@@ -606,7 +606,7 @@ type LeadResponse = { ok: true };
 - Anthropic SDK 側は `timeout` を **120秒**、`maxRetries: 0` に設定（既存 `generate-draft.ts` と同じ考え方。ただし秒数はこちらのほうが長い）
 - **web検索は10往復で `pause_turn` を返して一旦止まります。** 会話を継ぎ足して再送する処理が必要です（最大2回まで、と上限を切ります）
 
-### 9-9. GOOD LOOP → GOOD REVIEW の改名スコープ ★着手前に方針だけ
+### 9-9. GOOD REVIEW → GOOD REVIEW の改名スコープ ★着手前に方針だけ
 
 改名が正式決定とのことですが、**この機能の実装で全体改名まで行うのは危険**です。影響範囲：
 
@@ -614,7 +614,7 @@ type LeadResponse = { ok: true };
 |---|---|
 | CSS変数名 | `--loop-accent-*`（8個 × 9モード）→ 全ファイルの参照を書き換え |
 | リポジトリ | `good-loop` / `package.json` の `name` |
-| ドメイン | `app.goodloop.jp`（`lib/site-url.ts`）。**QRコードに印字済みの値なので変えると既存の卓上POPが死にます** |
+| ドメイン | `app.good-review.jp`（`lib/site-url.ts`）。**QRコードに印字済みの値なので変えると既存の卓上POPが死にます** |
 | Figma | ファイル名・`Loop Theme` コレクション名 |
 | 規約文書 | `CLAUDE.md`・`README.md`・`docs/` 全般 |
 | Supabase / Sentry / Slack | プロジェクト名・通知先 |
@@ -640,7 +640,7 @@ type LeadResponse = { ok: true };
 ### 9-11. AI生成物の開示
 
 レポート内に「Claude 実測」であることを明示します（既存 `AiBadge` の流用を検討）。
-GOOD LOOP のクチコミ下書き画面と同じ姿勢です。
+GOOD REVIEW のクチコミ下書き画面と同じ姿勢です。
 
 ### 9-12. サンプルレポートを載せるか ★着手前
 
@@ -681,7 +681,7 @@ AIの回答は日時・文脈・モデル更新で変動します。同じ店で
 - 診断結果の再訪・共有URL
 - 管理画面からのリード一覧表示
 - Figma への画面反映（後追い）
-- GOOD LOOP → GOOD REVIEW の全体改名（9-9）
+- GOOD REVIEW → GOOD REVIEW の全体改名（9-9）
 - 定点観測・月次レポート（CTAで訴求はするが、実装はしない）
 
 ---

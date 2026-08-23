@@ -47,7 +47,7 @@ function readTokens(...files) {
  */
 function readThemeTokens(file, theme) {
   const css = readFileSync(join(ROOT, file), "utf8");
-  const block = new RegExp(`\\[data-loop-theme="${theme}"\\]\\s*\\{([^}]*)\\}`).exec(css);
+  const block = new RegExp(`\\[data-review-theme="${theme}"\\]\\s*\\{([^}]*)\\}`).exec(css);
   if (!block) throw new Error(`テーマ ${theme} が ${file} に見つかりません`);
 
   const tokens = {};
@@ -59,7 +59,7 @@ function readThemeTokens(file, theme) {
 }
 
 const product = readTokens("app/product-tokens.css");
-const loop = readThemeTokens("app/design-tokens.css", "school");
+const theme = readThemeTokens("app/design-tokens.css", "school");
 
 const t = {
   ink: product["--product-color-text-primary"],
@@ -67,10 +67,10 @@ const t = {
   surface: product["--product-color-surface-white"],
   ground: product["--product-color-bg-primary"],
   line: product["--product-color-border-default"],
-  accent: loop["--loop-accent-primary"],
-  accentLight: loop["--loop-accent-light"],
-  accentDeep: loop["--loop-accent-action"],
-  accentWash: loop["--loop-accent-wash"],
+  accent: theme["--review-accent-primary"],
+  accentLight: theme["--review-accent-light"],
+  accentDeep: theme["--review-accent-action"],
+  accentWash: theme["--review-accent-wash"],
 };
 
 for (const [key, value] of Object.entries(t)) {

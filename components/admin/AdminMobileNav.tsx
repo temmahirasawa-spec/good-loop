@@ -97,7 +97,7 @@ export function AdminMobileTopBar({
             style={{ backgroundColor: "var(--product-color-surface-white)", boxShadow: "6px 0px 24px 0px rgba(0,0,0,0.18)" }}
           >
             <p className="whitespace-nowrap text-base font-bold tracking-[0.64px]" style={{ color: "var(--product-color-text-primary)" }}>
-              GOOD LOOP
+              GOOD REVIEW
             </p>
             <p className="whitespace-nowrap text-[11px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
               {storeName}
@@ -143,7 +143,7 @@ export function AdminMobileTopBar({
                       className="flex-1 text-[13px]"
                       style={{
                         fontWeight: active ? 700 : 400,
-                        color: active ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
+                        color: active ? "var(--review-accent-primary)" : "var(--product-color-text-secondary)",
                       }}
                     >
                       {item.label}

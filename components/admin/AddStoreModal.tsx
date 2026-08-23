@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LoopButton } from "@/components/rating-flow/Button";
-import { LoopInput } from "@/components/admin/LoopInput";
+import { ReviewButton } from "@/components/rating-flow/Button";
+import { ReviewInput } from "@/components/admin/ReviewInput";
 import { BUSINESS_CATEGORIES } from "@/lib/admin/constants";
 
 type NewStore = { id: string; name: string; slug: string; loopTheme: string };
@@ -134,7 +134,7 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
           <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             店舗名（管理画面での表示名）
           </p>
-          <LoopInput value={name} onChange={setName} placeholder="例：大阪本町店" />
+          <ReviewInput value={name} onChange={setName} placeholder="例：大阪本町店" />
         </div>
 
         <div className="flex w-full flex-col items-start gap-2">
@@ -154,9 +154,9 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
                   onClick={() => setCategory(c.slug)}
                   className="flex min-h-[44px] items-center rounded-full border px-5 py-3"
                   style={{
-                    backgroundColor: selected ? "var(--loop-accent-wash)" : "var(--product-color-surface-white)",
+                    backgroundColor: selected ? "var(--review-accent-wash)" : "var(--product-color-surface-white)",
                     borderWidth: selected ? 2 : 1,
-                    borderColor: selected ? "var(--loop-accent-primary)" : "var(--product-color-border-divider)",
+                    borderColor: selected ? "var(--review-accent-primary)" : "var(--product-color-border-divider)",
                   }}
                 >
                   <span className="whitespace-nowrap text-sm" style={{ color: "var(--product-color-text-primary)", fontWeight: selected ? 700 : 500 }}>
@@ -175,7 +175,7 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
           <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             店名で検索して選ぶと、QRコードとお客様の★4・5評価から、このお店のクチコミ投稿画面へ直接誘導できます
           </p>
-          <LoopInput value={placeQuery} onChange={setPlaceQuery} placeholder="店名で検索（あとから設定することもできます）" />
+          <ReviewInput value={placeQuery} onChange={setPlaceQuery} placeholder="店名で検索（あとから設定することもできます）" />
           {placeQuery.trim() !== "" && (
             <div className="flex w-full flex-col items-start rounded-xl border" style={{ borderColor: "var(--product-color-border-default)" }}>
               {placeSearching && (
@@ -196,7 +196,7 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
                     type="button"
                     onClick={() => setSelectedPlace(s)}
                     className="flex w-full items-center justify-between px-4 py-3 text-left"
-                    style={{ backgroundColor: isSelected ? "var(--loop-accent-wash)" : "transparent" }}
+                    style={{ backgroundColor: isSelected ? "var(--review-accent-wash)" : "transparent" }}
                   >
                     <div className="flex flex-col items-start gap-1">
                       <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
@@ -207,7 +207,7 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
                       </p>
                     </div>
                     {isSelected && (
-                      <span className="text-sm font-bold" style={{ color: "var(--loop-accent-primary)" }}>
+                      <span className="text-sm font-bold" style={{ color: "var(--review-accent-primary)" }}>
                         ✓
                       </span>
                     )}
@@ -217,8 +217,8 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
             </div>
           )}
           {selectedPlace && (
-            <div className="flex w-full flex-col items-start gap-1 rounded-xl p-4" style={{ backgroundColor: "var(--loop-accent-wash)" }}>
-              <p className="text-[13px] font-bold" style={{ color: "var(--loop-accent-primary)" }}>
+            <div className="flex w-full flex-col items-start gap-1 rounded-xl p-4" style={{ backgroundColor: "var(--review-accent-wash)" }}>
+              <p className="text-[13px] font-bold" style={{ color: "var(--review-accent-primary)" }}>
                 ✓ 紐付けが完了しました
               </p>
               <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
@@ -233,16 +233,16 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
             お客様が開くURL（店舗名から自動で作成）
           </p>
           {editingSlug ? (
-            <LoopInput value={slug} onChange={setSlug} placeholder="半角英数字とハイフン" />
+            <ReviewInput value={slug} onChange={setSlug} placeholder="半角英数字とハイフン" />
           ) : (
             <div
               className="flex h-11 w-full items-center justify-between rounded-xl px-4"
               style={{ backgroundColor: "var(--product-color-bg-primary)" }}
             >
               <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-                {slugLoading ? "作成中…" : slug ? `app.goodloop.jp/r/${slug}` : "店舗名を入力すると自動で作成されます"}
+                {slugLoading ? "作成中…" : slug ? `app.good-review.jp/r/${slug}` : "店舗名を入力すると自動で作成されます"}
               </p>
-              <button type="button" onClick={() => setEditingSlug(true)} className="text-xs font-bold shrink-0" style={{ color: "var(--loop-accent-primary)" }}>
+              <button type="button" onClick={() => setEditingSlug(true)} className="text-xs font-bold shrink-0" style={{ color: "var(--review-accent-primary)" }}>
                 編集
               </button>
             </div>
@@ -260,9 +260,9 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
             キャンセル
           </button>
           <div className="w-fit">
-            <LoopButton variant="primary" onClick={handleSave} disabled={!canSave}>
+            <ReviewButton variant="primary" onClick={handleSave} disabled={!canSave}>
               {saving ? "保存中…" : "保存する"}
-            </LoopButton>
+            </ReviewButton>
           </div>
         </div>
       </div>

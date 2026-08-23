@@ -2,7 +2,7 @@
  * ページ上部のワードマークとβバッジ。
  *
  * プロダクト名は **GOOD REVIEW**（2026-08-17 天真決定）。
- * ⚠ CSS変数の接頭辞（`--loop-`）やドメイン等の内部の識別子は、この段階では改名していない。
+ * ⚠ CSS変数の接頭辞（`--review-`）やドメイン等の内部の識別子は、この段階では改名していない。
  *   全体の改名は別タスク（docs/plans/ai-visibility-checker.md 9-9）。
  */
 export function AiCheckHeader() {
@@ -22,7 +22,7 @@ export function AiCheckHeader() {
           className="px-[var(--product-space-2)]"
           style={{
             background:
-              "linear-gradient(to top, var(--loop-accent-light) 38%, transparent 38%)",
+              "linear-gradient(to top, var(--review-accent-light) 38%, transparent 38%)",
           }}
         >
           REVIEW

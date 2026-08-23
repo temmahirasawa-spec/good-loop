@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { CopyIcon, PinIcon, RefreshIcon } from "./icons";
 
 /**
- * Loop / Button（Figma node 1:568）
+ * Review / Button（Figma node 1:568）
  *
  * Copy は点線ボーダーで「コピー専用」を明示し、画面遷移ボタン（Google）と視覚的に区別する。
  * Google の Disabled はコピー完了前の待機状態。Regenerate は下書きの再生成用の小ボタン。
@@ -47,7 +47,7 @@ function styleOf(variant: ButtonStyle, disabled: boolean) {
         };
   }
   if (variant === "primary") {
-    return { backgroundColor: "var(--loop-accent-primary)", color: "var(--loop-accent-on-primary)" };
+    return { backgroundColor: "var(--review-accent-primary)", color: "var(--review-accent-on-primary)" };
   }
   if (variant === "danger") {
     return {
@@ -62,11 +62,11 @@ function styleOf(variant: ButtonStyle, disabled: boolean) {
     backgroundColor: "var(--product-color-surface-white)",
     color: "var(--product-color-text-secondary)",
     borderWidth: 1.2,
-    borderColor: "var(--loop-accent-primary)",
+    borderColor: "var(--review-accent-primary)",
   };
 }
 
-export function LoopButton(props: Props) {
+export function ReviewButton(props: Props) {
   if (props.variant === "regenerate") {
     return (
       <button
@@ -94,11 +94,11 @@ export function LoopButton(props: Props) {
         onClick={props.onClick}
         className="flex h-[52px] min-h-[52px] w-full items-center justify-center gap-[var(--product-space-8)] rounded-[var(--product-radius-sm)] border-solid p-[var(--product-space-16)]"
         style={{
-          backgroundColor: copied ? "var(--loop-accent-wash)" : "var(--product-color-surface-white)",
+          backgroundColor: copied ? "var(--review-accent-wash)" : "var(--product-color-surface-white)",
           borderWidth: copied ? 1.2 : 2,
           borderStyle: copied ? "solid" : "dashed",
-          borderColor: "var(--loop-accent-primary)",
-          color: "var(--loop-accent-primary)",
+          borderColor: "var(--review-accent-primary)",
+          color: "var(--review-accent-primary)",
         }}
       >
         <CopyIcon className="size-[17px] shrink-0" />

@@ -2,7 +2,7 @@
  * 評価フロー（docs/specs/rating-flow.md）で使うアイコン。
  *
  * 業態テーマ（accent）に連動して色が変わるものはインラインSVGで実装し、
- * `currentColor` ＋ 呼び出し側の `style={{ color: "var(--loop-...)" }}` で色を受け取る
+ * `currentColor` ＋ 呼び出し側の `style={{ color: "var(--review-...)" }}` で色を受け取る
  * （app/design-tokens.css / docs/specs/design-rules.md 2-4 の方式）。
  * 業態で色が変わらないものは public/icons/rating-flow/ の静的SVGを <img> で参照する。
  */
@@ -32,7 +32,7 @@ export function CheckCircleFilledIcon({ className, style }: ColoredIconProps) {
   return (
     <svg className={className} style={style} width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M32 60C47.464 60 60 47.464 60 32C60 16.536 47.464 4 32 4C16.536 4 4 16.536 4 32C4 47.464 16.536 60 32 60Z" fill="currentColor" />
-      <path d="M18.6667 32.8L28 42.1333L45.3333 24" style={{ stroke: "var(--loop-accent-on-primary)" }} strokeWidth="5.86667" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M18.6667 32.8L28 42.1333L45.3333 24" style={{ stroke: "var(--review-accent-on-primary)" }} strokeWidth="5.86667" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -42,7 +42,7 @@ export function CheckboxCheckedIcon({ className, style }: ColoredIconProps) {
   return (
     <svg className={className} style={style} width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M13.75 2.08333H6.25C3.94881 2.08333 2.08333 3.94881 2.08333 6.25V13.75C2.08333 16.0512 3.94881 17.9167 6.25 17.9167H13.75C16.0512 17.9167 17.9167 16.0512 17.9167 13.75V6.25C17.9167 3.94881 16.0512 2.08333 13.75 2.08333Z" fill="currentColor" />
-      <path d="M5.83333 10.1667L8.83333 13.1667L14.3333 7.16667" style={{ stroke: "var(--loop-accent-on-primary)" }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5.83333 10.1667L8.83333 13.1667L14.3333 7.16667" style={{ stroke: "var(--review-accent-on-primary)" }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

@@ -1,7 +1,7 @@
 import { POP_QR_SIZES, presetOf } from "@/lib/admin/pop";
 
 /**
- * 卓上POPの中身（Figma `Loop / POP A・B・C`）。A6（105×148mm）。
+ * 卓上POPの中身（Figma `Review / POP A・B・C`）。A6（105×148mm）。
  *
  * 編集画面のプレビューと、印刷ページ（/admin/pop/[storeId]）の両方で同じものを使う。
  * **プレビューと印刷結果が食い違わないように、必ずこの1つから描く。**

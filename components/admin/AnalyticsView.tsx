@@ -202,7 +202,7 @@ export function AnalyticsView({
       {hasResponseInPeriod ? (
         <div
           className="w-full shrink-0 rounded-lg px-4 py-3"
-          style={{ backgroundColor: "var(--loop-accent-wash)" }}
+          style={{ backgroundColor: "var(--review-accent-wash)" }}
         >
           <p className="text-xs md:text-[13px]" style={{ color: "var(--product-color-text-primary)" }}>
             {NOTE}
@@ -218,9 +218,9 @@ export function AnalyticsView({
             <Link
               href="/admin/settings/pop"
               className="flex h-11 items-center rounded-lg px-5"
-              style={{ backgroundColor: "var(--loop-cta-primary)" }}
+              style={{ backgroundColor: "var(--review-cta-primary)" }}
             >
-              <span className="text-sm font-bold" style={{ color: "var(--loop-cta-on-primary)" }}>
+              <span className="text-sm font-bold" style={{ color: "var(--review-cta-on-primary)" }}>
                 卓上POPを作る
               </span>
             </Link>
@@ -249,7 +249,7 @@ export function AnalyticsView({
             title="良かった点"
             sub={`★4〜5 の回答 ${aggregates.goodResponseCount}件`}
             items={aggregates.good}
-            color="var(--loop-accent-primary)"
+            color="var(--review-accent-primary)"
           />
           <RankingCard
             title="改善点"

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Loop / Select — ブラウザ標準の `<select>` を LoopInput と同じ見た目に整えたもの。
+ * Review / Select — ブラウザ標準の `<select>` を ReviewInput と同じ見た目に整えたもの。
  *
  * 2026-08-22、天真の依頼で新設（設定・アンケート項目の業態選択）。自前のドロップダウンを
  * 作らず標準の `<select>` を使うのは、
@@ -9,7 +9,7 @@
  *   ・キーボード操作・読み上げ・文字サイズの拡大が最初から効く
  * の2点のため。矢印だけは各OSの既定が不揃いなので、自前のSVGを重ねて揃えている。
  */
-export function LoopSelect({
+export function ReviewSelect({
   value,
   onChange,
   options,

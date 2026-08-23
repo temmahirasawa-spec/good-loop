@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { SETTINGS_NAV, tabLabel } from "@/lib/admin/settings-nav";
 
 /**
- * Loop / Settings Tab Bar（Figma node 79:1541 等）— 設定画面のタブ切り替え。URLで状態を持つ。
+ * Review / Settings Tab Bar（Figma node 79:1541 等）— 設定画面のタブ切り替え。URLで状態を持つ。
  *
  * 2026-08-22にPC専用にした（docs/ui-review.md Q6。スマホでは6タブの約45%が画面の外にあり、
  * 横スクロールできる印が無かったため）。**2026-08-23、天真の指示でSPでもタブに戻した**
@@ -17,8 +17,8 @@ import { SETTINGS_NAV, tabLabel } from "@/lib/admin/settings-nav";
  * （サイドバー常時表示なので」）。PCの現在地はサイドバーの設定下層リンクが示す。
  *
  * 同日、**アクティブの示し方をベタ塗りのピルから下線に変えた**（天真のFigmaコメント）。
- * ピルのままだとボタンと見分けがつかないため。ピル型は `Loop / Segment Chip`
- * （期間・分岐などの絞り込み）に残す。Figmaは `Loop / Tab Item`。
+ * ピルのままだとボタンと見分けがつかないため。ピル型は `Review / Segment Chip`
+ * （期間・分岐などの絞り込み）に残す。Figmaは `Review / Tab Item`。
  */
 
 export function SettingsTabBar() {
@@ -34,13 +34,13 @@ export function SettingsTabBar() {
             href={tab.href}
             className="flex min-h-[44px] shrink-0 items-center px-4"
             style={{
-              borderBottom: active ? "2px solid var(--loop-accent-primary)" : "2px solid transparent",
+              borderBottom: active ? "2px solid var(--review-accent-primary)" : "2px solid transparent",
             }}
           >
             <span
               className="whitespace-nowrap text-xs"
               style={{
-                color: active ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
+                color: active ? "var(--review-accent-primary)" : "var(--product-color-text-secondary)",
                 fontWeight: active ? 700 : 400,
               }}
             >

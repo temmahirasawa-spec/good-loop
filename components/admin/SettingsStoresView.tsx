@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { LoopButton } from "@/components/rating-flow/Button";
+import { ReviewButton } from "@/components/rating-flow/Button";
 import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
 import { StoreIcon } from "@/components/admin/SettingsMenuIcons";
 import { StoreEditModal } from "@/components/admin/StoreEditModal";
@@ -93,8 +93,8 @@ function CopyableUrl({ url }: { url: string }) {
         onClick={copy}
         className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg border px-3"
         style={{
-          borderColor: copied ? "var(--loop-accent-primary)" : "var(--product-color-border-default)",
-          color: copied ? "var(--loop-accent-primary)" : "var(--product-color-text-primary)",
+          borderColor: copied ? "var(--review-accent-primary)" : "var(--product-color-border-default)",
+          color: copied ? "var(--review-accent-primary)" : "var(--product-color-text-primary)",
           backgroundColor: "var(--product-color-surface-white)",
         }}
       >
@@ -136,9 +136,9 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
       {headerSlot &&
         createPortal(
           <div className="w-fit">
-            <LoopButton variant="primary" onClick={() => setAdding(true)} disabled={!quota.canAddStore}>
+            <ReviewButton variant="primary" onClick={() => setAdding(true)} disabled={!quota.canAddStore}>
               ＋ 店舗を追加
-            </LoopButton>
+            </ReviewButton>
           </div>,
           headerSlot,
         )}
@@ -160,14 +160,14 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
                 <span
                   className="rounded-full px-2 py-1 text-[11px] font-medium"
                   style={{
-                    backgroundColor: linked ? "var(--loop-accent-wash)" : "var(--product-color-bg-primary)",
-                    color: linked ? "var(--loop-accent-primary)" : "var(--product-color-status-error)",
+                    backgroundColor: linked ? "var(--review-accent-wash)" : "var(--product-color-bg-primary)",
+                    color: linked ? "var(--review-accent-primary)" : "var(--product-color-status-error)",
                   }}
                 >
                   {linked ? "Googleマップ連携済み" : "URL未設定"}
                 </span>
               </div>
-              <button type="button" onClick={() => setEditingId(store.id)} className="shrink-0 text-[12.5px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
+              <button type="button" onClick={() => setEditingId(store.id)} className="shrink-0 text-[12.5px] font-medium" style={{ color: "var(--review-accent-primary)" }}>
                 編集
               </button>
               </div>
@@ -191,9 +191,9 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
         */}
         {quota.canAddStore ? (
           <div className="w-full md:hidden">
-            <LoopButton variant="primary" onClick={() => setAdding(true)}>
+            <ReviewButton variant="primary" onClick={() => setAdding(true)}>
               ＋ 店舗を追加
-            </LoopButton>
+            </ReviewButton>
           </div>
         ) : (
           <div className="flex w-full flex-col items-start gap-3 rounded-xl p-4" style={{ backgroundColor: "var(--product-color-bg-primary)" }}>
@@ -204,9 +204,9 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
             </p>
             {quota.quota !== null && (
               // 線ボタン（2026-08-23、Figmaコメント 1895935256「追加とか決定じゃなくてただの画面遷移なので」）
-              <LoopButton variant="outline" onClick={() => router.push("/admin/settings/billing")}>
+              <ReviewButton variant="outline" onClick={() => router.push("/admin/settings/billing")}>
                 アカウント管理へ
-              </LoopButton>
+              </ReviewButton>
             )}
           </div>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-/** Loop / Edit Tag（Figma node 73:1288）— 設定（アンケート項目）の編集可能なタグ */
+/** Review / Edit Tag（Figma node 73:1288）— 設定（アンケート項目）の編集可能なタグ */
 export function EditTag({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
     <div className="flex items-center gap-2 rounded-full px-4 py-3" style={{ backgroundColor: "var(--product-color-bg-tertiary)" }}>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LoopButton } from "@/components/rating-flow/Button";
-import { LoopInput } from "@/components/admin/LoopInput";
+import { ReviewButton } from "@/components/rating-flow/Button";
+import { ReviewInput } from "@/components/admin/ReviewInput";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BUSINESS_CATEGORIES } from "@/lib/admin/constants";
 
@@ -104,7 +104,7 @@ export function StoreEditModal({
           <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             店舗名（管理画面での表示名）
           </p>
-          <LoopInput value={name} onChange={setName} />
+          <ReviewInput value={name} onChange={setName} />
         </div>
 
         <div className="flex w-full flex-col items-start gap-2">
@@ -124,9 +124,9 @@ export function StoreEditModal({
                   onClick={() => setCategory(c.slug)}
                   className="flex min-h-[44px] items-center rounded-full border px-5 py-3"
                   style={{
-                    backgroundColor: selected ? "var(--loop-accent-wash)" : "var(--product-color-surface-white)",
+                    backgroundColor: selected ? "var(--review-accent-wash)" : "var(--product-color-surface-white)",
                     borderWidth: selected ? 2 : 1,
-                    borderColor: selected ? "var(--loop-accent-primary)" : "var(--product-color-border-divider)",
+                    borderColor: selected ? "var(--review-accent-primary)" : "var(--product-color-border-divider)",
                   }}
                 >
                   {/* ひとまわり大きく（2026-08-23、Figmaコメント 1895821748「タグのサイズが小さすぎる」） */}
@@ -148,7 +148,7 @@ export function StoreEditModal({
               既に連携済みです。変更する場合は再検索して選び直してください
             </p>
           )}
-          <LoopInput value={query} onChange={setQuery} placeholder="店名で検索" />
+          <ReviewInput value={query} onChange={setQuery} placeholder="店名で検索" />
           {query.trim() !== "" && (
             <div className="flex w-full flex-col items-start rounded-xl border" style={{ borderColor: "var(--product-color-border-default)" }}>
               {searching && (
@@ -176,7 +176,7 @@ export function StoreEditModal({
                     <div className="flex flex-col items-start gap-1">
                       <p
                         className="text-[13.5px] font-bold"
-                        style={{ color: isSelected ? "var(--loop-accent-primary)" : "var(--product-color-text-primary)" }}
+                        style={{ color: isSelected ? "var(--review-accent-primary)" : "var(--product-color-text-primary)" }}
                       >
                         {s.name}
                       </p>
@@ -185,7 +185,7 @@ export function StoreEditModal({
                       </p>
                     </div>
                     {isSelected && (
-                      <span className="text-sm font-bold" style={{ color: "var(--loop-accent-primary)" }}>
+                      <span className="text-sm font-bold" style={{ color: "var(--review-accent-primary)" }}>
                         ✓
                       </span>
                     )}
@@ -196,13 +196,13 @@ export function StoreEditModal({
           )}
         </div>
 
-        {/* 注釈（Loop / Note）と同じ形（2026-08-23、Figmaコメント 1895841282「同じ部品の載せ替え」） */}
+        {/* 注釈（Review / Note）と同じ形（2026-08-23、Figmaコメント 1895841282「同じ部品の載せ替え」） */}
         {selected && (
           <div
             className="flex w-full flex-col items-start gap-1 rounded-lg px-4 py-3"
-            style={{ backgroundColor: "var(--loop-accent-wash)" }}
+            style={{ backgroundColor: "var(--review-accent-wash)" }}
           >
-            <p className="text-[13px] font-bold" style={{ color: "var(--loop-accent-primary)" }}>
+            <p className="text-[13px] font-bold" style={{ color: "var(--review-accent-primary)" }}>
               ✓ 紐付けが完了しました
             </p>
             <p className="text-xs font-medium" style={{ color: "var(--product-color-text-primary)" }}>
@@ -222,9 +222,9 @@ export function StoreEditModal({
             キャンセル
           </button>
           <div className="w-fit">
-            <LoopButton variant="primary" onClick={handleSave} disabled={saving}>
+            <ReviewButton variant="primary" onClick={handleSave} disabled={saving}>
               {saving ? "保存中…" : "保存する"}
-            </LoopButton>
+            </ReviewButton>
           </div>
         </div>
       </div>

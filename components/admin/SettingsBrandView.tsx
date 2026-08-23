@@ -2,9 +2,9 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoopButton } from "@/components/rating-flow/Button";
-import { LoopInput } from "@/components/admin/LoopInput";
-import { LOOP_THEMES } from "@/lib/admin/constants";
+import { ReviewButton } from "@/components/rating-flow/Button";
+import { ReviewInput } from "@/components/admin/ReviewInput";
+import { INDUSTRY_THEMES } from "@/lib/admin/constants";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
 import { BrandIcon } from "@/components/admin/SettingsMenuIcons";
@@ -102,12 +102,12 @@ export function SettingsBrandView({
     return (
       <div className="flex w-full items-center gap-3 pt-1 md:flex-row-reverse">
         <div className="w-fit">
-          <LoopButton variant="primary" onClick={onSave} disabled={saving !== null}>
+          <ReviewButton variant="primary" onClick={onSave} disabled={saving !== null}>
             {saving === section ? "保存中…" : "保存する"}
-          </LoopButton>
+          </ReviewButton>
         </div>
         {saveState === `saved-${section}` && (
-          <p className="text-[12.5px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--review-accent-primary)" }}>
             保存しました
           </p>
         )}
@@ -140,9 +140,9 @@ export function SettingsBrandView({
           </div>
           <div className="flex flex-1 flex-col items-start gap-2">
             <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleFileSelect} className="hidden" />
-            <LoopButton variant="outline" onClick={() => fileInputRef.current?.click()}>
+            <ReviewButton variant="outline" onClick={() => fileInputRef.current?.click()}>
               ロゴをアップロード
-            </LoopButton>
+            </ReviewButton>
             <p className="text-xs font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
               PNG（背景透過）がおすすめです。横長でも縦長でも構いません。未設定の間はブランド名の文字がロゴの代わりに表示されます
             </p>
@@ -152,7 +152,7 @@ export function SettingsBrandView({
           <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             ブランド名
           </p>
-          <LoopInput value={brandName} onChange={setBrandName} />
+          <ReviewInput value={brandName} onChange={setBrandName} />
         </div>
         <SaveRow section="brand" onSave={handleSaveBrand} />
       </div>
@@ -165,7 +165,7 @@ export function SettingsBrandView({
           お客様側の画面の色を選べます
         </p>
         <div className="flex w-full flex-col flex-wrap items-start gap-2 pt-1 md:flex-row">
-          {LOOP_THEMES.map((t) => {
+          {INDUSTRY_THEMES.map((t) => {
             const selected = t.slug === theme;
             return (
               <button
@@ -174,9 +174,9 @@ export function SettingsBrandView({
                 onClick={() => setTheme(t.slug)}
                 className="flex w-full items-center gap-3 rounded-xl border px-4 py-3 md:w-auto md:flex-1 md:flex-col md:px-2"
                 style={{
-                  backgroundColor: selected ? "var(--loop-accent-wash)" : "var(--product-color-surface-white)",
+                  backgroundColor: selected ? "var(--review-accent-wash)" : "var(--product-color-surface-white)",
                   borderWidth: selected ? 2 : 1,
-                  borderColor: selected ? "var(--loop-accent-primary)" : "var(--product-color-border-divider)",
+                  borderColor: selected ? "var(--review-accent-primary)" : "var(--product-color-border-divider)",
                 }}
               >
                 <div className="flex shrink-0 items-start gap-1">
@@ -193,7 +193,7 @@ export function SettingsBrandView({
                   {t.label}
                 </span>
                 {selected && (
-                  <span className="ml-auto text-sm font-bold md:hidden" style={{ color: "var(--loop-accent-primary)" }}>
+                  <span className="ml-auto text-sm font-bold md:hidden" style={{ color: "var(--review-accent-primary)" }}>
                     ✓
                   </span>
                 )}

@@ -44,9 +44,9 @@ export function LockedContent({
         onClick={onUnlock}
         className="mt-[var(--product-space-12)] flex w-full items-center justify-center gap-[var(--product-space-8)] rounded-[var(--product-radius-md)] border border-solid px-[var(--product-space-16)] py-[var(--product-space-12)]"
         style={{
-          backgroundColor: "var(--loop-accent-wash)",
-          borderColor: "var(--loop-accent-light)",
-          color: "var(--loop-accent-primary)",
+          backgroundColor: "var(--review-accent-wash)",
+          borderColor: "var(--review-accent-light)",
+          color: "var(--review-accent-primary)",
         }}
       >
         <LockIcon className="size-[15px] shrink-0" />

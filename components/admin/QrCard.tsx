@@ -1,6 +1,6 @@
 "use client";
 
-import { LoopButton } from "@/components/rating-flow/Button";
+import { ReviewButton } from "@/components/rating-flow/Button";
 import Link from "next/link";
 
 /**
@@ -69,12 +69,12 @@ export function QrCard({
         {storeName}
       </p>
       <div className="w-full">
-        <LoopButton variant="outline" onClick={() => downloadQr(qrSvg, slug)}>
+        <ReviewButton variant="outline" onClick={() => downloadQr(qrSvg, slug)}>
           画像をダウンロード
-        </LoopButton>
+        </ReviewButton>
       </div>
       {/* 2026-08-22、卓上POPの編集画面につないだ（それまでは押しても何も起きなかった） */}
-      <Link href="/admin/settings/pop" className="whitespace-nowrap text-[12.5px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
+      <Link href="/admin/settings/pop" className="whitespace-nowrap text-[12.5px] font-medium" style={{ color: "var(--review-accent-primary)" }}>
         印刷用POPを作る
       </Link>
     </div>
@@ -101,7 +101,7 @@ export function QrCardMobile({
         <p className="text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
           {storeName}
         </p>
-        <div className="flex items-start gap-4 text-[12.5px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
+        <div className="flex items-start gap-4 text-[12.5px] font-medium" style={{ color: "var(--review-accent-primary)" }}>
           <button type="button" onClick={() => downloadQr(qrSvg, slug)}>
             ダウンロード
           </button>

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { LegalDocument, LegalFooterInfo, LegalLead, LegalNestedList, LegalNotice, LegalOrderedList, LegalSection } from "@/components/legal/LegalDocument";
 
 export const metadata: Metadata = {
-  title: "利用規約 | GOOD LOOP",
-  description: "GOOD LOOP（株式会社UTUTU）の利用規約",
+  title: "利用規約 | GOOD REVIEW",
+  description: "GOOD REVIEW（株式会社UTUTU）の利用規約",
 };
 
 /**
@@ -14,10 +14,9 @@ export const metadata: Metadata = {
  */
 export default function TermsPage() {
   return (
-    <LegalDocument title="GOOD LOOP 利用規約" enactedOn="2026年〇月〇日">
+    <LegalDocument title="GOOD REVIEW 利用規約" enactedOn="2026年〇月〇日">
       <LegalLead>
-        本利用規約（以下「本規約」といいます。）は、株式会社UTUTU（以下「当社」といいます。）が提供するクチコミ獲得・顧客満足度アンケートサービス「GOOD
-        LOOP」（以下「本サービス」といいます。）の利用条件を定めるものです。本サービスをご利用になる事業者（以下「契約者」といいます。）には、本規約に同意いただいた上で本サービスをご利用いただきます。
+        本利用規約（以下「本規約」といいます。）は、株式会社UTUTU（以下「当社」といいます。）が提供するクチコミ獲得・顧客満足度アンケートサービス「GOOD REVIEW」（以下「本サービス」といいます。）の利用条件を定めるものです。本サービスをご利用になる事業者（以下「契約者」といいます。）には、本規約に同意いただいた上で本サービスをご利用いただきます。
       </LegalLead>
 
       <LegalSection title="第1条（適用）">
@@ -30,7 +29,7 @@ export default function TermsPage() {
       <LegalSection title="第2条（定義）">
         <p>本規約において使用する用語の意味は、次の各号に定めるとおりとします。</p>
         <LegalOrderedList>
-          <li>「本サービス」とは、当社が提供する「GOOD LOOP」という名称のサービス（理由の如何を問わず当社が名称を変更した場合は、当該変更後のサービスを含みます。）をいいます。</li>
+          <li>「本サービス」とは、当社が提供する「GOOD REVIEW」という名称のサービス（理由の如何を問わず当社が名称を変更した場合は、当該変更後のサービスを含みます。）をいいます。</li>
           <li>「契約者」とは、本規約に同意の上、当社と本サービスの利用契約を締結した事業者をいいます。</li>
           <li>「利用者」とは、契約者が本サービスに登録した店舗のご来店客であって、二次元コードを通じて評価・アンケートに回答する方をいいます。</li>
           <li>「管理画面」とは、契約者が本サービスの設定・データ閲覧のために利用する、当社が提供する画面をいいます。</li>
@@ -123,7 +122,7 @@ export default function TermsPage() {
       <LegalSection title="第13条（個人情報の取扱い）">
         <p>
           当社は、本サービスの利用によって取得する個人情報については、当社「
-          <a href="/privacy" className="underline" style={{ color: "var(--loop-accent-primary)" }}>
+          <a href="/privacy" className="underline" style={{ color: "var(--review-accent-primary)" }}>
             プライバシーポリシー
           </a>
           」に従い適切に取り扱うものとします。

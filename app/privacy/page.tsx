@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { LegalDocument, LegalFooterInfo, LegalLead, LegalNestedList, LegalNotice, LegalOrderedList, LegalSection, LegalTable } from "@/components/legal/LegalDocument";
 
 export const metadata: Metadata = {
-  title: "プライバシーポリシー | GOOD LOOP",
-  description: "GOOD LOOP（株式会社UTUTU）のプライバシーポリシー",
+  title: "プライバシーポリシー | GOOD REVIEW",
+  description: "GOOD REVIEW（株式会社UTUTU）のプライバシーポリシー",
 };
 
 /**
@@ -14,10 +14,9 @@ export const metadata: Metadata = {
  */
 export default function PrivacyPage() {
   return (
-    <LegalDocument title="GOOD LOOP プライバシーポリシー" enactedOn="2026年〇月〇日">
+    <LegalDocument title="GOOD REVIEW プライバシーポリシー" enactedOn="2026年〇月〇日">
       <LegalLead>
-        株式会社UTUTU（以下「当社」といいます。）は、当社が提供するクチコミ獲得・顧客満足度アンケートサービス「GOOD
-        LOOP」（以下「本サービス」といいます。）における、お客様の個人情報の取扱いについて、以下のとおりプライバシーポリシー（以下「本ポリシー」といいます。）を定めます。
+        株式会社UTUTU（以下「当社」といいます。）は、当社が提供するクチコミ獲得・顧客満足度アンケートサービス「GOOD REVIEW」（以下「本サービス」といいます。）における、お客様の個人情報の取扱いについて、以下のとおりプライバシーポリシー（以下「本ポリシー」といいます。）を定めます。
         本ポリシーは、本サービスを契約いただく事業者（以下「契約者」といいます。）と、契約者の店舗にご来店され、二次元コードから評価・アンケートにご回答いただく方（以下「利用者」といいます。）の双方に適用されます。
       </LegalLead>
 
@@ -127,7 +126,7 @@ export default function PrivacyPage() {
       <LegalFooterInfo>
         <p>
           利用規約は
-          <a href="/terms" className="underline" style={{ color: "var(--loop-accent-primary)" }}>
+          <a href="/terms" className="underline" style={{ color: "var(--review-accent-primary)" }}>
             こちら
           </a>
           をご覧ください。

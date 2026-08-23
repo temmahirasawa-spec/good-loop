@@ -1,18 +1,18 @@
-import type { LoopTheme, BusinessCategory } from "./types";
+import type { ReviewTheme, BusinessCategory } from "./types";
 
 /**
- * 色テーマ一覧（設定・ブランドとテーマ）。順序・値は Loop Theme の9モードと一致させる。
+ * 色テーマ一覧（設定・ブランドとテーマ）。順序・値は Industry Theme の9モードと一致させる。
  *
  * 2026-08-06、天真の決定により業態から分離した。スラッグ・実際の色（swatchPrimary/Light）は
  * 従来のまま変えていない（既存店舗のデータ・Figmaのモード名との対応を保つため）。
  * 変わったのは label だけ：業態名ではなく色名で表示する（飲食店がオレンジ以外を選べるように）。
  *
- * このカードは9色すべてを同時に並べて見せる一覧であり、`--loop-accent-primary` 等は
+ * このカードは9色すべてを同時に並べて見せる一覧であり、`--review-accent-primary` 等は
  * アクティブな1色の値しか持たない（app/design-tokens.css）。選択中でない8色ぶんは、
  * その色自身を出す必要があるため変数にバインドできない。値は Figma のスウォッチを
  * 実測したもので、app/design-tokens.css の該当モードと同値（design-qa-allow はこの理由で各行に付けてある）。
  */
-export const LOOP_THEMES: LoopTheme[] = [
+export const INDUSTRY_THEMES: ReviewTheme[] = [
   { slug: "clinic", label: "グリーン", swatchPrimary: "#00c471", swatchLight: "#dff9ec" }, // design-qa-allow: 非アクティブ色のプレビュー
   { slug: "restaurant", label: "オレンジ", swatchPrimary: "#e0552b", swatchLight: "#fceee7" }, // design-qa-allow: 非アクティブ色のプレビュー
   { slug: "salon", label: "ブラウン", swatchPrimary: "#a98a5c", swatchLight: "#f8f2e8" }, // design-qa-allow: 非アクティブ色のプレビュー
@@ -26,7 +26,7 @@ export const LOOP_THEMES: LoopTheme[] = [
 
 /**
  * 業態一覧（設定・店舗管理／店舗追加）。2026-08-06新設、色テーマから分離した。
- * スラッグは LOOP_THEMES と同じ9種を再利用している（historically業態名から取ったスラッグの
+ * スラッグは INDUSTRY_THEMES と同じ9種を再利用している（historically業態名から取ったスラッグの
  * ため）が、概念としては独立している。色のスウォッチは持たない。
  */
 export const BUSINESS_CATEGORIES: BusinessCategory[] = [

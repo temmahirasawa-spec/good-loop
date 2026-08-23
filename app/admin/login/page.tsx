@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoopInput } from "@/components/admin/LoopInput";
-import { LoopButton } from "@/components/rating-flow/Button";
+import { ReviewInput } from "@/components/admin/ReviewInput";
+import { ReviewButton } from "@/components/rating-flow/Button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /**
@@ -49,7 +49,7 @@ export default function AdminLoginPage() {
         style={{ backgroundColor: "var(--product-color-surface-white)" }}
       >
         <p className="whitespace-nowrap text-xl font-bold tracking-[1.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-          GOOD LOOP
+          GOOD REVIEW
         </p>
         <p className="whitespace-nowrap text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
           管理画面にログイン
@@ -67,21 +67,21 @@ export default function AdminLoginPage() {
           <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             メールアドレス
           </p>
-          <LoopInput value={email} onChange={setEmail} type="email" placeholder="temma@yorkys.jp" error={showError} />
+          <ReviewInput value={email} onChange={setEmail} type="email" placeholder="temma@yorkys.jp" error={showError} />
         </div>
 
         <div className="flex w-full flex-col items-start gap-2">
           <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             パスワード
           </p>
-          <LoopInput value={password} onChange={setPassword} type="password" placeholder="••••••••" error={showError} />
+          <ReviewInput value={password} onChange={setPassword} type="password" placeholder="••••••••" error={showError} />
         </div>
 
-        <LoopButton variant="primary" type="submit" disabled={submitting}>
+        <ReviewButton variant="primary" type="submit" disabled={submitting}>
           {submitting ? "ログイン中…" : "ログイン"}
-        </LoopButton>
+        </ReviewButton>
 
-        <a href="/admin/reset-password" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--loop-accent-primary)" }}>
+        <a href="/admin/reset-password" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--review-accent-primary)" }}>
           パスワードをお忘れの方はこちら
         </a>
       </form>

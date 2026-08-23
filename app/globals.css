@@ -9,7 +9,7 @@ body {
 /*
  * AI視認性チェッカー（/ai-check）のフォーカスリング。
  *
- * ⚠ 共通の `LoopInput`（components/admin/LoopInput.tsx）は `outline-none` を持っており、
+ * ⚠ 共通の `ReviewInput`（components/admin/ReviewInput.tsx）は `outline-none` を持っており、
  *   そのままだとキーボード操作でどこにいるか分からない。
  *   ここで `[data-ai-check]` の内側だけ上書きしている（クラス2つぶんの詳細度があるので
  *   Tailwind の `outline-none` に勝つ）。
@@ -18,11 +18,11 @@ body {
  *   このツールに閉じるため。全体に広げるのは別途デザインの判断が要る
  *   （フォーカスリングが無いのは全画面共通の課題。天真に報告済み）。
  *
- * 色は `--loop-accent-action`。白地で 5.26:1、ページ地 #fafafa でも 5.04:1 あり、
+ * 色は `--review-accent-action`。白地で 5.26:1、ページ地 #fafafa でも 5.04:1 あり、
  * 非文字コントラストの基準（3:1）を満たす。
  */
 [data-ai-check] :focus-visible {
-  outline: 2px solid var(--loop-accent-action);
+  outline: 2px solid var(--review-accent-action);
   outline-offset: 2px;
 }
 

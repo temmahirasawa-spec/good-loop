@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoopButton } from "@/components/rating-flow/Button";
+import { ReviewButton } from "@/components/rating-flow/Button";
 import { BILLING, formatYen } from "@/lib/admin/constants";
 import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
 import { BillingIcon } from "@/components/admin/SettingsMenuIcons";
@@ -74,7 +74,7 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
               {BILLING.planLabel}（月額 {formatYen(BILLING.planMonthlyYen)}・{BILLING.includedStores}店舗まで）
             </p>
           </div>
-          <p className="whitespace-nowrap text-[12.5px]" style={{ color: "var(--loop-accent-primary)" }}>
+          <p className="whitespace-nowrap text-[12.5px]" style={{ color: "var(--review-accent-primary)" }}>
             プランを変更
           </p>
         </div>
@@ -88,7 +88,7 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
               Visa •••• 6411
             </p>
           </div>
-          <p className="whitespace-nowrap text-[12.5px]" style={{ color: "var(--loop-accent-primary)" }}>
+          <p className="whitespace-nowrap text-[12.5px]" style={{ color: "var(--review-accent-primary)" }}>
             変更
           </p>
         </div>
@@ -102,12 +102,12 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
               <p style={{ color: "var(--product-color-text-primary)" }}>{inv.month}</p>
               <p style={{ color: "var(--product-color-text-secondary)" }}>{inv.amount}</p>
             </div>
-            <p className="text-xs" style={{ color: "var(--loop-accent-primary)" }}>
+            <p className="text-xs" style={{ color: "var(--review-accent-primary)" }}>
               領収書をダウンロード
             </p>
           </div>
         ))}
-        <LoopButton variant="outline">請求履歴をすべて見る</LoopButton>
+        <ReviewButton variant="outline">請求履歴をすべて見る</ReviewButton>
       </div>
 
       {/* ── 店舗枠（2026-08-21 追加） ───────────────────────── */}
@@ -137,8 +137,8 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
         </div>
 
         {requested ? (
-          <div className="flex w-full flex-col items-start gap-1 rounded-xl p-4" style={{ backgroundColor: "var(--loop-accent-wash)" }}>
-            <p className="text-[13px] font-bold" style={{ color: "var(--loop-accent-primary)" }}>
+          <div className="flex w-full flex-col items-start gap-1 rounded-xl p-4" style={{ backgroundColor: "var(--review-accent-wash)" }}>
+            <p className="text-[13px] font-bold" style={{ color: "var(--review-accent-primary)" }}>
               店舗枠の追加を承りました
             </p>
             <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
@@ -146,9 +146,9 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
             </p>
           </div>
         ) : (
-          <LoopButton variant="primary" disabled={quota.quota === null} onClick={() => setConfirming(true)}>
+          <ReviewButton variant="primary" disabled={quota.quota === null} onClick={() => setConfirming(true)}>
             ＋ 店舗枠を追加する
-          </LoopButton>
+          </ReviewButton>
         )}
       </div>
 
@@ -178,9 +178,9 @@ export function SettingsBillingView({ quota }: { quota: QuotaProps }) {
                 {error}
               </p>
             )}
-            <LoopButton variant="primary" disabled={submitting} onClick={submit}>
+            <ReviewButton variant="primary" disabled={submitting} onClick={submit}>
               {submitting ? "送信中..." : "この内容で申し込む"}
-            </LoopButton>
+            </ReviewButton>
             <button
               type="button"
               onClick={() => {

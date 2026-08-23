@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { EditTag, AddTagButton } from "@/components/admin/EditTag";
-import { LoopInput } from "@/components/admin/LoopInput";
-import { LoopButton } from "@/components/rating-flow/Button";
-import { LoopSelect } from "@/components/admin/LoopSelect";
+import { ReviewInput } from "@/components/admin/ReviewInput";
+import { ReviewButton } from "@/components/rating-flow/Button";
+import { ReviewSelect } from "@/components/admin/ReviewSelect";
 import { BUSINESS_CATEGORIES } from "@/lib/admin/constants";
 import type { TagPreset } from "@/lib/store-tags";
 import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
@@ -87,7 +87,7 @@ function TagGroup({
           <p className="whitespace-nowrap text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             業態のプリセットを読み込む
           </p>
-          <LoopSelect
+          <ReviewSelect
             ariaLabel={`${title}のプリセットを業態から選ぶ`}
             value={presetSlug}
             onChange={applyPreset}
@@ -103,8 +103,8 @@ function TagGroup({
         {tags.length < MAX_TAGS &&
           (adding ? (
             <div className="flex items-center gap-2">
-              <LoopInput value={draft} onChange={setDraft} placeholder="項目名" className="!h-11 !w-[160px]" />
-              <button type="button" onClick={commitAdd} className="text-sm font-bold" style={{ color: "var(--loop-accent-primary)" }}>
+              <ReviewInput value={draft} onChange={setDraft} placeholder="項目名" className="!h-11 !w-[160px]" />
+              <button type="button" onClick={commitAdd} className="text-sm font-bold" style={{ color: "var(--review-accent-primary)" }}>
                 追加
               </button>
             </div>
@@ -187,12 +187,12 @@ export function SettingsSurveyView({
       {/* 保存ボタン（2026-08-23、Figmaコメント 1895968356）。PCは右寄せ、SPは全幅 */}
       <div className="flex w-full flex-col items-stretch gap-2 md:flex-row-reverse md:items-center md:justify-start md:gap-3">
         <div className="w-full md:w-fit">
-          <LoopButton variant="primary" onClick={save} disabled={saving}>
+          <ReviewButton variant="primary" onClick={save} disabled={saving}>
             {saving ? "保存中…" : "保存する"}
-          </LoopButton>
+          </ReviewButton>
         </div>
         {saveState === "saved" && (
-          <p className="text-[12.5px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--review-accent-primary)" }}>
             保存しました
           </p>
         )}

@@ -1,14 +1,14 @@
 /*
- * GOOD LOOP プロダクトトークン — 業態に依存しない共通トークン
+ * GOOD REVIEW プロダクトトークン — 業態に依存しない共通トークン
  *
- * `Loop Theme`（app/design-tokens.css）が業態ごとに切り替わる accent/cta の8変数なのに対し、
+ * 業態別テーマ（app/design-tokens.css）が業態ごとに切り替わる accent/cta の8変数なのに対し、
  * ここは色・余白・角丸・サイズなど、9業態を通じて値が変わらないもの。
  * 出典は UTUTU 共通ライブラリ（`KGPuY4YVRQW6BMRrulBaFN` / Color・Spacing・Radius・Size
- * コレクション）。GOOD LOOP 専用ファイル（`i7z9wGL6BpFoC2kwlGA1lV`）の画面から
+ * コレクション）。GOOD REVIEW 専用ファイル（`i7z9wGL6BpFoC2kwlGA1lV`）の画面から
  * get_variable_defs で実測した値を写した。推測値は無い。
  *
  * CSS変数名には `--product-` 接頭辞を付ける（CLAUDE.md 4章の命名規約）。
- * `--loop-` = LOOP専用（業態で変わる）、`--product-` = UTUTU由来の共通トークン、で見分ける。
+ * `--review-` = GOOD REVIEW 専用（業態で変わる）、`--product-` = UTUTU由来の共通トークン、で見分ける。
  *
  * まだ UTUTU ファイルから自動同期する仕組みは無い（Figmaトークンのスコープ不足。
  * CLAUDE.md 4章「Figma」参照）。値が変わったら、このファイルも同様に実測して作り直すこと。
@@ -40,7 +40,7 @@
      status-warning（警告）とは別物。警告の意味では使わないこと */
   --product-color-icon-yellow: #ffc53d;
   /* 集計画面の「改善点」の棒（2026-08-22 新設。Figma `secondary/primary`）。
-     良かった点は業態色（--loop-accent-primary）で、改善点はこの黄色で描き分ける。
+     良かった点は業態色（--review-accent-primary）で、改善点はこの黄色で描き分ける。
      警告の意味では使わない（status-warning・icon-yellow とも別物） */
   --product-color-secondary-primary: #ffc32b;
 

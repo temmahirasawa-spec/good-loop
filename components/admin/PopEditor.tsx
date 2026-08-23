@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { LoopButton } from "@/components/rating-flow/Button";
-import { LoopInput } from "@/components/admin/LoopInput";
+import { ReviewButton } from "@/components/rating-flow/Button";
+import { ReviewInput } from "@/components/admin/ReviewInput";
 import { PopSheet } from "@/components/admin/PopSheet";
 import { POP_PRESETS, POP_QR_SIZES, presetOf } from "@/lib/admin/pop";
 
@@ -114,12 +114,12 @@ export function PopEditor({
                     onClick={() => setPreset(p.code)}
                     className="flex flex-1 flex-col items-start gap-1 rounded-xl border p-3 text-left"
                     style={{
-                      backgroundColor: on ? "var(--loop-accent-wash)" : "var(--product-color-surface-white)",
-                      borderColor: on ? "var(--loop-accent-primary)" : "var(--product-color-border-default)",
+                      backgroundColor: on ? "var(--review-accent-wash)" : "var(--product-color-surface-white)",
+                      borderColor: on ? "var(--review-accent-primary)" : "var(--product-color-border-default)",
                       borderWidth: on ? 2 : 1,
                     }}
                   >
-                    <span className="text-[12.5px] font-bold" style={{ color: on ? "var(--loop-accent-primary)" : "var(--product-color-text-primary)" }}>
+                    <span className="text-[12.5px] font-bold" style={{ color: on ? "var(--review-accent-primary)" : "var(--product-color-text-primary)" }}>
                       {p.label}
                     </span>
                     <span className="text-[11px]" style={{ color: "var(--product-color-text-secondary)" }}>
@@ -135,7 +135,7 @@ export function PopEditor({
             <p className="text-[12px]" style={{ color: "var(--product-color-text-secondary)" }}>
               見出し
             </p>
-            <LoopInput value={heading} onChange={setHeading} placeholder={current.heading} />
+            <ReviewInput value={heading} onChange={setHeading} placeholder={current.heading} />
           </div>
 
           <div className="flex w-full flex-col items-start gap-2">
@@ -170,9 +170,9 @@ export function PopEditor({
                     onClick={() => setQrSize(s.code)}
                     className="flex min-h-11 items-center rounded-full px-5"
                     style={{
-                      backgroundColor: on ? "var(--loop-accent-wash)" : "transparent",
+                      backgroundColor: on ? "var(--review-accent-wash)" : "transparent",
                       border: on ? "none" : "1px solid var(--product-color-border-default)",
-                      color: on ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
+                      color: on ? "var(--review-accent-primary)" : "var(--product-color-text-secondary)",
                       fontWeight: on ? 700 : 400,
                     }}
                   >
@@ -190,12 +190,12 @@ export function PopEditor({
           )}
 
           <div className="flex w-full flex-col gap-2 md:flex-row">
-            <LoopButton variant="outline" disabled={saving} onClick={save}>
+            <ReviewButton variant="outline" disabled={saving} onClick={save}>
               {saving ? "保存中…" : saved ? "保存しました" : "保存する"}
-            </LoopButton>
-            <LoopButton variant="primary" onClick={() => window.open(`/admin/pop/${storeId}`, "_blank")}>
+            </ReviewButton>
+            <ReviewButton variant="primary" onClick={() => window.open(`/admin/pop/${storeId}`, "_blank")}>
               印刷する
-            </LoopButton>
+            </ReviewButton>
           </div>
         </div>
       </div>

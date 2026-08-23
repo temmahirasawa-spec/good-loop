@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-/** Loop / Segment Chip・Period Segment（Figma node 39:816 / 79:1650）— 期間フィルターのピル */
+/** Review / Segment Chip・Period Segment（Figma node 39:816 / 79:1650）— 期間フィルターのピル */
 
 /** 表示ラベルと、lib/admin/queries.ts の getResponseItems({ period }) が受け取るコードの対応 */
 export const PERIOD_OPTIONS = [
@@ -40,11 +40,11 @@ export function PeriodSegment({ value, onChange }: { value?: Period; onChange?: 
             type="button"
             onClick={() => handleClick(period)}
             className="flex min-h-[44px] items-center rounded-full px-5 py-3"
-            style={{ backgroundColor: selected ? "var(--loop-accent-primary)" : "transparent" }}
+            style={{ backgroundColor: selected ? "var(--review-accent-primary)" : "transparent" }}
           >
             <span
               className="whitespace-nowrap text-xs font-medium"
-              style={{ color: selected ? "var(--loop-accent-on-primary)" : "var(--product-color-text-secondary)" }}
+              style={{ color: selected ? "var(--review-accent-on-primary)" : "var(--product-color-text-secondary)" }}
             >
               {period}
             </span>

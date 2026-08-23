@@ -3,7 +3,7 @@
 import { Header } from "../Header";
 import { ProgressBar } from "../ProgressBar";
 import { CheckRow } from "../CheckRow";
-import { LoopButton } from "../Button";
+import { ReviewButton } from "../Button";
 
 /**
  * 04 / 改善アンケート（★1-3）（Figma node 1:306）
@@ -88,9 +88,9 @@ export function ImproveSurvey({
             {error}
           </p>
         )}
-        <LoopButton variant="primary" size="lg" disabled={checked.length === 0 || submitting} onClick={onSubmit}>
+        <ReviewButton variant="primary" size="lg" disabled={checked.length === 0 || submitting} onClick={onSubmit}>
           {submitting ? "送信中…" : "送信する"}
-        </LoopButton>
+        </ReviewButton>
         <p
           className="w-full text-center text-[11px] font-medium tracking-[0.22px]"
           style={{ color: "var(--product-color-text-tertiary)" }}
