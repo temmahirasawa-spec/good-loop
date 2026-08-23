@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -17,27 +18,30 @@ export type SettingsStore = {
   id: string;
   tenant_id: string;
   name: string;
+  slug: string;
   loop_theme: string;
   business_category: string;
   logo_url: string | null;
 };
 
-/** ログイン中テナントの全店舗（作成順）。未ログインなら空 */
-export async function getSettingsStores(): Promise<SettingsStore[]> {
+/**
+ * ログイン中テナントの全店舗（作成順）。未ログインなら空。
+ *
+ * `cache()` で包んであるので、同じリクエスト内（レイアウトとページなど）で
+ * 何度呼んでもクエリは1回しか走らない（2026-08-23、遷移の高速化）。
+ * 以前あった getUser() の事前確認は外した。未ログインならRLSで一覧が空になるため
+ * 結果は同じで、認証サーバーへの往復が1回減る（未ログイン自体は middleware.ts が弾く）。
+ */
+export const getSettingsStores = cache(async (): Promise<SettingsStore[]> => {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
-
   const { data } = await supabase
     .from("stores")
-    .select("id, tenant_id, name, loop_theme, business_category, logo_url")
+    .select("id, tenant_id, name, slug, loop_theme, business_category, logo_url")
     .order("created_at")
     .returns<SettingsStore[]>();
 
   return data ?? [];
-}
+});
 
 /**
  * URLの `?store=<id>` で指定された店舗を選ぶ。

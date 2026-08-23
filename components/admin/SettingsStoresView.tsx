@@ -128,11 +128,15 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
 
   return (
     <>
+      {/*
+        満枠のときも消さずに「押せない状態」で出す（2026-08-23、天真から「ボタンが無い」と
+        指摘を受けたため。消えていると移設自体が反映されていないように見える）。
+        枠の案内はカード内の「店舗枠がいっぱいです…」が引き受ける。
+      */}
       {headerSlot &&
-        quota.canAddStore &&
         createPortal(
           <div className="w-fit">
-            <LoopButton variant="primary" onClick={() => setAdding(true)}>
+            <LoopButton variant="primary" onClick={() => setAdding(true)} disabled={!quota.canAddStore}>
               ＋ 店舗を追加
             </LoopButton>
           </div>,

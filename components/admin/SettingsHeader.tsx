@@ -38,16 +38,17 @@ const ICONS = {
 export function SettingsHeader() {
   const pathname = usePathname();
   const isMenu = pathname === "/admin/settings";
+  const item = SETTINGS_NAV.find((n) => pathname.startsWith(n.href));
 
   return (
     <>
-      <AdminMobileTopBar title="設定" />
+      {/* SPのタイトルも各ページ名にする（2026-08-23、天真の指示「PCに合わせて」）。メニュー画面だけ「設定」 */}
+      <AdminMobileTopBar title={item ? item.label : "設定"} />
       {/*
         PCの見出しはページ名（2026-08-23、Figmaコメント 1895938126「各ページここはページ名になる。
         そしてアイコンはここに置く」）。タブを廃止したPCでは、これが現在地の表示を兼ねる。
       */}
       {(() => {
-        const item = SETTINGS_NAV.find((n) => pathname.startsWith(n.href));
         const Icon = item ? ICONS[item.icon] : null;
         return (
           <div className="hidden w-full items-center gap-3 md:flex">

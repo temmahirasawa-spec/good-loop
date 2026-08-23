@@ -21,14 +21,16 @@ export default async function SettingsPopPage({ searchParams }: { searchParams: 
   if (!store) return null;
 
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("stores")
-    .select("id, slug, pop_preset, pop_heading, pop_note, pop_qr_size")
-    .eq("id", store.id)
-    .maybeSingle<PopRow>();
+  // QRのURLは店舗一覧のslugから作れるので、行の取得と並列に生成する（遷移の高速化）
+  const [{ data }, qrSvg] = await Promise.all([
+    supabase
+      .from("stores")
+      .select("id, slug, pop_preset, pop_heading, pop_note, pop_qr_size")
+      .eq("id", store.id)
+      .maybeSingle<PopRow>(),
+    generateQrSvg(`${PUBLIC_APP_URL}/r/${store.slug}`),
+  ]);
   if (!data) return null;
-
-  const qrSvg = await generateQrSvg(`${PUBLIC_APP_URL}/r/${data.slug}`);
 
   return (
     <>
