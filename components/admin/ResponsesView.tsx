@@ -15,12 +15,6 @@ type Filters = {
   period: PeriodValue;
 };
 
-const BRANCH_SEGMENTS: { value: "all" | "good" | "improve"; label: string }[] = [
-  { value: "all", label: "すべて" },
-  { value: "good", label: "★5・4" },
-  { value: "improve", label: "★3・2・1" },
-];
-
 /** 見た目は据え置きのまま、実際のvalueを持つセレクト（矢印は自前で描き、ブラウザ既定の矢印は消す） */
 function FilterSelect({
   value,
@@ -94,21 +88,22 @@ export function ResponsesView({
   }
 
   /*
-    分岐の切り替え（2026-08-23、Figmaコメント 1895820122「ここは下線でアクティブを表現するタブに変更」）。
-    ベタ塗りのピルはボタンと見分けがつかないため、設定のタブと同じ下線の形に揃えた。
-    ピル型は期間の絞り込み（Loop / Segment Chip）に残している。
+    絞り込みの形（2026-08-23、Figmaコメント 1895840397 / 1895840424）。
+      店舗 … 下線でアクティブを示すタブ（よく切り替えるものなので1タップ）
+      分岐 … ドロップダウン（たまにしか使わないので畳んでおく）
+    以前は店舗がドロップダウン・分岐がタブだったが、使う頻度に合わせて役割を入れ替えた。
   */
-  const routeSegment = (
-    <div className="flex items-start gap-1">
-      {BRANCH_SEGMENTS.map((seg) => {
-        const selected = seg.value === filters.branch;
+  const storeTabs = (
+    <div className="flex w-full shrink-0 items-start gap-1 overflow-x-auto pr-6 md:pr-0">
+      {[{ id: "", name: "すべて" }, ...storeOptions].map((s) => {
+        const selected = s.id === filters.store;
         return (
           <button
-            key={seg.value}
+            key={s.id || "all"}
             type="button"
-            onClick={() => updateFilters({ branch: seg.value })}
+            onClick={() => updateFilters({ store: s.id })}
             aria-pressed={selected}
-            className="flex min-h-[44px] items-center px-4"
+            className="flex min-h-[44px] shrink-0 items-center px-4"
             style={{ borderBottom: selected ? "2px solid var(--loop-accent-action)" : "2px solid transparent" }}
           >
             <span
@@ -118,7 +113,7 @@ export function ResponsesView({
                 fontWeight: selected ? 700 : 400,
               }}
             >
-              {seg.label}
+              {s.name}
             </span>
           </button>
         );
@@ -150,19 +145,21 @@ export function ResponsesView({
         {countLabel}
       </p>
 
+      {storeTabs}
       <div className="flex w-full shrink-0 items-center gap-3">
         <FilterSelect
-          value={filters.store}
-          onChange={(v) => updateFilters({ store: v })}
-          placeholder="すべての店舗"
-          widthClassName="md:w-[180px]"
-          options={storeOptions.map((s) => ({ value: s.id, label: s.name }))}
+          value={filters.branch === "all" ? "" : filters.branch}
+          onChange={(v) => updateFilters({ branch: (v || "all") as Filters["branch"] })}
+          placeholder="すべての評価"
+          widthClassName="md:w-[160px]"
+          options={[
+            { value: "good", label: "★5・4" },
+            { value: "improve", label: "★3・2・1" },
+          ]}
         />
-        <div className="hidden md:flex">{routeSegment}</div>
-      </div>
-      <div className="flex w-full flex-col items-start gap-3 md:hidden">
-        {routeSegment}
-        <PeriodPicker value={filters.period} onChange={(period) => updateFilters({ period })} />
+        <div className="md:hidden">
+          <PeriodPicker value={filters.period} onChange={(period) => updateFilters({ period })} />
+        </div>
       </div>
 
       <div className="flex w-full flex-col items-start gap-3">

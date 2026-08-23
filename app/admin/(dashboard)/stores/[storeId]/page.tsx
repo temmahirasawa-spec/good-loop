@@ -71,6 +71,7 @@ export default async function AdminStoreDetailPage({ params }: { params: { store
           prevLabel={`前期 ${prevRate === null ? "—" : `${prevRate}%`}`}
           delta={toDelta(store.routeRatePercent, prevRate, "pt")}
           unit=""
+          note="回答したお客様のうち、Googleのレビュー画面へ進んだ割合です"
         />
       </div>
 
