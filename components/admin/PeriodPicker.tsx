@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LoopButton } from "@/components/rating-flow/Button";
+import { ReviewButton } from "@/components/rating-flow/Button";
 import { PERIOD_PRESETS, type PeriodPresetCode, type PeriodValue } from "@/lib/admin/period";
 
 /**
@@ -131,8 +131,8 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
               onClick={() => pickDay(day)}
               className="flex size-11 items-center justify-center text-[13px] md:size-[34px] md:text-[11px]"
               style={{
-                backgroundColor: isEdge ? "var(--loop-accent-primary)" : inRange ? "var(--loop-accent-wash)" : "transparent",
-                color: isEdge ? "var(--loop-accent-on-primary)" : "var(--product-color-text-primary)",
+                backgroundColor: isEdge ? "var(--review-accent-primary)" : inRange ? "var(--review-accent-wash)" : "transparent",
+                color: isEdge ? "var(--review-accent-on-primary)" : "var(--product-color-text-primary)",
                 fontWeight: isEdge ? 700 : 400,
                 borderRadius: isEdge ? "var(--product-radius-sm)" : 0,
               }}
@@ -156,9 +156,9 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
             onClick={() => applyPreset(preset.code)}
             className="flex min-h-11 items-center rounded-full px-4 py-2 md:min-h-0 md:rounded-[10px] md:px-3 md:py-2"
             style={{
-              backgroundColor: active ? "var(--loop-accent-wash)" : "transparent",
+              backgroundColor: active ? "var(--review-accent-wash)" : "transparent",
               border: active ? "none" : "1px solid var(--product-color-border-default)",
-              color: active ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
+              color: active ? "var(--review-accent-primary)" : "var(--product-color-text-secondary)",
               fontWeight: active ? 700 : 400,
             }}
           >
@@ -169,9 +169,9 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
       <span
         className="flex min-h-11 items-center rounded-full px-4 py-2 md:min-h-0 md:rounded-[10px] md:px-3 md:py-2"
         style={{
-          backgroundColor: from ? "var(--loop-accent-wash)" : "transparent",
+          backgroundColor: from ? "var(--review-accent-wash)" : "transparent",
           border: from ? "none" : "1px solid var(--product-color-border-default)",
-          color: from ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
+          color: from ? "var(--review-accent-primary)" : "var(--product-color-text-secondary)",
           fontWeight: from ? 700 : 400,
         }}
       >
@@ -213,9 +213,9 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
               <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
                 {summary}
               </p>
-              <LoopButton variant="primary" size="lg" disabled={!from} onClick={applyRange}>
+              <ReviewButton variant="primary" size="lg" disabled={!from} onClick={applyRange}>
                 この期間で見る
-              </LoopButton>
+              </ReviewButton>
             </div>
           </div>
 
@@ -241,9 +241,9 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
                 {summary}
               </p>
               <div className="w-[160px]">
-                <LoopButton variant="primary" disabled={!from} onClick={applyRange}>
+                <ReviewButton variant="primary" disabled={!from} onClick={applyRange}>
                   この期間で見る
-                </LoopButton>
+                </ReviewButton>
               </div>
             </div>
           </div>

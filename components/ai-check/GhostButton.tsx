@@ -3,12 +3,12 @@ import type { ReactNode } from "react";
 /**
  * 白地・枠線だけの副ボタン。
  *
- * 既存の `LoopButton`（components/rating-flow/Button.tsx）は variant が
+ * 既存の `ReviewButton`（components/rating-flow/Button.tsx）は variant が
  * primary / copy / google / regenerate の4つで、いずれも文言や用途が固定されている。
  * 汎用の副ボタンが無いためここで作った
  * （docs/specs/design-rules.md 2-3「既存に無い場合は、自作する前に申告する」）。
  *
- * `LoopButton` に variant を足すことも考えたが、あれは Figma のノード 1:568 に
+ * `ReviewButton` に variant を足すことも考えたが、あれは Figma のノード 1:568 に
  * 紐づいた共通部品で、来店客の画面でも使っている。Figma に無い variant を
  * 足すのはデザインの判断にあたるため、このページ内に閉じた実装にした。
  */

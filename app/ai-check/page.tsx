@@ -9,7 +9,7 @@ import { PUBLIC_APP_URL } from "@/lib/site-url";
  * スコアと改善レポートで返す無料の診断ツール。GOOD REVIEW のリード獲得の入口。
  *
  * 色テーマ:
- *   このページは特定の店舗のページではないため、`data-loop-theme` を固定値で置く。
+ *   このページは特定の店舗のページではないため、`data-review-theme` を固定値で置く。
  *   `school`（アンバー）を選んだのは、プロトタイプの黄色 #FAC03D に最も近い業態モードだから
  *   （docs/plans/ai-visibility-checker.md 9-3、2026-08-17 天真了承）。
  *   GOOD REVIEW のブランド色が決まったら、この1行を差し替えれば全体の色が変わる。
@@ -105,7 +105,7 @@ const structuredData = {
 
 export default function AiCheckPage() {
   return (
-    <div data-loop-theme="school" data-ai-check>
+    <div data-review-theme="school" data-ai-check>
       <script
         type="application/ld+json"
         // 自前で組み立てた定数のみを埋め込む（利用者の入力は一切入らない）

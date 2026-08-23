@@ -27,7 +27,7 @@ const SETTINGS_ICONS = {
   account: AccountIcon,
 } as const;
 
-/** Loop / Admin Sidebar（Figma node 48:851）— LOOP管理画面のサイドナビ */
+/** Review / Admin Sidebar（Figma node 48:851）— GOOD REVIEW 管理画面のサイドナビ */
 const NAV_ITEMS = [
   { href: "/admin", label: "トップ", match: "/admin" },
   // 集計（2026-08-22 新設。docs/specs/analytics.md）。トップと回答一覧の間に置く
@@ -46,7 +46,7 @@ export function AdminSidebar({ storeName }: { storeName: string }) {
       style={{ backgroundColor: "var(--product-color-surface-white)", borderRight: `1px solid var(--product-color-border-divider)` }}
     >
       <p className="whitespace-nowrap text-base font-bold tracking-[0.64px]" style={{ color: "var(--product-color-text-primary)" }}>
-        GOOD LOOP
+        GOOD REVIEW
       </p>
       <p className="whitespace-nowrap text-[11px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
         {storeName}
@@ -93,7 +93,7 @@ export function AdminSidebar({ storeName }: { storeName: string }) {
                 className="flex-1 text-xs"
                 style={{
                   fontWeight: active ? 700 : 400,
-                  color: active ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
+                  color: active ? "var(--review-accent-primary)" : "var(--product-color-text-secondary)",
                 }}
               >
                 {item.label}

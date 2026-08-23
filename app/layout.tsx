@@ -18,7 +18,7 @@ const barlow = Barlow({
 });
 
 export const metadata: Metadata = {
-  title: "GOOD LOOP",
+  title: "GOOD REVIEW",
   description: "実店舗向け Googleレビュー獲得 × 顧客満足度アンケート（株式会社UTUTU）",
 };
 

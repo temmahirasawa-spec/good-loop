@@ -102,7 +102,7 @@ export function FactorTeaser() {
               className="h-full rounded-[var(--product-radius-full)]"
               style={{
                 width: shown ? `${factor.score}%` : "0%",
-                backgroundColor: "var(--loop-accent-primary)",
+                backgroundColor: "var(--review-accent-primary)",
                 transition: reduced ? "none" : `width 0.9s ease ${i * 0.06}s`,
               }}
             />

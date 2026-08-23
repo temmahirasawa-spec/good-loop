@@ -1,4 +1,4 @@
-# CLAUDE.md — GOOD LOOP
+# CLAUDE.md — GOOD REVIEW
 
 このファイルはこのリポジトリの**規約**です。作業を始める前に必ず読み、以下に従ってください。
 流動的な実装の経緯・判断の履歴は `docs/handoff.md` にあります。実装に入る前にそちらも読んでください。
@@ -7,7 +7,7 @@
 
 ## 1. このリポジトリについて
 
-**GOOD LOOP** — 実店舗向けの「Googleレビュー獲得 × 顧客満足度アンケート」SaaS。
+**GOOD REVIEW** — 実店舗向けの「Googleレビュー獲得 × 顧客満足度アンケート」SaaS。
 株式会社UTUTU（洋輔 × 天真）の自社プロダクト。**GOOD ORDER と同じ GOODシリーズ**。
 
 来店客の体験は1本道です。
@@ -172,7 +172,7 @@ Figma でデザイン作業を行う場合は、着手前に必ず `docs/specs/d
 | 変数（7） | `industry/accent/primary` `industry/accent/light` `industry/accent/action` `industry/accent/wash` `industry/accent/on-primary` `industry/cta/primary` `industry/cta/on-primary` |
 
 > **⚠ `cta/action` は Figma に存在しない。** 実装側（`app/design-tokens.css`）には
-> `--loop-cta-action` が9業態ぶん定義されているが、**画面のコードでは1箇所も使っていない。**
+> `--review-cta-action` が9業態ぶん定義されているが、**画面のコードでは1箇所も使っていない。**
 > 使う場面が出てきたら、先に Figma に変数を足すこと（実装だけに色を足さない）。
 >
 > **色の値は72個とも一致している**（2026-08-22、9業態 × 7変数を突き合わせて確認）。
@@ -190,11 +190,11 @@ Figma でデザイン作業を行う場合は、着手前に必ず `docs/specs/d
 
 GOOD ORDER も他サービスも同じ形にする（基本＝UTUTU、専用＝各プロダクトのファイル）。
 
-- **CSS変数名には必ず `--loop-` の接頭辞を付ける。**
+- **CSS変数名には必ず `--review-` の接頭辞を付ける。**
   UTUTU の `Brand Product` 側が `product/accent-primary` 等に改名されたため、
   **名前の衝突はもう起きない。** それでも接頭辞を付けるのは、
-  **LOOP専用トークンと、将来 UTUTU から読み込む共通トークンを CSS上で見分けるため。**
-  - 例: `--loop-accent-primary`（LOOP専用） / `--product-accent-primary`（UTUTU 由来）
+  **プロダクト専用トークンと、将来 UTUTU から読み込む共通トークンを CSS上で見分けるため。**
+  - 例: `--review-accent-primary`（GOOD REVIEW 専用） / `--product-accent-primary`（UTUTU 由来）
 - **業態別テーマはモード切替で成立させる。** 9業態それぞれに別の実装を書かない。
   CSS変数の値が差し替わるだけで全画面の色が変わる構造を壊さないこと
 - 新規JSXでは `p-[var(--space-16)]` `rounded-[var(--radius-xl)]` のような任意値記法、

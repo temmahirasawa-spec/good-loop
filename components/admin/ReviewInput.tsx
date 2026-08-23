@@ -1,7 +1,7 @@
 "use client";
 
-/** Loop / Input（Figma node 73:1286）— 設定画面・ログイン画面で使う共通の入力欄 */
-export function LoopInput({
+/** Review / Input（Figma node 73:1286）— 設定画面・ログイン画面で使う共通の入力欄 */
+export function ReviewInput({
   value,
   onChange,
   placeholder,

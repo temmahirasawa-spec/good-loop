@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoopInput } from "@/components/admin/LoopInput";
-import { LoopButton } from "@/components/rating-flow/Button";
+import { ReviewInput } from "@/components/admin/ReviewInput";
+import { ReviewButton } from "@/components/rating-flow/Button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /**
@@ -62,7 +62,7 @@ export default function ResetPasswordConfirmPage() {
         style={{ backgroundColor: "var(--product-color-surface-white)" }}
       >
         <p className="whitespace-nowrap text-xl font-bold tracking-[1.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-          GOOD LOOP
+          GOOD REVIEW
         </p>
         <p className="whitespace-nowrap text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
           新しいパスワードを設定
@@ -79,7 +79,7 @@ export default function ResetPasswordConfirmPage() {
             <p className="w-full text-center text-[13px] font-medium" style={{ color: "var(--product-color-status-warning)" }}>
               リンクの有効期限が切れているか、無効です。もう一度お試しください。
             </p>
-            <a href="/admin/reset-password" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--loop-accent-primary)" }}>
+            <a href="/admin/reset-password" className="whitespace-nowrap text-xs font-medium" style={{ color: "var(--review-accent-primary)" }}>
               パスワード再設定をやり直す
             </a>
           </>
@@ -104,17 +104,17 @@ export default function ResetPasswordConfirmPage() {
               <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
                 新しいパスワード
               </p>
-              <LoopInput value={password} onChange={setPassword} type="password" placeholder="8文字以上" />
+              <ReviewInput value={password} onChange={setPassword} type="password" placeholder="8文字以上" />
             </div>
             <div className="flex w-full flex-col items-start gap-2">
               <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
                 新しいパスワード（確認）
               </p>
-              <LoopInput value={confirmPassword} onChange={setConfirmPassword} type="password" placeholder="8文字以上" />
+              <ReviewInput value={confirmPassword} onChange={setConfirmPassword} type="password" placeholder="8文字以上" />
             </div>
-            <LoopButton variant="primary" type="submit" disabled={submitting}>
+            <ReviewButton variant="primary" type="submit" disabled={submitting}>
               {submitting ? "変更中…" : "パスワードを変更する"}
-            </LoopButton>
+            </ReviewButton>
           </form>
         )}
       </div>

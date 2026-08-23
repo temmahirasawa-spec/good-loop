@@ -3,7 +3,7 @@
 import { CheckCircleFilledIcon, PencilIcon } from "../icons";
 import { AiBadge } from "../AiBadge";
 import { StepNumber } from "../StepNumber";
-import { LoopButton } from "../Button";
+import { ReviewButton } from "../Button";
 
 export const REGENERATE_LIMIT = 5;
 
@@ -43,7 +43,7 @@ export function DraftResult({
     >
       <div className="flex w-full max-w-[342px] flex-col items-center gap-[var(--product-space-24)]">
         <div className="flex w-full flex-col items-center gap-[var(--product-space-20)]">
-          <CheckCircleFilledIcon className="size-16 shrink-0" style={{ color: "var(--loop-accent-primary)" }} />
+          <CheckCircleFilledIcon className="size-16 shrink-0" style={{ color: "var(--review-accent-primary)" }} />
           <p className="text-center text-xl font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
             ありがとうございました！
           </p>
@@ -104,7 +104,7 @@ export function DraftResult({
                     タップして自由に編集できます
                   </p>
                 </div>
-                <LoopButton variant="regenerate" disabled={regenerateDisabled} onClick={onRegenerate} />
+                <ReviewButton variant="regenerate" disabled={regenerateDisabled} onClick={onRegenerate} />
               </div>
             )}
             {showRemainingWarning && (
@@ -120,13 +120,13 @@ export function DraftResult({
         <div className="flex w-full items-center gap-[var(--product-space-12)]">
           <StepNumber number={1} active={!copied} />
           <div className="flex-1">
-            <LoopButton variant="copy" copied={copied} onClick={onCopy} />
+            <ReviewButton variant="copy" copied={copied} onClick={onCopy} />
           </div>
         </div>
         <div className="flex w-full items-center gap-[var(--product-space-12)]">
           <StepNumber number={2} active={copied} />
           <div className="flex-1">
-            <LoopButton variant="google" disabled={!copied} onClick={onOpenGoogle} />
+            <ReviewButton variant="google" disabled={!copied} onClick={onOpenGoogle} />
           </div>
         </div>
         <div className="flex w-full items-center gap-[var(--product-space-12)]">

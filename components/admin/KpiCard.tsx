@@ -1,5 +1,5 @@
 /**
- * Loop / KPI Card（Figma node 79:1699 Size=L / 79:1706 Size=S）。
+ * Review / KPI Card（Figma node 79:1699 Size=L / 79:1706 Size=S）。
  *
  * 2026-08-23、Figmaコメント 1895819075「このカードコンポーネント読みにくすぎる。
  * ラインや色を使ってわかりやすく。数字のメリハリを意識」を受けて作り直した。
@@ -23,7 +23,7 @@ export function toDelta(current: number | null, prev: number | null, unit: strin
 }
 
 const DELTA_COLOR: Record<KpiDelta["direction"], string> = {
-  up: "var(--loop-accent-primary)",
+  up: "var(--review-accent-primary)",
   down: "var(--product-color-status-warning)",
   flat: "var(--product-color-text-tertiary)",
 };

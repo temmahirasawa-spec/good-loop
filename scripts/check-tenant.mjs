@@ -2,7 +2,7 @@
 /**
  * テナントID検品
  *
- * GOOD LOOP は**マルチテナント**です。1つのデータベースに全クライアント（＝店舗）の
+ * GOOD REVIEW は**マルチテナント**です。1つのデータベースに全クライアント（＝店舗）の
  * データが同居し、行単位で分離します。したがって、
  *
  *   「どの店舗のデータか」を示す列が無いテーブルは、作った瞬間に事故です。
@@ -166,7 +166,7 @@ for (const v of violations) {
 }
 console.error("");
 console.error("─".repeat(70));
-console.error(" GOOD LOOP は1つのDBに全クライアントのデータを入れ、行単位で分離します。");
+console.error(" GOOD REVIEW は1つのDBに全クライアントのデータを入れ、行単位で分離します。");
 console.error(` 店舗に属するテーブルには必ず ${TENANT_COLUMN} 列を置き、RLS を有効化してください。`);
 console.error("");
 console.error(" 全テナント共通のマスタ表など、店舗に属さないテーブルだけは、");

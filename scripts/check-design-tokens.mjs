@@ -18,7 +18,7 @@
  *
  * 対象は .ts / .tsx のみ。
  *
- * app/design-tokens.css がまだ無い段階（＝Figma の Loop Theme を同期する前）では、
+ * app/design-tokens.css がまだ無い段階（＝Figma の業態別テーマを同期する前）では、
  * 「トークン0個」として走る。この状態では生の色コードはすべて『システム外の色』に
  * なるので、土台だけのリポジトリでも制約は効いている。
  */
@@ -108,7 +108,7 @@ const total = outside.length + inline.length;
 if (total === 0) {
   const tokenNote = existsSync(tokenPath)
     ? `${tokens.size} トークン`
-    : `${TOKEN_FILE} は未作成（Figma の Loop Theme 同期待ち）`;
+    : `${TOKEN_FILE} は未作成（Figma の業態別テーマ同期待ち）`;
   console.log(`✔ デザイントークンQA: 生の色コードは見つかりませんでした（${files.length} ファイル / ${tokenNote}）`);
   process.exit(0);
 }

@@ -1,11 +1,11 @@
 /**
- * 設定メニューのアイコン7種（Figma `Loop / Settings Icon`、node 758:12625）。
+ * 設定メニューのアイコン7種（Figma `Review / Settings Icon`、node 758:12625）。
  *
  * **形の source of truth は Figma 側。** 2026-08-23、天真が全アイコンを手で調整した
  * （Figmaコメント 1895939385「これ以降勝手に修正しないで」）。Figma の SVG 書き出しを
  * ここへ写し取っている。形を変えたくなったら、先に Figma を直してから同期すること。
  *
- * ルール：線＝グリーン（`--loop-accent-primary`）、各アイコンに黄のアクセントを1点だけ
+ * ルール：線＝グリーン（`--review-accent-primary`）、各アイコンに黄のアクセントを1点だけ
  * （`--product-color-icon-yellow`）。黄を増やさないこと。
  *
  * `small` を渡すと 20px で描く（サイドバーの設定下層リンク用。Figma の Size=sm バリアント）。
@@ -15,7 +15,7 @@
  * （CLAUDE.md 4章「SVGは属性にvar()を書いても解決されない」）。
  */
 
-const GREEN = "var(--loop-accent-primary)";
+const GREEN = "var(--review-accent-primary)";
 const YELLOW = "var(--product-color-icon-yellow)";
 const LINE = { fill: "none", stroke: GREEN, strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
 

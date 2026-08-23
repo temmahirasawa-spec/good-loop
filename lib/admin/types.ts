@@ -7,7 +7,7 @@ export type StoreSummary = {
   loopTheme: string;
   /** 業態。2026-08-06、loopTheme（色）から分離した（supabase/0007参照） */
   businessCategory: string;
-  /** Googleのクチコミ投稿画面へ送り出した数。実際に投稿されたかはGOOD LOOPからは分からない */
+  /** Googleのクチコミ投稿画面へ送り出した数。実際に投稿されたかはGOOD REVIEWからは分からない */
   routeCount: number;
   routeCountPrev: number;
   routeRatePercent: number | null;
@@ -41,7 +41,7 @@ export type ResponseItem = {
  * 色テーマ（設定・ブランドとテーマ）。2026-08-06、業態から分離した。
  * slug は Loop Theme の9モードのスラッグ（値は変えていない）。label は業態名ではなく色名。
  */
-export type LoopTheme = {
+export type ReviewTheme = {
   slug: string;
   label: string;
   /** app/design-tokens.css の accent/primary・accent/wash と同値（Figmaのスウォッチ実測） */

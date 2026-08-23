@@ -19,7 +19,7 @@ export function TrendChart({ values, labels, unit = "" }: { values: number[]; la
     <div className="flex w-full flex-col gap-4">
       <div className="relative h-24 w-full md:h-32">
         <svg viewBox={`0 0 ${width} ${height}`} className="absolute inset-0 size-full" preserveAspectRatio="none">
-          <path d={path} fill="none" stroke="var(--loop-accent-primary)" strokeWidth={2.5} vectorEffect="non-scaling-stroke" />
+          <path d={path} fill="none" stroke="var(--review-accent-primary)" strokeWidth={2.5} vectorEffect="non-scaling-stroke" />
         </svg>
         {points.map((p, i) => (
           <div
@@ -34,7 +34,7 @@ export function TrendChart({ values, labels, unit = "" }: { values: number[]; la
               {p.v}
               {unit}
             </span>
-            <span className="block size-2 rounded-full" style={{ backgroundColor: "var(--loop-accent-primary)" }} />
+            <span className="block size-2 rounded-full" style={{ backgroundColor: "var(--review-accent-primary)" }} />
           </div>
         ))}
       </div>

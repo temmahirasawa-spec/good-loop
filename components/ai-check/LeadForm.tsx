@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { LoopButton } from "@/components/rating-flow/Button";
-import { LoopInput } from "@/components/admin/LoopInput";
+import { ReviewButton } from "@/components/rating-flow/Button";
+import { ReviewInput } from "@/components/admin/ReviewInput";
 import { Card, Eyebrow } from "./Card";
 
 /**
@@ -47,7 +47,7 @@ export function LeadForm({ onSubmit }: { onSubmit: (email: string) => void }) {
             className="rounded-[var(--product-radius-md)] border border-solid p-[var(--product-space-12)]"
             style={{
               backgroundColor: "var(--product-color-surface-white)",
-              borderColor: "var(--loop-accent-light)",
+              borderColor: "var(--review-accent-light)",
             }}
           >
             <span
@@ -55,7 +55,7 @@ export function LeadForm({ onSubmit }: { onSubmit: (email: string) => void }) {
               style={{
                 fontFamily: "var(--font-barlow), sans-serif",
                 fontWeight: 600,
-                color: "var(--loop-accent-primary)",
+                color: "var(--review-accent-primary)",
               }}
             >
               {step.no}
@@ -79,12 +79,12 @@ export function LeadForm({ onSubmit }: { onSubmit: (email: string) => void }) {
       >
         <label className="min-w-0 flex-1">
           <span className="sr-only">メールアドレス</span>
-          <LoopInput value={email} onChange={setEmail} placeholder="メールアドレス" type="email" />
+          <ReviewInput value={email} onChange={setEmail} placeholder="メールアドレス" type="email" />
         </label>
         <div className="md:w-[240px] md:shrink-0">
-          <LoopButton variant="primary" type="submit">
+          <ReviewButton variant="primary" type="submit">
             フルレポートを受け取る（無料）
-          </LoopButton>
+          </ReviewButton>
         </div>
       </form>
 

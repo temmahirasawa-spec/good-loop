@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { LOOP_THEMES, BUSINESS_CATEGORIES } from "@/lib/admin/constants";
+import { INDUSTRY_THEMES, BUSINESS_CATEGORIES } from "@/lib/admin/constants";
 import { isValidSlug } from "@/lib/admin/store-slug";
 import { getStoreQuotaState } from "@/lib/admin/store-quota";
 
@@ -17,7 +17,7 @@ import { getStoreQuotaState } from "@/lib/admin/store-quota";
  * ここをすり抜けても insert が失敗する（二重の防御。片方だけにしない）。
  */
 
-const VALID_THEMES = new Set(LOOP_THEMES.map((t) => t.slug));
+const VALID_THEMES = new Set(INDUSTRY_THEMES.map((t) => t.slug));
 const VALID_CATEGORIES = new Set(BUSINESS_CATEGORIES.map((c) => c.slug));
 
 type Body = { name: string; loopTheme: string; businessCategory: string; slug: string; googlePlaceId?: string };

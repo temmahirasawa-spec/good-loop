@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * 来店客の入口URL（docs/specs/rating-flow.md A-5）。
- * `https://app.goodloop.jp/r/[storeSlug]` を想定。
+ * `https://app.good-review.jp/r/[storeSlug]` を想定。
  *
  * 来店客はログインしない前提（rating-flow.md）なので、RLSではなく admin client
  * （service_role・RLSを迂回）で読む。stores の SELECT には anon ロールへの GRANT を
@@ -35,9 +35,9 @@ export default async function RatingFlowPage({ params }: { params: { storeSlug: 
   const storeTags = await getOrSeedStoreTags(supabase, store.id, store.tenant_id, store.business_category);
 
   return (
-    // Figmaのフレームは390px固定（02基本形）。data-loop-theme は店舗が選んだ色テーマをそのまま渡す
+    // Figmaのフレームは390px固定（02基本形）。data-review-theme は店舗が選んだ色テーマをそのまま渡す
     // （2026-08-06、業態とは分離した。値は変えていない。詳細はlib/admin/constants.ts参照）
-    <div className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-col" data-loop-theme={store.loop_theme}>
+    <div className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-col" data-review-theme={store.loop_theme}>
       <RatingFlow
         store={{
           id: store.id,

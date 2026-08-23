@@ -14,6 +14,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * RLSでテナント分離されるため、ログイン中ユーザーからは自分のテナントの店舗しか返らない。
  */
 
+/*
+ * ⚠ `loop_theme` は**データベースの列名**なので、サービス名が GOOD REVIEW に変わっても
+ * そのまま残している（2026-08-24）。列名を変えるには全店舗のデータ移行と、
+ * 参照している全SQL・APIの同時差し替えが要るわりに、お客様には一切見えない。
+ * **コード上の「loop」はこの列名だけ。** それ以外はすべて review / GOOD REVIEW に統一済み。
+ */
 export type SettingsStore = {
   id: string;
   tenant_id: string;

@@ -67,7 +67,7 @@ export function CheckingScreen({
           className="h-full rounded-[var(--product-radius-full)]"
           style={{
             width: `${percent}%`,
-            backgroundColor: "var(--loop-accent-primary)",
+            backgroundColor: "var(--review-accent-primary)",
             transition: reducedMotion ? "none" : "width 0.5s ease",
           }}
         />

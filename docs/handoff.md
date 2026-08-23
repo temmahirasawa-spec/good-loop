@@ -2857,3 +2857,42 @@ Figma `02 基本形 / 画面遷移図`、LPの訴求文言、洋輔さんの実�
      二重クエリを1回に。冗長だった `getUser()` の往復も削除（RLSで結果は同じ）
   3. 卓上POPページのQR生成を行フェッチと並列化
   - スケルトンのFigma画面は未作成（実装先行。必要なら描き起こす）
+
+## 2026-08-24（41回目）サービス名を GOOD LOOP → GOOD REVIEW に変更
+
+**天真の決定。ドメインの都合で改名。ドメインは `good-review.jp`（購入予定）、
+アプリは `app.good-review.jp`（天真が選択。QRに焼き込む値なので確定事項）。**
+
+方針は天真の指示どおり「お客様に見えるもの＋開発で混乱するものは直す。
+見えず工数が大きいものは LOOP のまま残す」。
+
+### 直したもの
+
+| 対象 | 件数 |
+|---|---|
+| 表示文字列 `GOOD LOOP` → `GOOD REVIEW` | コード18・法務下書き5 |
+| 入口URL `app.goodloop.jp` → `app.good-review.jp` | `lib/site-url.ts` ほか |
+| CSS変数 `--loop-*` → `--review-*`、`data-loop-theme` → `data-review-theme` | 237（55ファイル） |
+| コード識別子 `LoopButton/LoopInput/LoopSelect/LoopTheme` → `Review*` | 150（31ファイル）＋ファイル名2 |
+| 定数 `LOOP_THEMES` → `INDUSTRY_THEMES` | Figmaのコレクション名に合わせた |
+| Figma 部品名 `Loop / X` → `Review / X` | 35個（変種は親に追従） |
+| Figma のテキスト・セクション名 | App 31・Web 26・Components 6 |
+| 手順書のドメイン（setup-tasks / launch-plan / ai-visibility-checker） | 25箇所 |
+
+### 意図的に残したもの（お客様に見えず、工数が大きい）
+
+- **DBカラム `loop_theme`** … 全店舗のデータ移行と全SQL・APIの同時差し替えが必要。
+  `lib/admin/current-store.ts` の冒頭に「コード上の loop はこの列名だけ」と明記した
+- **実行済みSQLファイルのコメント** … CLAUDE.md 4章「既存ファイルを書き換えない」に従う
+- **リポジトリ名 `good-loop` / ディレクトリ `GOOD_LOOP` / Supabaseプロジェクト名 /
+  Slack `#goodloop_monitoring` / Figmaファイルキー** … いずれも手作業＋外部連携の張り直しが要る
+- `docs/handoff.md` の過去の記録 … 当時の名前が正しいので改変しない
+- `app/design-tokens.css` の「旧称 `Loop Theme`」… Figma側の実際の履歴なので残す
+
+### 気づき
+
+- **AI視認性チェッカーだけ既に `GOOD REVIEW` 表記だった**（`components/ai-check/AiCheckFooter.tsx`、
+  `app/ai-check/page.tsx`）。改名の話が先に反映されていたと思われる
+- 利用規約・プライバシーポリシーの本文で `「GOOD\n LOOP」` が**JSXの改行で分断**されており、
+  単純な文字列置換では拾えなかった。**法務文書の置換は改行を跨ぐ形も探すこと**
+- `scripts/generate-ogp.mjs` が `--loop-*` を直接読んでいたため、置換しないと壊れていた

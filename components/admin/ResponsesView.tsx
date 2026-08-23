@@ -104,12 +104,12 @@ export function ResponsesView({
             onClick={() => updateFilters({ store: s.id })}
             aria-pressed={selected}
             className="flex min-h-[44px] shrink-0 items-center px-4"
-            style={{ borderBottom: selected ? "2px solid var(--loop-accent-primary)" : "2px solid transparent" }}
+            style={{ borderBottom: selected ? "2px solid var(--review-accent-primary)" : "2px solid transparent" }}
           >
             <span
               className="whitespace-nowrap text-xs"
               style={{
-                color: selected ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
+                color: selected ? "var(--review-accent-primary)" : "var(--product-color-text-secondary)",
                 fontWeight: selected ? 700 : 400,
               }}
             >

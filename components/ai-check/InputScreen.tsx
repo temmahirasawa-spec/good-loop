@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LoopButton } from "@/components/rating-flow/Button";
-import { LoopInput } from "@/components/admin/LoopInput";
+import { ReviewButton } from "@/components/rating-flow/Button";
+import { ReviewInput } from "@/components/admin/ReviewInput";
 import { SAMPLE_QUESTIONS } from "@/lib/ai-check/questions";
 import {
   MAX_AREA_LENGTH,
@@ -16,8 +16,8 @@ import { usePrefersReducedMotion } from "./hooks";
 /**
  * 01 入力画面（docs/prototypes/ai-visibility-checker.html の #scr-input）。
  *
- * 入力欄は既存の `LoopInput`、主ボタンは既存の `LoopButton variant="primary"` を使う。
- * `LoopInput` は id を受け取らないため、ラベルで入力欄を包んでいる
+ * 入力欄は既存の `ReviewInput`、主ボタンは既存の `ReviewButton variant="primary"` を使う。
+ * `ReviewInput` は id を受け取らないため、ラベルで入力欄を包んでいる
  * （こうするとラベルをタップしても入力欄にフォーカスが移る）。
  */
 
@@ -90,7 +90,7 @@ export function InputScreen({
         >
           <span
             className={`size-[7px] shrink-0 rounded-[var(--product-radius-full)] ${reduced ? "" : "animate-pulse"}`}
-            style={{ backgroundColor: "var(--loop-accent-primary)" }}
+            style={{ backgroundColor: "var(--review-accent-primary)" }}
             aria-hidden
           />
           <span>いま試されている質問:</span>
@@ -118,7 +118,7 @@ export function InputScreen({
                   必須
                 </span>
               </span>
-              <LoopInput
+              <ReviewInput
                 value={value.storeName}
                 onChange={(storeName) => onChange({ ...value, storeName: cap(storeName, MAX_STORE_NAME_LENGTH) })}
                 placeholder="例: まちかど食堂 ひなた"
@@ -129,7 +129,7 @@ export function InputScreen({
               <span className="text-[12.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
                 エリア
               </span>
-              <LoopInput
+              <ReviewInput
                 value={value.area}
                 onChange={(area) => onChange({ ...value, area: cap(area, MAX_AREA_LENGTH) })}
                 placeholder="例: 三宮"
@@ -140,7 +140,7 @@ export function InputScreen({
               <span className="text-[12.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
                 ジャンル
               </span>
-              <LoopInput
+              <ReviewInput
                 value={value.genre}
                 onChange={(genre) => onChange({ ...value, genre: cap(genre, MAX_GENRE_LENGTH) })}
                 placeholder="例: パンケーキ"
@@ -149,9 +149,9 @@ export function InputScreen({
           </div>
 
           <div className="mt-[var(--product-space-20)]">
-            <LoopButton variant="primary" type="submit">
+            <ReviewButton variant="primary" type="submit">
               実測でチェックする
-            </LoopButton>
+            </ReviewButton>
           </div>
 
           <p

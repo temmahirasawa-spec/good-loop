@@ -5,7 +5,7 @@ import { KpiCard, toDelta } from "@/components/admin/KpiCard";
 import { PeriodSegment } from "@/components/admin/PeriodSegment";
 import { TrendChart } from "@/components/admin/TrendChart";
 import { ResponseCard } from "@/components/admin/ResponseCard";
-import { LoopButton } from "@/components/rating-flow/Button";
+import { ReviewButton } from "@/components/rating-flow/Button";
 import { TREND_WEEK_LABELS } from "@/lib/admin/constants";
 import { routeRate } from "@/lib/admin/metrics";
 import { getStoreSummary, getResponseItems } from "@/lib/admin/queries";
@@ -113,7 +113,7 @@ export default async function AdminStoreDetailPage({ params }: { params: { store
           </p>
         </div>
         <div className="w-fit">
-          <LoopButton variant="primary">この店舗の二次元コードを表示</LoopButton>
+          <ReviewButton variant="primary">この店舗の二次元コードを表示</ReviewButton>
         </div>
       </div>
       {/* SP: 縦積み（Figma node 54:1121） */}
@@ -136,7 +136,7 @@ export default async function AdminStoreDetailPage({ params }: { params: { store
           </p>
         </div>
         <div className="w-full">
-          <LoopButton variant="primary">この店舗の二次元コードを表示</LoopButton>
+          <ReviewButton variant="primary">この店舗の二次元コードを表示</ReviewButton>
         </div>
       </div>
 
@@ -145,7 +145,7 @@ export default async function AdminStoreDetailPage({ params }: { params: { store
           <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
             直近の回答
           </p>
-          <Link href="/admin/responses" className="text-[13px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
+          <Link href="/admin/responses" className="text-[13px] font-medium" style={{ color: "var(--review-accent-primary)" }}>
             すべての回答を見る →
           </Link>
         </div>

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Toggle } from "@/components/admin/Toggle";
-import { LoopInput } from "@/components/admin/LoopInput";
-import { LoopButton } from "@/components/rating-flow/Button";
+import { ReviewInput } from "@/components/admin/ReviewInput";
+import { ReviewButton } from "@/components/rating-flow/Button";
 import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
 import { NotificationIcon } from "@/components/admin/SettingsMenuIcons";
 
@@ -19,7 +19,7 @@ const ALERTS: { key: AlertKey; label: string; description: string }[] = [
  * 設定（通知） Figma node 73:1329 PC / 75:1752 SP。
  *
  * 「新しいGoogleレビュー」の項目は2026-08-05に削除した（docs/specs/launch-plan.md ①参照。
- * Google側の実際のレビュー件数はGOOD LOOPから取得できないため）。
+ * Google側の実際のレビュー件数はGOOD REVIEWから取得できないため）。
  * メール送信の実装（Resend）はまだ無いため、トグルの状態はローカルのみ。
  */
 export default function SettingsNotificationsPage() {
@@ -50,7 +50,7 @@ export default function SettingsNotificationsPage() {
         <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
           通知先メールアドレス
         </p>
-        <LoopInput value={email} onChange={setEmail} type="email" className="!h-11" />
+        <ReviewInput value={email} onChange={setEmail} type="email" className="!h-11" />
       </div>
       {/*
         保存ボタン（Figmaコメント 1895820872、2026-08-22）。
@@ -59,9 +59,9 @@ export default function SettingsNotificationsPage() {
       */}
       {/* PCは右寄せ（2026-08-23、Figmaコメント 1895968371）。SPは従来どおり左 */}
       <div className="flex w-full flex-col items-start gap-2 pt-2 md:items-end">
-        <LoopButton variant="primary" disabled>
+        <ReviewButton variant="primary" disabled>
           保存する
-        </LoopButton>
+        </ReviewButton>
         <p className="text-[11px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
           メール送信の接続後に保存できるようになります
         </p>

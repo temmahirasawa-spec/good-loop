@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LoopSelect } from "@/components/admin/LoopSelect";
+import { ReviewSelect } from "@/components/admin/ReviewSelect";
 
 /**
  * 設定画面の店舗切り替え（2026-08-21 新設）。
@@ -20,7 +20,7 @@ import { LoopSelect } from "@/components/admin/LoopSelect";
  * 実機で確認したため（2026-08-22）。同じ理由で、幅ではなく数だけで切り替える判定は
  * PCにだけ効かせている。
  *
- * タブの見た目は既存の `Loop / Segment Chip`（Figma node 39:816、期間フィルターと同じピル）に
+ * タブの見た目は既存の `Review / Segment Chip`（Figma node 39:816、期間フィルターと同じピル）に
  * そろえる。生のスタイルを起こさず既存のデザインを写し取る（docs/specs/design-rules.md 2-3）。
  * 店舗が1つしか無いテナントでは、選ぶものが無いので何も描画しない。
  */
@@ -39,7 +39,7 @@ export function StoreSwitchTabs({ stores, selectedId }: { stores: { id: string; 
         設定する店舗
       </p>
       {/* スマホは常にドロップダウン。PCで5店舗以上のときも同じものを使う */}
-      <LoopSelect
+      <ReviewSelect
         ariaLabel="設定する店舗を選ぶ"
         value={selectedId}
         onChange={(id) => router.push(`${pathname}?store=${id}`)}
@@ -56,11 +56,11 @@ export function StoreSwitchTabs({ stores, selectedId }: { stores: { id: string; 
                 href={`${pathname}?store=${store.id}`}
                 scroll={false}
                 className="flex min-h-[44px] shrink-0 items-center rounded-full px-5 py-[13px]"
-                style={{ backgroundColor: selected ? "var(--loop-accent-primary)" : "transparent" }}
+                style={{ backgroundColor: selected ? "var(--review-accent-primary)" : "transparent" }}
               >
                 <span
                   className="whitespace-nowrap text-xs font-medium"
-                  style={{ color: selected ? "var(--loop-accent-on-primary)" : "var(--product-color-text-secondary)" }}
+                  style={{ color: selected ? "var(--review-accent-on-primary)" : "var(--product-color-text-secondary)" }}
                 >
                   {store.name}
                 </span>

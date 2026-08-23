@@ -28,7 +28,7 @@ const LEAD_FORM_ID = "ai-check-lead-form";
 
 /**
  * メールアドレス欄まで運んで、入力できる状態にする。
- * 共通部品の `LoopInput` は id を受け取らないため、囲みの要素から辿っている。
+ * 共通部品の `ReviewInput` は id を受け取らないため、囲みの要素から辿っている。
  */
 function goToLeadForm() {
   const target = document.getElementById(LEAD_FORM_ID);

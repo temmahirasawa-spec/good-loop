@@ -4,7 +4,7 @@ import { toDelta, type KpiDelta } from "@/components/admin/KpiCard";
 
 /** 増減の色と記号（KPIカードと同じ文法。1895937572） */
 const DELTA_COLOR: Record<KpiDelta["direction"], string> = {
-  up: "var(--loop-accent-primary)",
+  up: "var(--review-accent-primary)",
   down: "var(--product-color-status-warning)",
   flat: "var(--product-color-text-tertiary)",
 };

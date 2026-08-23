@@ -13,7 +13,7 @@ Claude Code（リポジトリ側）はここに書かれた値が揃うまで先
 そのまま貼ってください。あわせて、このファイル（`docs/setup-tasks.md`）と
 `docs/specs/launch-plan.md` の2つを添付してください。
 
-> GOOD LOOP という自社サービスを本番稼働させる準備をしています。
+> GOOD REVIEW という自社サービスを本番稼働させる準備をしています。
 > 添付した `setup-tasks.md` に、私（エンジニアではありません）が管理画面を触って
 > やらないといけない作業がまとまっています。
 >
@@ -68,7 +68,7 @@ Claude Code（リポジトリ側）はここに書かれた値が揃うまで先
 
 | 項目 | 内容 |
 |---|---|
-| 何をする | GOOD LOOP 専用のプロジェクトを新規作成する |
+| 何をする | GOOD REVIEW 専用のプロジェクトを新規作成する |
 | どこで | https://supabase.com/dashboard |
 | 組織 | **GOOD ORDER と同じ組織**の中に作る |
 | プロジェクト名 | `good-loop` |
@@ -79,7 +79,7 @@ Claude Code（リポジトリ側）はここに書かれた値が揃うまで先
 
 洋輔さんが今動かしている実動プロトタイプの Supabase（プロジェクトID `jqvyepvjxnkpirusesxg`）
 とは **別物** です。**そちらは開かない・触らない・参照しない。**
-GOOD LOOP は新規に作るプロジェクトだけを使います。
+GOOD REVIEW は新規に作るプロジェクトだけを使います。
 
 ### 取得する値（3つ）
 
@@ -121,7 +121,7 @@ Supabaseに繋ぐ手段が無いため、**SQL Editorに貼って実行する作
 
 | 項目 | 内容 |
 |---|---|
-| 何をする | GOOD LOOP 専用の API キーを発行する |
+| 何をする | GOOD REVIEW 専用の API キーを発行する |
 | どこで | https://console.anthropic.com → API keys |
 | キーの名前 | `good-loop-production`（用途が分かる名前にする） |
 | 使うモデル | Claude Haiku 4.5（`docs/specs/rating-flow.md` B節で決定済み） |
@@ -176,7 +176,7 @@ Figma の設定（通知）画面に「★3以下の回答が入った瞬間に�
 |---|---|
 | 何をする | メール送信サービスのアカウントを作る |
 | おすすめ | **Resend**（https://resend.com）。Vercel との相性がよく、無料枠が月3,000通 |
-| 必要な準備 | 送信元にする独自ドメイン（`goodloop.jp`）の所有確認。**作業6のあとになります** |
+| 必要な準備 | 送信元にする独自ドメイン（`good-review.jp`）の所有確認。**作業6のあとになります** |
 
 ### 取得する値
 
@@ -195,7 +195,7 @@ Figma の設定（通知）画面に「★3以下の回答が入った瞬間に�
 
 | 項目 | 内容 |
 |---|---|
-| 何をする | GOOD LOOP 専用プロジェクトを作る |
+| 何をする | GOOD REVIEW 専用プロジェクトを作る |
 | どこで | https://sentry.io |
 | プラットフォーム | **Next.js** を選ぶ |
 | 通知先 | Slack の `#goodloop_monitoring` に接続する |
@@ -208,25 +208,25 @@ Figma の設定（通知）画面に「★3以下の回答が入った瞬間に�
 
 ---
 
-## 6. ドメイン — `goodloop.jp` と `app.goodloop.jp`
+## 6. ドメイン — `good-review.jp` と `app.good-review.jp`
 
 | 用途 | ドメイン |
 |---|---|
-| 公式サイト（LP） | `goodloop.jp` |
-| アプリ本体（来店客の入口・管理画面） | `app.goodloop.jp` |
+| 公式サイト（LP） | `good-review.jp` |
+| アプリ本体（来店客の入口・管理画面） | `app.good-review.jp` |
 
 **QRコードに載るURLなので、一度印刷して配ったら簡単には変えられません。**
 ここは決め打ちで進めます（`docs/specs/rating-flow.md` A-5 で決定済み）。
 
 ### やること
 
-1. `goodloop.jp` を取得する（Vercel の Domains から直接買うのが一番簡単。お名前.com 等でも可）
-2. Vercel の `good-loop` プロジェクト → Settings → Domains に `app.goodloop.jp` を追加する
+1. `good-review.jp` を取得する（Vercel の Domains から直接買うのが一番簡単。お名前.com 等でも可）
+2. Vercel の `good-loop` プロジェクト → Settings → Domains に `app.good-review.jp` を追加する
 3. Vercel が表示する DNS の設定を、ドメインを買った先に登録する
 
 ### 完了の判定
 
-`https://app.goodloop.jp` を開いて、今の画面が表示される。
+`https://app.good-review.jp` を開いて、今の画面が表示される。
 
 ---
 

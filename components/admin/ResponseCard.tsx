@@ -3,7 +3,7 @@ import type { ResponseItem } from "@/lib/admin/types";
 /** Response カード（Figma node 51:921 等）— 回答一覧・店舗詳細の「直近の回答」で共有 */
 export function ResponseCard({ response, showStoreName = true }: { response: ResponseItem; showStoreName?: boolean }) {
   const lowRating = response.rating <= 2;
-  const ratingColor = lowRating ? "var(--product-color-status-warning)" : "var(--loop-accent-primary)";
+  const ratingColor = lowRating ? "var(--product-color-status-warning)" : "var(--review-accent-primary)";
 
   return (
     <div
@@ -33,12 +33,12 @@ export function ResponseCard({ response, showStoreName = true }: { response: Res
         <div
           className="flex w-fit items-start rounded-full px-3 py-1"
           style={{
-            backgroundColor: response.routeStatus === "guided" ? "var(--loop-accent-wash)" : "var(--product-color-bg-primary)",
+            backgroundColor: response.routeStatus === "guided" ? "var(--review-accent-wash)" : "var(--product-color-bg-primary)",
           }}
         >
           <p
             className="whitespace-nowrap text-[10.5px] font-medium md:text-[11px]"
-            style={{ color: response.routeStatus === "guided" ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)" }}
+            style={{ color: response.routeStatus === "guided" ? "var(--review-accent-primary)" : "var(--product-color-text-secondary)" }}
           >
             {response.routeStatus === "guided" ? "Googleへ誘導済み" : "店舗にのみ共有"}
           </p>

@@ -26,7 +26,7 @@ function highlight(text: string, names: string[]): ReactNode[] {
       <mark
         key={i}
         className="font-bold"
-        style={{ backgroundColor: "var(--loop-accent-light)", color: "var(--product-color-text-primary)" }}
+        style={{ backgroundColor: "var(--review-accent-light)", color: "var(--product-color-text-primary)" }}
       >
         {part}
       </mark>
@@ -88,9 +88,9 @@ export function QuestionResultCard({ result, store }: { result: QuestionResult; 
                 style={
                   isTarget
                     ? {
-                        backgroundColor: "var(--loop-accent-wash)",
-                        borderColor: "var(--loop-accent-primary)",
-                        color: "var(--loop-accent-primary)",
+                        backgroundColor: "var(--review-accent-wash)",
+                        borderColor: "var(--review-accent-primary)",
+                        color: "var(--review-accent-primary)",
                         fontWeight: 700,
                       }
                     : {
