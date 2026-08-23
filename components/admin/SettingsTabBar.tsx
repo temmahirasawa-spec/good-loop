@@ -25,7 +25,7 @@ export function SettingsTabBar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex w-full shrink-0 items-start gap-2 overflow-x-auto pr-6 md:hidden">
+    <div className="flex w-full shrink-0 items-start gap-2 overflow-x-auto pb-4 pr-6 md:hidden">
       {SETTINGS_NAV.map((tab) => {
         const active = pathname.startsWith(tab.href);
         return (
