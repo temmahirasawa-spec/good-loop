@@ -53,6 +53,13 @@ export default async function AdminStoreDetailPage({ params }: { params: { store
 
       <div className="flex w-full shrink-0 flex-col items-start gap-2 md:flex-row md:gap-4">
         <KpiCard
+          label="回答数"
+          note="アンケートに答えていただいた数です"
+          value={String(store.responseCount)}
+          prevLabel={`前期 ${store.responseCountPrev}件`}
+          delta={toDelta(store.responseCount, store.responseCountPrev, "件")}
+        />
+        <KpiCard
           label="Googleへ送客（誘導数）"
           value={String(store.routeCount)}
           prevLabel={`前期 ${store.routeCountPrev}件`}
@@ -60,17 +67,12 @@ export default async function AdminStoreDetailPage({ params }: { params: { store
           note="レビュー画面を開いた数です。実際に投稿された数ではありません"
         />
         <KpiCard
-          label="回答数"
-          value={String(store.responseCount)}
-          prevLabel={`前期 ${store.responseCountPrev}件`}
-          delta={toDelta(store.responseCount, store.responseCountPrev, "件")}
-        />
-        <KpiCard
           label="送客率"
           value={store.routeRatePercent === null ? "—" : `${store.routeRatePercent}%`}
           prevLabel={`前期 ${prevRate === null ? "—" : `${prevRate}%`}`}
           delta={toDelta(store.routeRatePercent, prevRate, "pt")}
           unit=""
+          note="回答したお客様のうち、Googleのレビュー画面へ進んだ割合です"
         />
       </div>
 

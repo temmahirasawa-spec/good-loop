@@ -8,7 +8,8 @@
 export function SettingsCardTitle({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="flex w-full items-center gap-2">
-      {icon}
+      {/* PCではアイコンをページタイトル横に移したので出さない（2026-08-23、Figmaコメント 1895938162） */}
+      <span className="flex md:hidden">{icon}</span>
       <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
         {children}
       </p>

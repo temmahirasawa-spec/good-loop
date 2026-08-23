@@ -4,6 +4,7 @@ import {
   BillingIcon,
   BrandIcon,
   NotificationIcon,
+  PopIcon,
   StoreIcon,
   SurveyIcon,
 } from "@/components/admin/SettingsMenuIcons";
@@ -13,6 +14,7 @@ import { SETTINGS_NAV } from "@/lib/admin/settings-nav";
 const ICONS = {
   brand: BrandIcon,
   store: StoreIcon,
+  pop: PopIcon,
   survey: SurveyIcon,
   notification: NotificationIcon,
   billing: BillingIcon,

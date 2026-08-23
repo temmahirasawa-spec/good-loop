@@ -175,7 +175,8 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
                 : "店舗枠がいっぱいです。店舗を増やす手続きは、アカウント管理からご案内します"}
             </p>
             {quota.quota !== null && (
-              <LoopButton variant="primary" onClick={() => router.push("/admin/settings/billing")}>
+              // 線ボタン（2026-08-23、Figmaコメント 1895935256「追加とか決定じゃなくてただの画面遷移なので」）
+              <LoopButton variant="outline" onClick={() => router.push("/admin/settings/billing")}>
                 アカウント管理へ
               </LoopButton>
             )}

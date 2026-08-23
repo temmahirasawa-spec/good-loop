@@ -13,6 +13,9 @@ import { SETTINGS_NAV, tabLabel } from "@/lib/admin/settings-nav";
  * SPでは横スクロールになるので、端が切れて見えることで「まだ先がある」と分かるよう、
  * 右端に余白を残している。メニュー画面（`/admin/settings`）は残してあるので、戻すのは1行。
  *
+ * **PCでは出さない**（2026-08-23、Figmaコメント 1895836247「PC版はここのタブいらない
+ * （サイドバー常時表示なので」）。PCの現在地はサイドバーの設定下層リンクが示す。
+ *
  * 同日、**アクティブの示し方をベタ塗りのピルから下線に変えた**（天真のFigmaコメント）。
  * ピルのままだとボタンと見分けがつかないため。ピル型は `Loop / Segment Chip`
  * （期間・分岐などの絞り込み）に残す。Figmaは `Loop / Tab Item`。
@@ -22,7 +25,7 @@ export function SettingsTabBar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex w-full shrink-0 items-start gap-2 overflow-x-auto pr-6 md:pr-0">
+    <div className="flex w-full shrink-0 items-start gap-2 overflow-x-auto pb-4 pr-6 md:hidden">
       {SETTINGS_NAV.map((tab) => {
         const active = pathname.startsWith(tab.href);
         return (
