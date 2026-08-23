@@ -240,7 +240,7 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
               style={{ backgroundColor: "var(--product-color-bg-primary)" }}
             >
               <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-                {slugLoading ? "作成中…" : slug ? `app.goodloop.jp/r/${slug}` : "店舗名を入力すると自動で作成されます"}
+                {slugLoading ? "作成中…" : slug ? `app.good-review.jp/r/${slug}` : "店舗名を入力すると自動で作成されます"}
               </p>
               <button type="button" onClick={() => setEditingSlug(true)} className="text-xs font-bold shrink-0" style={{ color: "var(--review-accent-primary)" }}>
                 編集

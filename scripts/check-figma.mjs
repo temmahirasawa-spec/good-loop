@@ -332,7 +332,7 @@ function countComponentDescendants(node, limit) {
  * 枠に対してこの割合以上の大きさの子は、「その枠が包んでいるだけ」の証拠とみなす。
  *
  * 個数だけでは容器と本物を区別できない。どちらもインスタンス1個だからである。
- *   GOOD REVIEW の CTA Block … 342×77 の枠に、342×52 の Loop/Button が1個 → 幅が100%一致。容器
+ *   GOOD REVIEW の CTA Block … 342×77 の枠に、342×52 の Review/Button が1個 → 幅が100%一致。容器
  *   GOOD ORDER の Delete Button … 32×32 の枠に、16×16 の Icon が1個 → 幅は50%。本物のボタン
  * 区別できるのは**大きさの比率**。枠とほぼ同じ大きさのコンポーネントを持つなら、
  * その枠はそれを包んでいるだけである。

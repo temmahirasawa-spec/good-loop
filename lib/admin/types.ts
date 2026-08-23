@@ -39,7 +39,7 @@ export type ResponseItem = {
 
 /**
  * 色テーマ（設定・ブランドとテーマ）。2026-08-06、業態から分離した。
- * slug は Loop Theme の9モードのスラッグ（値は変えていない）。label は業態名ではなく色名。
+ * slug は Industry Theme の9モードのスラッグ（値は変えていない）。label は業態名ではなく色名。
  */
 export type ReviewTheme = {
   slug: string;

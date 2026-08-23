@@ -1,7 +1,7 @@
 import type { ReviewTheme, BusinessCategory } from "./types";
 
 /**
- * 色テーマ一覧（設定・ブランドとテーマ）。順序・値は Loop Theme の9モードと一致させる。
+ * 色テーマ一覧（設定・ブランドとテーマ）。順序・値は Industry Theme の9モードと一致させる。
  *
  * 2026-08-06、天真の決定により業態から分離した。スラッグ・実際の色（swatchPrimary/Light）は
  * 従来のまま変えていない（既存店舗のデータ・Figmaのモード名との対応を保つため）。
