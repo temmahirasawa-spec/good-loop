@@ -61,6 +61,7 @@ export default async function AdminStoreDetailPage({ params }: { params: { store
         />
         <KpiCard
           label="回答数"
+          note="アンケートに答えていただいた数です"
           value={String(store.responseCount)}
           prevLabel={`前期 ${store.responseCountPrev}件`}
           delta={toDelta(store.responseCount, store.responseCountPrev, "件")}

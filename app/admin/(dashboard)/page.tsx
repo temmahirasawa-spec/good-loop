@@ -71,6 +71,7 @@ export default async function AdminTopPage() {
         />
         <KpiCard
           label="回答数"
+          note="アンケートに答えていただいた数です"
           value={String(total.responseCount)}
           prevLabel={`前期 ${total.responseCountPrev}件`}
           delta={toDelta(total.responseCount, total.responseCountPrev, "件")}
