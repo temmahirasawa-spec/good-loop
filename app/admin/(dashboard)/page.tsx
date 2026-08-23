@@ -63,18 +63,18 @@ export default async function AdminTopPage() {
 
       <div className="flex w-full shrink-0 flex-col items-start gap-2 md:flex-row md:gap-4">
         <KpiCard
-          label="Googleへ送客（誘導数）"
-          value={String(total.routeCount)}
-          prevLabel={`前期 ${total.routeCountPrev}件`}
-          delta={toDelta(total.routeCount, total.routeCountPrev, "件")}
-          note="レビュー画面を開いた数です。実際に投稿された数ではありません"
-        />
-        <KpiCard
           label="回答数"
           note="アンケートに答えていただいた数です"
           value={String(total.responseCount)}
           prevLabel={`前期 ${total.responseCountPrev}件`}
           delta={toDelta(total.responseCount, total.responseCountPrev, "件")}
+        />
+        <KpiCard
+          label="Googleへ送客（誘導数）"
+          value={String(total.routeCount)}
+          prevLabel={`前期 ${total.routeCountPrev}件`}
+          delta={toDelta(total.routeCount, total.routeCountPrev, "件")}
+          note="レビュー画面を開いた数です。実際に投稿された数ではありません"
         />
         <KpiCard
           label="送客率"

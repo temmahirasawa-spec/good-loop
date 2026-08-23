@@ -81,14 +81,18 @@ export function BillingIcon() {
   );
 }
 
-/** 卓上POP ＝ 卓上のPOPスタンド（QRは描かない。二次元コード管理のアイコンと見分けるため） */
+/**
+ * 卓上POP ＝ 卓上のPOPスタンド（QRは描かない。二次元コード管理のアイコンと見分けるため）。
+ * 2026-08-23、天真の指摘「何なのかがわからない。斜めからの角度に」で立体の見え方に描き直した。
+ */
 export function PopIcon() {
   return (
     <Svg>
-      <path d="M9 5h10l2 14H7z" style={LINE} />
-      <path d="M5 23h18" style={LINE} />
-      <path d="M11.5 12h5" style={LINE} />
-      <circle cx="21" cy="4.5" r="2.5" style={{ fill: YELLOW }} />
+      <path d="M6 8.5L17.5 5l2 13L8 21.5z" style={LINE} />
+      <path d="M17.5 5l5 2.5 2 12.5-5-2" style={LINE} />
+      <path d="M10.5 13.5l5-1.5" style={LINE} />
+      <path d="M4 25l22-1.5" style={LINE} />
+      <circle cx="25" cy="4.5" r="2.5" style={{ fill: YELLOW }} />
     </Svg>
   );
 }
