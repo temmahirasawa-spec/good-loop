@@ -55,7 +55,7 @@ export function LeadForm({ onSubmit }: { onSubmit: (email: string) => void }) {
               style={{
                 fontFamily: "var(--font-barlow), sans-serif",
                 fontWeight: 600,
-                color: "var(--loop-accent-action)",
+                color: "var(--loop-accent-primary)",
               }}
             >
               {step.no}

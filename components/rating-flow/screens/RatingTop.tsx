@@ -40,7 +40,7 @@ export function RatingTop({
             >
               <p
                 className="whitespace-nowrap text-[11px] font-medium tracking-[0.22px]"
-                style={{ color: "var(--loop-accent-action)" }}
+                style={{ color: "var(--loop-accent-primary)" }}
               >
                 所要時間は約1分です
               </p>

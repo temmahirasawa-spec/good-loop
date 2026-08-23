@@ -123,7 +123,7 @@ export default function TermsPage() {
       <LegalSection title="第13条（個人情報の取扱い）">
         <p>
           当社は、本サービスの利用によって取得する個人情報については、当社「
-          <a href="/privacy" className="underline" style={{ color: "var(--loop-accent-action)" }}>
+          <a href="/privacy" className="underline" style={{ color: "var(--loop-accent-primary)" }}>
             プライバシーポリシー
           </a>
           」に従い適切に取り扱うものとします。

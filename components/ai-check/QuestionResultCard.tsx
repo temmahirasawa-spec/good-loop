@@ -90,7 +90,7 @@ export function QuestionResultCard({ result, store }: { result: QuestionResult; 
                     ? {
                         backgroundColor: "var(--loop-accent-wash)",
                         borderColor: "var(--loop-accent-primary)",
-                        color: "var(--loop-accent-action)",
+                        color: "var(--loop-accent-primary)",
                         fontWeight: 700,
                       }
                     : {

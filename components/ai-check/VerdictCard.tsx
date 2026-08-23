@@ -18,7 +18,7 @@ export function VerdictCard({ report }: { report: CheckReport }) {
   const shown = useMounted(50);
 
   const color =
-    report.rankTone === "accent" ? "var(--loop-accent-action)" : "var(--product-color-text-secondary)";
+    report.rankTone === "accent" ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)";
 
   const hits = useCountUp(report.hitCount, 750, shown);
   const score = useCountUp(report.score, 1100, shown);

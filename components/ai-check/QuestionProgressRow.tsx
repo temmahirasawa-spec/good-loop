@@ -47,7 +47,7 @@ export function QuestionProgressRow({
   const mentioned = done && result !== undefined && result.status === "done" && result.mentioned;
 
   // 「登場した＝アクセント色 / 登場せず＝グレー」。既存トークンに赤も緑も無いため
-  const markColor = mentioned ? "var(--loop-accent-action)" : "var(--product-color-text-secondary)";
+  const markColor = mentioned ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)";
 
   return (
     <Card className="mb-[var(--product-space-8)] flex items-center gap-[var(--product-space-12)] p-[var(--product-space-16)]">

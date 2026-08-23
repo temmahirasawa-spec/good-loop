@@ -50,7 +50,7 @@ export function RatingButton({
         style={{
           fontSize: large ? 14 : 12,
           fontWeight: large ? 700 : 500,
-          color: selected ? "var(--loop-accent-action)" : "var(--product-color-text-primary)",
+          color: selected ? "var(--loop-accent-primary)" : "var(--product-color-text-primary)",
         }}
       >
         {LABELS[level]}

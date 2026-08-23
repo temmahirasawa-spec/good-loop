@@ -46,7 +46,7 @@ export function LockedContent({
         style={{
           backgroundColor: "var(--loop-accent-wash)",
           borderColor: "var(--loop-accent-light)",
-          color: "var(--loop-accent-action)",
+          color: "var(--loop-accent-primary)",
         }}
       >
         <LockIcon className="size-[15px] shrink-0" />

@@ -176,7 +176,7 @@ export function StoreEditModal({
                     <div className="flex flex-col items-start gap-1">
                       <p
                         className="text-[13.5px] font-bold"
-                        style={{ color: isSelected ? "var(--loop-accent-action)" : "var(--product-color-text-primary)" }}
+                        style={{ color: isSelected ? "var(--loop-accent-primary)" : "var(--product-color-text-primary)" }}
                       >
                         {s.name}
                       </p>
@@ -185,7 +185,7 @@ export function StoreEditModal({
                       </p>
                     </div>
                     {isSelected && (
-                      <span className="text-sm font-bold" style={{ color: "var(--loop-accent-action)" }}>
+                      <span className="text-sm font-bold" style={{ color: "var(--loop-accent-primary)" }}>
                         ✓
                       </span>
                     )}
@@ -202,7 +202,7 @@ export function StoreEditModal({
             className="flex w-full flex-col items-start gap-1 rounded-lg px-4 py-3"
             style={{ backgroundColor: "var(--loop-accent-wash)" }}
           >
-            <p className="text-[13px] font-bold" style={{ color: "var(--loop-accent-action)" }}>
+            <p className="text-[13px] font-bold" style={{ color: "var(--loop-accent-primary)" }}>
               ✓ 紐付けが完了しました
             </p>
             <p className="text-xs font-medium" style={{ color: "var(--product-color-text-primary)" }}>

@@ -40,7 +40,7 @@ export function SettingsTabBar() {
             <span
               className="whitespace-nowrap text-xs"
               style={{
-                color: active ? "var(--loop-accent-action)" : "var(--product-color-text-secondary)",
+                color: active ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
                 fontWeight: active ? 700 : 400,
               }}
             >

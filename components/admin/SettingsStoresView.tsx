@@ -93,7 +93,7 @@ function CopyableUrl({ url }: { url: string }) {
         className="flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg border px-3"
         style={{
           borderColor: copied ? "var(--loop-accent-primary)" : "var(--product-color-border-default)",
-          color: copied ? "var(--loop-accent-action)" : "var(--product-color-text-primary)",
+          color: copied ? "var(--loop-accent-primary)" : "var(--product-color-text-primary)",
           backgroundColor: "var(--product-color-surface-white)",
         }}
       >
@@ -140,13 +140,13 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
                   className="rounded-full px-2 py-1 text-[11px] font-medium"
                   style={{
                     backgroundColor: linked ? "var(--loop-accent-wash)" : "var(--product-color-bg-primary)",
-                    color: linked ? "var(--loop-accent-action)" : "var(--product-color-status-error)",
+                    color: linked ? "var(--loop-accent-primary)" : "var(--product-color-status-error)",
                   }}
                 >
                   {linked ? "Googleマップ連携済み" : "URL未設定"}
                 </span>
               </div>
-              <button type="button" onClick={() => setEditingId(store.id)} className="shrink-0 text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
+              <button type="button" onClick={() => setEditingId(store.id)} className="shrink-0 text-[12.5px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
                 編集
               </button>
               </div>

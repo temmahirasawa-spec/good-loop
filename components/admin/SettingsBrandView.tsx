@@ -106,7 +106,7 @@ export function SettingsBrandView({
           </LoopButton>
         </div>
         {saveState === `saved-${section}` && (
-          <p className="text-[12.5px] font-medium" style={{ color: "var(--loop-accent-action)" }}>
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--loop-accent-primary)" }}>
             保存しました
           </p>
         )}
@@ -192,7 +192,7 @@ export function SettingsBrandView({
                   {t.label}
                 </span>
                 {selected && (
-                  <span className="ml-auto text-sm font-bold md:hidden" style={{ color: "var(--loop-accent-action)" }}>
+                  <span className="ml-auto text-sm font-bold md:hidden" style={{ color: "var(--loop-accent-primary)" }}>
                     ✓
                   </span>
                 )}
