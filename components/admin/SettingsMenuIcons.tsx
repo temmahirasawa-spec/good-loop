@@ -8,7 +8,7 @@
  * ルール：線＝グリーン（`--loop-accent-primary`）、各アイコンに黄のアクセントを1点だけ
  * （`--product-color-icon-yellow`）。黄を増やさないこと。
  *
- * `small` を渡すと 16px で描く（サイドバーの設定下層リンク用。Figma の Size=sm バリアント）。
+ * `small` を渡すと 20px で描く（サイドバーの設定下層リンク用。Figma の Size=sm バリアント）。
  * viewBox ごと縮むため線幅も約1pxになり、Figma の「小サイズは1px線」と同じ見え方になる。
  *
  * SVGの属性には `var()` が効かないため `style` で色を渡している
@@ -23,7 +23,7 @@ export type IconProps = { small?: boolean };
 
 function Svg({ small, children }: IconProps & { children: React.ReactNode }) {
   return (
-    <svg viewBox="0 0 28 28" className={small ? "size-4 shrink-0" : "size-7 shrink-0"} aria-hidden="true" style={{ overflow: "visible" }}>
+    <svg viewBox="0 0 28 28" className={small ? "size-5 shrink-0" : "size-7 shrink-0"} aria-hidden="true" style={{ overflow: "visible" }}>
       {children}
     </svg>
   );

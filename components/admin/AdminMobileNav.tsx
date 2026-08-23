@@ -5,6 +5,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStoreName } from "./StoreNameContext";
 import { SETTINGS_NAV } from "@/lib/admin/settings-nav";
+import {
+  AccountIcon,
+  BillingIcon,
+  BrandIcon,
+  NotificationIcon,
+  PopIcon,
+  StoreIcon,
+  SurveyIcon,
+} from "@/components/admin/SettingsMenuIcons";
+
+// 下層リンクの小アイコン（2026-08-23、Figmaコメント 1895972811「ここにもアイコン追加」。PCサイドバーと同じ）
+const SETTINGS_ICONS = {
+  brand: BrandIcon,
+  store: StoreIcon,
+  pop: PopIcon,
+  survey: SurveyIcon,
+  notification: NotificationIcon,
+  billing: BillingIcon,
+  account: AccountIcon,
+} as const;
 
 /**
  * SP管理画面のトップバー（Figma node 79:1535 / 54:927）＋ドロワー（node 50:881）。
@@ -110,13 +130,15 @@ export function AdminMobileTopBar({
             <div className="mt-1 flex w-full flex-col items-start gap-0.5 border-l pl-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
               {SETTINGS_NAV.map((item) => {
                 const active = pathname.startsWith(item.href);
+                const Icon = SETTINGS_ICONS[item.icon];
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     onClick={() => setOpen(false)}
-                    className="flex min-h-11 w-full shrink-0 items-center rounded-[10px] px-3 py-2"
+                    className="flex min-h-11 w-full shrink-0 items-center gap-2 rounded-[10px] px-3 py-2"
                   >
+                    <Icon small />
                     <span
                       className="flex-1 text-[13px]"
                       style={{

@@ -90,7 +90,7 @@ export function AdminSidebar({ storeName }: { storeName: string }) {
             >
               <Icon small />
               <span
-                className="flex-1 text-[12.5px]"
+                className="flex-1 text-xs"
                 style={{
                   fontWeight: active ? 700 : 400,
                   color: active ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",
