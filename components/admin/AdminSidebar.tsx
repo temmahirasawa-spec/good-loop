@@ -3,6 +3,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SETTINGS_NAV } from "@/lib/admin/settings-nav";
+import {
+  AccountIcon,
+  BillingIcon,
+  BrandIcon,
+  NotificationIcon,
+  PopIcon,
+  StoreIcon,
+  SurveyIcon,
+} from "@/components/admin/SettingsMenuIcons";
+
+/*
+ * 下層リンクの左に置く小アイコン（2026-08-23、Figmaコメント 1895963412）。
+ * このサイズだと1.8pxの線は潰れるため、Figmaの Size=sm（16px・1px線）に合わせて small で描く。
+ */
+const SETTINGS_ICONS = {
+  brand: BrandIcon,
+  store: StoreIcon,
+  pop: PopIcon,
+  survey: SurveyIcon,
+  notification: NotificationIcon,
+  billing: BillingIcon,
+  account: AccountIcon,
+} as const;
 
 /** Loop / Admin Sidebar（Figma node 48:851）— LOOP管理画面のサイドナビ */
 const NAV_ITEMS = [
@@ -58,14 +81,16 @@ export function AdminSidebar({ storeName }: { storeName: string }) {
       <div className="mt-1 flex w-full flex-col items-start gap-0.5 border-l pl-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
         {SETTINGS_NAV.map((item) => {
           const active = pathname.startsWith(item.href);
+          const Icon = SETTINGS_ICONS[item.icon];
           return (
             <Link
               key={item.href}
               href={item.href}
-              className="flex min-h-9 w-full shrink-0 items-center rounded-[10px] px-3 py-1.5"
+              className="flex min-h-9 w-full shrink-0 items-center gap-2 rounded-[10px] px-3 py-1.5"
             >
+              <Icon small />
               <span
-                className="flex-1 text-[12.5px]"
+                className="flex-1 text-xs"
                 style={{
                   fontWeight: active ? 700 : 400,
                   color: active ? "var(--loop-accent-primary)" : "var(--product-color-text-secondary)",

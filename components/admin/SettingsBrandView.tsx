@@ -98,8 +98,9 @@ export function SettingsBrandView({
 
   /** 各カードの下に置く保存ボタンと結果表示 */
   function SaveRow({ section, onSave }: { section: "brand" | "theme"; onSave: () => void }) {
+    // PCは右寄せ（2026-08-23、Figmaコメント 1895968300・1895968316）。SPは左のまま
     return (
-      <div className="flex w-full items-center gap-3 pt-1">
+      <div className="flex w-full items-center gap-3 pt-1 md:flex-row-reverse">
         <div className="w-fit">
           <LoopButton variant="primary" onClick={onSave} disabled={saving !== null}>
             {saving === section ? "保存中…" : "保存する"}
