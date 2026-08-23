@@ -81,6 +81,7 @@ export default async function AdminTopPage() {
           prevLabel={`前期 ${total.routeRatePercentPrev === null ? "—" : `${total.routeRatePercentPrev}%`}`}
           delta={toDelta(total.routeRatePercent, total.routeRatePercentPrev, "pt")}
           unit=""
+          note="回答したお客様のうち、Googleのレビュー画面へ進んだ割合です"
         />
       </div>
 
