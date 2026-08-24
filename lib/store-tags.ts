@@ -60,6 +60,9 @@ async function fetchStoreTags(supabase: SupabaseClient, storeId: string): Promis
     .from("store_tags")
     .select("id, label, category, sort_order")
     .eq("store_id", storeId)
+    // アーカイブ済み（supabase/0016）は来店客にも設定画面にも出さない。
+    // 過去の集計だけが残る（集計画面は archived も読む。lib/admin/queries.ts）
+    .is("archived_at", null)
     .order("category")
     .order("sort_order")
     .returns<StoreTagRow[]>();

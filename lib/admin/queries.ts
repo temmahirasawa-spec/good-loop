@@ -215,6 +215,8 @@ export async function getResponseItems(
  * ──────────────────────────────────────────────────────────────── */
 
 export type TagAggregate = {
+  /** アーカイブ済みか（supabase/0016）。現役の項目一覧には出ないが、過去の集計として残る */
+  archived: boolean;
   tagId: string;
   label: string;
   category: "good" | "improve";
@@ -238,7 +240,7 @@ export type TagAggregates = {
   responseCountAllTime: number;
 };
 
-type StoreTagRow = { id: string; label: string; category: "good" | "improve"; sort_order: number };
+type StoreTagRow = { id: string; label: string; category: "good" | "improve"; sort_order: number; archived_at: string | null };
 type BranchRow = { id: string; branch: "good" | "improve" };
 type ResponseTagRow = { tag_id: string; response_id: string };
 
@@ -270,7 +272,8 @@ export async function getTagAggregates(options: {
   const [{ data: tags }, { data: responses }, { count: allTime }] = await Promise.all([
     supabase
       .from("store_tags")
-      .select("id, label, category, sort_order")
+      // アーカイブ済みも読む。過去の集計を「受付終了」として残すため（supabase/0016）
+      .select("id, label, category, sort_order, archived_at")
       .eq("store_id", options.storeId)
       .order("sort_order")
       .returns<StoreTagRow[]>(),
@@ -295,15 +298,20 @@ export async function getTagAggregates(options: {
       tagId: tag.id,
       label: tag.label,
       category: tag.category,
+      archived: Boolean(tag.archived_at),
       count,
       percent: denominator === 0 ? null : Math.round((count / denominator) * 100),
     };
   };
   const byCountDesc = (a: TagAggregate, b: TagAggregate) => b.count - a.count;
 
+  // アーカイブ済みは「その期間に回答が付いているときだけ」出す。
+  // 0件のアーカイブ項目まで並べると、消したはずの項目がいつまでも残って見える
+  const visible = (agg: TagAggregate) => !agg.archived || agg.count > 0;
+
   return {
-    good: (tags ?? []).filter((t) => t.category === "good").map((t) => toAggregate(t, goodResponseCount)).sort(byCountDesc),
-    improve: (tags ?? []).filter((t) => t.category === "improve").map((t) => toAggregate(t, improveResponseCount)).sort(byCountDesc),
+    good: (tags ?? []).filter((t) => t.category === "good").map((t) => toAggregate(t, goodResponseCount)).filter(visible).sort(byCountDesc),
+    improve: (tags ?? []).filter((t) => t.category === "improve").map((t) => toAggregate(t, improveResponseCount)).filter(visible).sort(byCountDesc),
     goodResponseCount,
     improveResponseCount,
     responseCount: responses?.length ?? 0,
