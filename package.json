@@ -15,7 +15,8 @@
     "design": "node scripts/check-design-tokens.mjs",
     "design:figma": "node scripts/check-figma.mjs",
     "design:comments": "node scripts/figma-comments.mjs",
-    "screenshot": "node scripts/screenshot.mjs"
+    "screenshot": "node scripts/screenshot.mjs",
+    "tenant:create": "node --env-file=.env.local scripts/create-tenant.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
