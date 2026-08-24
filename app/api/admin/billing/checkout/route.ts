@@ -31,10 +31,10 @@ export async function POST(req: Request) {
   const tenant = await getTenantBilling();
   if (!tenant) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  // すでに契約がある状態でもう一度ここを通すと、契約が二重になって二重に請求される
-  if (tenant.stripeSubscriptionId) {
-    return NextResponse.json({ error: "すでにご契約済みです。変更はお支払い方法の画面から行えます。" }, { status: 409 });
-  }
+  // すでに契約がある状態でもう一度ここを通すと、契約が二重になって二重に請求される。
+  // ⚠ ただし DB の subscription_id は**解約後も残る**（解約の記録として）。
+  //   ここで即 409 にすると、解約した契約先が二度と再契約できない（2026-08-25 修正）。
+  //   実際に生きている契約があるかは、この下で Stripe 側に問い合わせて判定する。
 
   const quota = await getStoreQuotaState();
   if (quota.quota === null) {

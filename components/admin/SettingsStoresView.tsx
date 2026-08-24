@@ -154,25 +154,25 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
           const linked = linkedIds.has(store.id);
           return (
             <div key={store.id} className="flex w-full flex-col items-start gap-3 border-b px-1 py-4" style={{ borderColor: "var(--product-color-border-divider)" }}>
+              {/* タグは店名と同じ行に置かない（2026-08-25 天真の指示）。
+                  長い店名だとタグが折り返して2行になり不格好なため、店名の下の行に出す */}
               <div className="flex w-full items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+                <p className="min-w-0 text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
                   {store.name}
                 </p>
-                <span
-                  className="rounded-full px-2 py-1 text-[11px] font-medium"
-                  style={{
-                    backgroundColor: linked ? "var(--review-accent-wash)" : "var(--product-color-bg-primary)",
-                    color: linked ? "var(--review-accent-primary)" : "var(--product-color-status-error)",
-                  }}
-                >
-                  {linked ? "Googleマップ連携済み" : "URL未設定"}
-                </span>
+                <button type="button" onClick={() => setEditingId(store.id)} className="shrink-0 text-[12.5px] font-medium" style={{ color: "var(--review-accent-primary)" }}>
+                  編集
+                </button>
               </div>
-              <button type="button" onClick={() => setEditingId(store.id)} className="shrink-0 text-[12.5px] font-medium" style={{ color: "var(--review-accent-primary)" }}>
-                編集
-              </button>
-              </div>
+              <span
+                className="rounded-full px-2 py-1 text-[11px] font-medium"
+                style={{
+                  backgroundColor: linked ? "var(--review-accent-wash)" : "var(--product-color-bg-primary)",
+                  color: linked ? "var(--review-accent-primary)" : "var(--product-color-status-error)",
+                }}
+              >
+                {linked ? "Googleマップ連携済み" : "URL未設定"}
+              </span>
               <CopyableUrl url={store.publicUrl} />
             </div>
           );

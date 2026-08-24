@@ -16,11 +16,20 @@ export function PricingSimulator({
   storeCount,
   onChange,
   compact = false,
+  countLabel = "店舗数",
+  totalLabel = "お申し込み後の月額",
+  min = 1,
 }: {
   storeCount: number;
   onChange: (next: number) => void;
   /** 申し込み画面では内訳を省いて合計だけ出す */
   compact?: boolean;
+  /** ステッパー行のラベル。設定＞お支払いでは「店舗枠」（2026-08-25、天真の指示で共用化） */
+  countLabel?: string;
+  /** 合計行のラベル。設定＞お支払いでは「変更後の月額」 */
+  totalLabel?: string;
+  /** 下限。設定＞お支払いでは「いま使っている店舗数」より減らせない */
+  min?: number;
 }) {
   const extra = Math.max(0, storeCount - BILLING.includedStores);
   const total = monthlyYenFor(storeCount);
@@ -33,14 +42,14 @@ export function PricingSimulator({
         style={{ backgroundColor: "var(--product-color-bg-secondary)" }}
       >
         <p className="text-[13px]" style={{ color: "var(--product-color-text-secondary)" }}>
-          店舗数
+          {countLabel}
         </p>
         <div className="flex flex-1 items-center justify-end gap-4">
           <button
             type="button"
             aria-label="店舗数を減らす"
-            disabled={storeCount <= 1}
-            onClick={() => onChange(Math.max(1, storeCount - 1))}
+            disabled={storeCount <= min}
+            onClick={() => onChange(Math.max(min, storeCount - 1))}
             className="grid h-11 w-11 place-items-center rounded-full text-lg font-bold disabled:opacity-40"
             style={{
               backgroundColor: "var(--product-color-surface-white)",
@@ -83,7 +92,7 @@ export function PricingSimulator({
 
       <div className="flex w-full items-center justify-between gap-3">
         <p className="text-[14px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-          お申し込み後の月額
+          {totalLabel}
         </p>
         <p className="text-[24px] font-bold tabular-nums" style={{ color: "var(--review-accent-primary)" }}>
           {formatYen(total)}
