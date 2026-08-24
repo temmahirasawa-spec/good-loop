@@ -11,6 +11,8 @@ import { MissingIpSaltError } from "@/lib/ai-check/rate-limit";
 // 上限と料金の計算は lib から取る。"use client" の部品から import すると
 // サーバー側で実際の値にならず、チェックが素通りする（2026-08-24 実測）
 import { isValidStoreCount, MAX_STORES, monthlyYenFor } from "@/lib/signup/plan";
+import { sendConfirmationEmail } from "@/lib/signup/confirmation-email";
+import { appOrigin } from "@/lib/billing/server";
 
 /**
  * 新規登録（セルフサーブ）。docs/specs/billing.md 5-2。
@@ -140,11 +142,10 @@ export async function POST(req: Request) {
     const { data: created, error: userError } = await admin.auth.admin.createUser({
       email: email!,
       password,
-      // ⚠ 本来は false にして確認メールを送りたい（天真の決定）。
-      //   ただし createUser はメールを送らないため、確認メールには Resend の接続が要る。
-      //   繋がるまでは確認なしで通す（false のままだと誰もログインできなくなるため）。
-      //   **Resend を繋いだら false に変え、下の確認リンクを送る処理を有効にすること。**
-      email_confirm: true,
+      // 確認リンクを踏むまでログインさせない（2026-08-24 天真の決定）。
+      // 捨てアドレスでの無限トライアルを防ぐため。
+      // ⚠ createUser 自体はメールを送らない。**この下で確認メールを送っている。**
+      email_confirm: false,
       app_metadata: { tenant_id: tenant.id },
       user_metadata: { full_name: personName },
     });
@@ -167,6 +168,17 @@ export async function POST(req: Request) {
       await admin.auth.admin.deleteUser(created.user.id);
     });
 
+    // 3) 確認メールを送る
+    //
+    // `generateLink` は**リンクを作るだけでメールは送らない**（2026-08-24 実測）。
+    // Supabase の SMTP 設定は「Supabase が送るメール」にしか効かないため、
+    // ここは自分で Resend から送る。
+    //
+    // メールが送れなくても契約先とユーザーは作れている。ここで巻き戻すと
+    // 「登録できていないのにメールアドレスだけ使用済み」という直せない状態になる。
+    // 送信の失敗はログに残し、画面には「届かないときは再送できる」と伝える。
+    const confirmSent = await sendConfirmationEmail(admin, email!, appOrigin(req));
+
     await recordSignupAttempt(admin, ipHash, true);
 
     return NextResponse.json({
@@ -174,7 +186,7 @@ export async function POST(req: Request) {
       trialDays: TRIAL_DAYS,
       storeCount,
       monthlyYen: monthlyYenFor(storeCount),
-      emailSent: false,
+      emailSent: confirmSent,
     });
   } catch (error) {
     console.error("[signup] 新規登録に失敗", error);
