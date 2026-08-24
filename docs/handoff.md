@@ -2952,3 +2952,31 @@ DNS・Vercel・Supabase の設定を完了。** 外部から実測して開通�
 1. PR #53（表示速度）と PR #54（改名）をマージ ← **天真**
 2. 本番の表示が GOOD REVIEW になり、QRが `app.good-review.jp` を指すのを確認 ← Claude
 3. ここまででフェーズ1完了。POPの印刷・設置に進める
+
+## 2026-08-24（43回目）フェーズ1完了 — 新ドメインで本番が稼働
+
+PR #53・#54 がマージされ、本番に反映された。外部から実測して確認した結果。
+
+| 確認項目 | 結果 |
+|---|---|
+| `/admin/login`・`/terms`・`/privacy`・`/r/yorkys-shukugawa` の表示 | **GOOD REVIEW（旧名の残存 0件）** |
+| 配信CSSの変数 | `--review-accent-primary`（旧 `--loop-` は 0件） |
+| 配信HTML内の `goodloop.jp` 参照 | 0件 |
+| 本番の `PUBLIC_APP_URL` | `https://app.good-review.jp` |
+| 二次元コードが指すURL | `https://app.good-review.jp/r/yorkys-shukugawa` → **200** |
+
+**launch-plan.md のフェーズ1（土台を通す）はこれで完了。**
+卓上POPを印刷して店舗に設置できる状態になった。
+
+### 次に着手するもの（フェーズ1の残り＋フェーズ2）
+
+ドメインを待たずに進められるものが3つある。着手順は天真の指示待ち。
+
+1. **OGP画像・ファビコン・robots・sitemap** … 現状 GOOD REVIEW のOGP画像もファビコンも無い。
+   `scripts/generate-ogp.mjs` は改名済みで動く状態。プレスリリースでリンクが拡散する前に必要
+2. **テナント作成の仕組み** … 洋輔さんに渡す YORKYS ENTERTAINMENT のアカウントを作る手段が
+   まだ無い（新規登録画面もテナント追加SQLも無い）。半日程度
+3. **オンボーディング8ステップ＋コーチマーク** … Figma完成済み・実装未着手
+
+なお **店舗枠は 3/3 で満杯**（本番実測）。YORKYS へ順次導入するなら
+`tenants.store_quota` を上げる必要がある。
