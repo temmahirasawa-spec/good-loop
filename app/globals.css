@@ -18,8 +18,8 @@ body {
  *   このツールに閉じるため。全体に広げるのは別途デザインの判断が要る
  *   （フォーカスリングが無いのは全画面共通の課題。天真に報告済み）。
  *
- * 色は `--review-accent-action`。白地で 5.26:1、ページ地 #fafafa でも 5.04:1 あり、
- * 非文字コントラストの基準（3:1）を満たす。
+ * 色は `--review-accent-action`。白地で 5.26:1、ページ地 #fafbfa でも 5.07:1 あり、
+ * 非文字コントラストの基準（3:1）を満たす（2026-08-24、グレーをFigmaと同期した際に再計算）。
  */
 [data-ai-check] :focus-visible {
   outline: 2px solid var(--review-accent-action);
