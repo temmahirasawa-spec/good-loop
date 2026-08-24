@@ -24,7 +24,7 @@ export default async function SettingsBillingPage() {
   return (
     <SettingsBillingView
       quota={{ quota: quota.quota, used: quota.used, hasPendingRequest: quota.hasPendingRequest }}
-      billing={{ status: billing.status, connected: billing.connected }}
+      billing={{ status: billing.status, subscribed: billing.subscribed }}
       stripeEnabled={STRIPE_ENABLED}
       card={display.card}
       invoices={display.invoices}

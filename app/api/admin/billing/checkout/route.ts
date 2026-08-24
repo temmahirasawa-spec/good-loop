@@ -4,6 +4,7 @@ import { getStripe } from "@/lib/billing/stripe";
 import { appOrigin, ensureStripeCustomer, getTenantBilling } from "@/lib/billing/server";
 import { getStoreQuotaState } from "@/lib/admin/store-quota";
 import { BILLING } from "@/lib/admin/constants";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
  * カードの登録と初回のお支払い（docs/specs/billing.md 6章）。
@@ -48,6 +49,20 @@ export async function POST(req: Request) {
   try {
     const stripe = getStripe();
     const customer = await ensureStripeCustomer(tenant);
+
+    // ── 二重契約を防ぐ最後の砦（2026-08-24 追加）────────────────
+    // 上の 409 判定は DB の値を見ているが、その値は Stripe からの通知で入る。
+    // 通知が届かなかった・遅れている間は「契約が無い」ように見えてしまい、
+    // もう一度ここを通すと契約が二重になって二重に請求される。
+    // **Stripe 側を正として確かめる。** 見つかったら DB に書き戻して画面も回復させる。
+    const existing = await stripe.subscriptions.list({ customer, status: "all", limit: 10 });
+    const live = existing.data.find((s) => s.status !== "canceled" && s.status !== "incomplete_expired");
+    if (live) {
+      const admin = createSupabaseAdminClient();
+      await admin.from("tenants").update({ stripe_subscription_id: live.id }).eq("id", tenant.tenantId);
+      return NextResponse.json({ error: "すでにご契約済みです。変更はお支払い方法の画面から行えます。" }, { status: 409 });
+    }
+
     const origin = appOrigin(req);
 
     const session = await stripe.checkout.sessions.create({
