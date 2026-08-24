@@ -3,6 +3,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { INDUSTRY_THEMES, BUSINESS_CATEGORIES } from "@/lib/admin/constants";
 import { isValidSlug } from "@/lib/admin/store-slug";
 import { getStoreQuotaState } from "@/lib/admin/store-quota";
+import { generateQrSvg } from "@/lib/qr-code";
+import { PUBLIC_APP_URL } from "@/lib/site-url";
 
 /**
  * 「＋ 店舗を追加」モーダルの保存先（store-add-modal, 2026-08-06決定）。
@@ -89,5 +91,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "保存できませんでした。もう一度お試しください。" }, { status: 500 });
   }
 
-  return NextResponse.json({ store: data });
+  // オンボーディングのステップ7（二次元コードができました）が、作成直後にQRを表示するため。
+  // 店舗追加モーダルはこのフィールドを使わない（増えても無害）
+  const qrSvg = await generateQrSvg(`${PUBLIC_APP_URL}/r/${data.slug}`);
+
+  return NextResponse.json({ store: data, qrSvg });
 }

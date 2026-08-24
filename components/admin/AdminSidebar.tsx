@@ -29,12 +29,13 @@ const SETTINGS_ICONS = {
 
 /** Review / Admin Sidebar（Figma node 48:851）— GOOD REVIEW 管理画面のサイドナビ */
 const NAV_ITEMS = [
-  { href: "/admin", label: "トップ", match: "/admin" },
+  // coach はコーチマークの対象（lib/admin/coach-marks.ts の id と対応）
+  { href: "/admin", label: "トップ", match: "/admin", coach: "top" },
   // 集計（2026-08-22 新設。docs/specs/analytics.md）。トップと回答一覧の間に置く
-  { href: "/admin/analytics", label: "集計", match: "/admin/analytics" },
-  { href: "/admin/responses", label: "回答一覧", match: "/admin/responses" },
+  { href: "/admin/analytics", label: "集計", match: "/admin/analytics", coach: "analytics" },
+  { href: "/admin/responses", label: "回答一覧", match: "/admin/responses", coach: "responses" },
   // PCはタブで切り替えるので、メニュー画面を経由せず最初のタブへ直接送る（UI検証Q6）
-  { href: "/admin/settings/brand", label: "設定", match: "/admin/settings" },
+  { href: "/admin/settings/brand", label: "設定", match: "/admin/settings", coach: "settings" },
 ];
 
 export function AdminSidebar({ storeName }: { storeName: string }) {
@@ -58,6 +59,7 @@ export function AdminSidebar({ storeName }: { storeName: string }) {
           <Link
             key={item.href}
             href={item.href}
+            data-coach={item.coach}
             className="flex h-11 w-full shrink-0 items-center rounded-[10px] px-3.5 py-2.5"
             style={{ backgroundColor: active ? "var(--product-color-text-primary)" : "transparent" }}
           >
