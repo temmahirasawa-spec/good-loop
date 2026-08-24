@@ -30,6 +30,10 @@ export type SettingsStore = {
   loop_theme: string;
   business_category: string;
   logo_url: string | null;
+  /** 低評価アラートを送るか（supabase/0015） */
+  notify_low_rating: boolean;
+  /** 低評価アラートの宛先。null なら送らない。ログイン用のアドレスとは別物 */
+  notify_email: string | null;
 };
 
 /**
@@ -44,7 +48,7 @@ export const getSettingsStores = cache(async (): Promise<SettingsStore[]> => {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("stores")
-    .select("id, tenant_id, name, slug, loop_theme, business_category, logo_url")
+    .select("id, tenant_id, name, slug, loop_theme, business_category, logo_url, notify_low_rating, notify_email")
     .order("created_at")
     .returns<SettingsStore[]>();
 

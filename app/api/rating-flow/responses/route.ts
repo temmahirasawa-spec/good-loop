@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { generateDraftAndLog } from "@/lib/rating-flow/generate-draft";
+import { sendLowRatingAlert } from "@/lib/rating-flow/low-rating-alert";
 
 /**
  * 02画面「回答する」（★4以上）／04画面「送信する」（★3以下）の送信先（rating-flow.md A-6）。
@@ -85,6 +86,20 @@ export async function POST(request: Request) {
   }
 
   if (body.branch !== "good") {
+    // ★3以下は低評価アラートの対象（supabase/0015）。
+    //
+    // ⚠ **来店客は目の前で送信ボタンを押して待っている。**
+    //   `sendLowRatingAlert` は例外を投げず、送信自体にも上限時間を設けてあるので
+    //   （lib/email/send.ts）、ここで待っても画面が固まり続けることはない。
+    //   応答を返したあとに送る `after`（Next.js 15）はこの版では使えないため、
+    //   **確実に送るほうを採った。** 15 に上げたら after へ移してよい。
+    await sendLowRatingAlert({
+      supabase,
+      storeId: store.id,
+      rating: body.rating,
+      tags: body.tags,
+      freeText: body.freeText,
+    });
     return NextResponse.json({ responseId: response.id });
   }
 
