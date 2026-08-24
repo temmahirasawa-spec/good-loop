@@ -71,7 +71,12 @@ export async function POST(req: Request) {
 
     if (!session.url) throw new Error("Checkout セッションのURLが返らなかった");
     return NextResponse.json({ url: session.url });
-  } catch {
+  } catch (error) {
+    // 画面には理由を出さない（利用者が対処できる情報ではないため）。
+    // ただし原因を追えるよう、サーバーログには必ず残す（Vercel のログで見られる）。
+    // 2026-08-24、価格IDに商品IDが入っていて決済が開けなかったとき、
+    // 画面にもログにも何も出ず、原因の切り分けができなかったため追加した
+    console.error("[billing] checkout セッションの作成に失敗", error);
     return NextResponse.json({ error: "お支払いの画面を開けませんでした。もう一度お試しください。" }, { status: 500 });
   }
 }

@@ -17,6 +17,28 @@ export const STRIPE_PRICE_BASE = process.env.STRIPE_PRICE_BASE ?? "";
 export const STRIPE_PRICE_ADDITIONAL_STORE = process.env.STRIPE_PRICE_ADDITIONAL_STORE ?? "";
 
 /**
+ * 価格IDの形をここで確かめる（2026-08-24 追加）。
+ *
+ * **実際に商品ID（`prod_...`）が入っていて決済が開けない事故が起きた。**
+ * Stripe の商品ページには商品IDと価格IDの両方が出ていて、紛らわしい。
+ * 形が違えば「設定されていない」とみなし、押しても失敗するボタンを画面に出さない。
+ *
+ * `price_` で始まらない値が入っていたときは、原因が分かるようにサーバーログへ残す。
+ * これが無いと、画面には「お支払いの画面を開けませんでした」としか出ず、
+ * 設定の取り違えなのか通信の失敗なのかを切り分けられない。
+ */
+function isPriceId(value: string, name: string): boolean {
+  if (!value) return false;
+  if (value.startsWith("price_")) return true;
+  console.error(
+    `[billing] ${name} が価格IDではありません（値の先頭: ${value.slice(0, 5)}…）。` +
+      `Stripe の商品ページで「価格ID」（price_ で始まる）を控えてください。` +
+      `商品ID（prod_ で始まる）では決済を開けません。`,
+  );
+  return false;
+}
+
+/**
  * 課金の導線を出してよいか。
  *
  * Webhook の署名シークレットも条件に入れている。これが無いと、決済が済んでも
@@ -26,6 +48,6 @@ export const STRIPE_PRICE_ADDITIONAL_STORE = process.env.STRIPE_PRICE_ADDITIONAL
 export const STRIPE_ENABLED = Boolean(
   process.env.STRIPE_SECRET_KEY &&
     process.env.STRIPE_WEBHOOK_SECRET &&
-    STRIPE_PRICE_BASE &&
-    STRIPE_PRICE_ADDITIONAL_STORE,
+    isPriceId(STRIPE_PRICE_BASE, "STRIPE_PRICE_BASE") &&
+    isPriceId(STRIPE_PRICE_ADDITIONAL_STORE, "STRIPE_PRICE_ADDITIONAL_STORE"),
 );

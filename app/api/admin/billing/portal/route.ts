@@ -30,7 +30,8 @@ export async function POST(req: Request) {
       locale: "ja",
     });
     return NextResponse.json({ url: session.url });
-  } catch {
+  } catch (error) {
+    console.error("[billing] カスタマーポータルのセッション作成に失敗", error);
     return NextResponse.json({ error: "お支払いの画面を開けませんでした。もう一度お試しください。" }, { status: 500 });
   }
 }
