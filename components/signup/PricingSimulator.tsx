@@ -1,6 +1,7 @@
 "use client";
 
 import { BILLING, formatYen } from "@/lib/admin/constants";
+import { MAX_STORES, monthlyYenFor } from "@/lib/signup/plan";
 
 /**
  * 料金シミュレーション（Figma `11 新規登録 / Signup`）。
@@ -10,14 +11,6 @@ import { BILLING, formatYen } from "@/lib/admin/constants";
  *
  * 金額は `lib/admin/constants.ts` の `BILLING` を見る。**画面に数字を直書きしない。**
  */
-
-/** 申し込める店舗数の上限。これ以上は商談でお願いする（app/api/signup/route.ts と揃える） */
-export const MAX_STORES = 20;
-
-export function monthlyYenFor(storeCount: number): number {
-  const extra = Math.max(0, storeCount - BILLING.includedStores);
-  return BILLING.planMonthlyYen + extra * BILLING.additionalStoreMonthlyYen;
-}
 
 export function PricingSimulator({
   storeCount,

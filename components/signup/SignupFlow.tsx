@@ -6,7 +6,8 @@ import { ReviewInput } from "@/components/admin/ReviewInput";
 import { BILLING, formatYen } from "@/lib/admin/constants";
 import { PASSWORD_PLACEHOLDER, PASSWORD_RULE_TEXT } from "@/lib/password";
 import { TRIAL_DAYS } from "@/lib/billing/trial";
-import { monthlyYenFor, PricingSimulator } from "@/components/signup/PricingSimulator";
+import { PricingSimulator } from "@/components/signup/PricingSimulator";
+import { monthlyYenFor } from "@/lib/signup/plan";
 
 /**
  * 新規登録（Figma `11 新規登録 / Signup`。案C = 料金ページ＋申し込みカード）。
@@ -431,12 +432,15 @@ function Done({ storeCount, email }: { storeCount: number; email: string }) {
         </div>
         <div className="flex w-full flex-col items-center gap-2">
           <h1 className="text-center text-[19px] font-bold md:text-[20px]" style={{ color: "var(--product-color-text-primary)" }}>
-            確認メールをお送りしました
+            お申し込みが完了しました
           </h1>
+          {/* ⚠ 確認メールはまだ送っていない（Resend 未接続。app/api/signup/route.ts 参照）。
+              送れないのに「メールをお送りしました」と出すと、届かないメールを待たせてしまう。
+              Resend を繋いだら、ここを「確認メールをお送りしました」に戻すこと。 */}
           <p className="text-center text-[13px] leading-[1.7]" style={{ color: "var(--product-color-text-secondary)" }}>
-            {email} 宛にメールを送りました。
+            {email} でログインできます。
             <br />
-            メールのリンクを開くと、お店の設定に進めます。
+            つづけて、お店の設定をしましょう（3分で終わります）。
           </p>
         </div>
 
@@ -462,9 +466,9 @@ function Done({ storeCount, email }: { storeCount: number; email: string }) {
           </p>
         </div>
 
-        <p className="text-center text-[11.5px] leading-[1.6]" style={{ color: "var(--product-color-text-muted)" }}>
-          メールが届かない場合は、迷惑メールフォルダもご確認ください
-        </p>
+        <a href="/admin" className="w-full">
+          <ReviewButton variant="primary">お店の設定をはじめる</ReviewButton>
+        </a>
       </div>
     </div>
   );

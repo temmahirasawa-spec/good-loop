@@ -8,10 +8,9 @@ import {
   recordSignupAttempt,
 } from "@/lib/signup/rate-limit";
 import { MissingIpSaltError } from "@/lib/ai-check/rate-limit";
-import { BILLING } from "@/lib/admin/constants";
-import { appOrigin } from "@/lib/billing/server";
-// 上限は画面と同じ値を使う。二重に持つと「画面では選べるのにAPIで弾かれる」が起きる
-import { MAX_STORES } from "@/components/signup/PricingSimulator";
+// 上限と料金の計算は lib から取る。"use client" の部品から import すると
+// サーバー側で実際の値にならず、チェックが素通りする（2026-08-24 実測）
+import { isValidStoreCount, MAX_STORES, monthlyYenFor } from "@/lib/signup/plan";
 
 /**
  * 新規登録（セルフサーブ）。docs/specs/billing.md 5-2。
@@ -89,7 +88,7 @@ export async function POST(req: Request) {
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fieldErrors.email = "メールアドレスの形式をご確認ください";
   const passwordError = validatePassword(password);
   if (passwordError) fieldErrors.password = passwordError;
-  if (!Number.isInteger(storeCount) || storeCount < 1 || storeCount > MAX_STORES) {
+  if (!isValidStoreCount(storeCount)) {
     fieldErrors.storeCount = `店舗数は1〜${MAX_STORES}の範囲でお選びください`;
   }
   if (Object.keys(fieldErrors).length > 0) {
@@ -125,20 +124,32 @@ export async function POST(req: Request) {
       await admin.from("tenants").delete().eq("id", tenant.id);
     });
 
-    // 2) ログイン用ユーザー ＋ 確認メール
+    // 2) ログイン用ユーザー
     //
-    // **順番が肝心。** `createUser` は確認メールを送らない（管理者が作る用）。
-    // `inviteUserByEmail` は「ユーザーを作って招待メールを送る」ので、こちらを先に呼ぶ。
-    // ただし招待では app_metadata を渡せないため、作られた直後に updateUserById で
-    // **tenant_id とパスワードを焼く**（tenant_id は RLS の全ての土台。supabase/0002）。
-    const origin = appOrigin(req);
-    const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email!, {
-      data: { full_name: personName },
-      redirectTo: `${origin}/admin`,
+    // ⚠⚠ **必ず `createUser` を使う。`inviteUserByEmail` を使ってはいけない。** ⚠⚠
+    //
+    // 2026-08-24、実測して分かったこと:
+    //   - createUser        … 既存のメールなら **422 で弾かれる**（重複を確実に検知できる）
+    //   - inviteUserByEmail … 既存のメールでも **エラーにならず、既存ユーザーを返す**
+    //   - generateLink      … 同上。エラーにならない
+    //
+    // invite で作ると、他人のメールアドレスで登録を試みたときに
+    // **その人の app_metadata.tenant_id が新しい契約先に上書きされ、
+    // 元の契約先が誰からも触れない孤児になる**（＝契約先の乗っ取り）。
+    // 検証で実際に再現した。ここを別のAPIに変えるときは、必ず重複の挙動を実測すること。
+    const { data: created, error: userError } = await admin.auth.admin.createUser({
+      email: email!,
+      password,
+      // ⚠ 本来は false にして確認メールを送りたい（天真の決定）。
+      //   ただし createUser はメールを送らないため、確認メールには Resend の接続が要る。
+      //   繋がるまでは確認なしで通す（false のままだと誰もログインできなくなるため）。
+      //   **Resend を繋いだら false に変え、下の確認リンクを送る処理を有効にすること。**
+      email_confirm: true,
+      app_metadata: { tenant_id: tenant.id },
+      user_metadata: { full_name: personName },
     });
-    if (inviteError || !invited?.user) {
-      // 「すでに登録済み」だけは、利用者が自分で直せるので個別に伝える
-      const already = /already|registered|exists/i.test(inviteError?.message ?? "");
+    if (userError || !created?.user) {
+      const already = userError?.status === 422 || /already|registered|exists/i.test(userError?.message ?? "");
       if (already) {
         await rollback();
         await recordSignupAttempt(admin, ipHash, false);
@@ -150,20 +161,11 @@ export async function POST(req: Request) {
           { status: 409 },
         );
       }
-      throw new Error(`ログイン用ユーザーの作成に失敗: ${inviteError?.message}`);
+      throw new Error(`ログイン用ユーザーの作成に失敗: ${userError?.message}`);
     }
-    const userId = invited.user.id;
     undo.push(async () => {
-      await admin.auth.admin.deleteUser(userId);
+      await admin.auth.admin.deleteUser(created.user.id);
     });
-
-    const { error: metaError } = await admin.auth.admin.updateUserById(userId, {
-      password,
-      app_metadata: { tenant_id: tenant.id },
-    });
-    // ここで失敗したユーザーは、ログインできても自分のデータが1件も見えない
-    // （tenant_id が無いため）。中途半端に残すより巻き戻す
-    if (metaError) throw new Error(`契約先の紐付けに失敗: ${metaError.message}`);
 
     await recordSignupAttempt(admin, ipHash, true);
 
@@ -171,10 +173,8 @@ export async function POST(req: Request) {
       ok: true,
       trialDays: TRIAL_DAYS,
       storeCount,
-      monthlyYen:
-        BILLING.planMonthlyYen +
-        Math.max(0, storeCount - BILLING.includedStores) * BILLING.additionalStoreMonthlyYen,
-      emailSent: true,
+      monthlyYen: monthlyYenFor(storeCount),
+      emailSent: false,
     });
   } catch (error) {
     console.error("[signup] 新規登録に失敗", error);
