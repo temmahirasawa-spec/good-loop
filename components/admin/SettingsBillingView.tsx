@@ -6,20 +6,7 @@ import { ReviewButton } from "@/components/rating-flow/Button";
 import { BILLING, formatYen } from "@/lib/admin/constants";
 import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
 import { BillingIcon } from "@/components/admin/SettingsMenuIcons";
-
-/** Stripe から都度取得する表示用の情報（DBには保存しない。docs/specs/billing.md 5章） */
-export type BillingCard = { brand: string; last4: string };
-export type BillingInvoice = {
-  id: string;
-  /** 「2026年7月」 */
-  periodLabel: string;
-  /** 「9,800円」 */
-  amountLabel: string;
-  /** 領収書のURL。Stripe が発行する。取れないことがある */
-  receiptUrl: string | null;
-};
-
-export type BillingStatus = "none" | "active" | "past_due" | "canceled";
+import type { BillingCard, BillingInvoice, BillingStatus } from "@/lib/billing/types";
 
 type QuotaProps = { quota: number | null; used: number; hasPendingRequest: boolean };
 
