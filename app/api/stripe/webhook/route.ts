@@ -40,8 +40,10 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
   try {
     event = getStripe().webhooks.constructEvent(rawBody, signature, secret);
-  } catch {
-    // 偽の通知か、署名シークレットの取り違え。どちらにせよ受け付けない
+  } catch (error) {
+    // 偽の通知か、署名シークレットの取り違え。どちらにせよ受け付けない。
+    // 取り違えの場合はこのログだけが手がかりになる
+    console.error("[billing] Webhook の署名検証に失敗", error);
     return NextResponse.json({ error: "signature verification failed" }, { status: 400 });
   }
 
@@ -64,8 +66,9 @@ export async function POST(req: Request) {
         // 登録していない種類が届いても無視する（Stripe 側の設定が増えたときに落ちないように）
         break;
     }
-  } catch {
+  } catch (error) {
     // 500 を返すと Stripe が時間をおいて送り直してくれる。握りつぶさない
+    console.error(`[billing] Webhook の処理に失敗 (${event.type})`, error);
     return NextResponse.json({ error: "handler failed" }, { status: 500 });
   }
 

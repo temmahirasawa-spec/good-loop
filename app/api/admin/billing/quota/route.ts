@@ -50,7 +50,8 @@ export async function POST() {
 
     // 枠に反映されるのは Stripe からの通知が届いた後。画面は少し遅れて更新される
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    console.error("[billing] 店舗枠の追加（数量変更）に失敗", error);
     return NextResponse.json({ error: "お支払いに失敗しました。カードの状態をご確認ください。" }, { status: 500 });
   }
 }
