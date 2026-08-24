@@ -7,6 +7,8 @@ import { BILLING, formatYen } from "@/lib/admin/constants";
 import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
 import { BillingIcon } from "@/components/admin/SettingsMenuIcons";
 import type { BillingCard, BillingInvoice, BillingStatus } from "@/lib/billing/types";
+import { PricingSimulator } from "@/components/signup/PricingSimulator";
+import { monthlyYenFor } from "@/lib/signup/plan";
 
 type QuotaProps = { quota: number | null; used: number; hasPendingRequest: boolean };
 
@@ -37,6 +39,8 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [done, setDone] = useState(false);
+  // 変更後の店舗枠（ステッパーで選ぶ。2026-08-25 天真の指示で申し込みページと同じ器に）
+  const [desiredQuota, setDesiredQuota] = useState<number | null>(null);
 
   /**
    * 進行中の状態は**用途ごとに分ける**（2026-08-24 天真の指摘）。
@@ -64,6 +68,13 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
   /** 枠の追加が「申し込み」で処理される状態か（Stripe未接続の運用。supabase/0011） */
   const requested = !canPay && (done || quota.hasPendingRequest);
 
+  /** ステッパーで選んでいる枠。まだ触っていなければ現在の枠 */
+  const desired = desiredQuota ?? quota.quota ?? 1;
+  /** いま使っている店舗数より減らせない（減らすと枠オーバーで店舗を追加できなくなる） */
+  const minQuota = Math.max(quota.used, 1);
+  const changed = quota.quota !== null && desired !== quota.quota;
+  const desiredMonthly = monthlyYenFor(desired);
+
   /** Stripe の画面へ送る。URLはサーバー側で作る（鍵をブラウザに出さないため） */
   async function openStripe(path: string) {
     if (navigating) return; // 二重に押されても2つ目は無視する
@@ -88,7 +99,11 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
     setQuotaSubmitting(true);
     setQuotaError(null);
     try {
-      const res = await fetch(canPay ? "/api/admin/billing/quota" : "/api/admin/settings/store-quota", { method: "POST" });
+      const res = await fetch(canPay ? "/api/admin/billing/quota" : "/api/admin/settings/store-quota", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ desiredQuota: desired }),
+      });
       if (res.ok) {
         setDone(true);
         setConfirming(false);
@@ -233,22 +248,40 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
         {requested ? (
           <div className="flex w-full flex-col items-start gap-1 rounded-xl p-4" style={{ backgroundColor: "var(--review-accent-wash)" }}>
             <p className="text-[13px] font-bold" style={{ color: "var(--review-accent-primary)" }}>
-              店舗枠の追加を承りました
+              店舗枠の変更を承りました
             </p>
             <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
               担当者が確認のうえご連絡します。手続きが済むと、店舗管理から店舗を追加できるようになります
             </p>
           </div>
         ) : (
-          <ReviewButton
-            variant="primary"
-            // ここを Stripe の遷移中に連動させない（2026-08-24 天真の指摘）。
-            // 押しても開かないだけで、見た目は変えない
-            disabled={quota.quota === null}
-            onClick={() => !navigating && setConfirming(true)}
-          >
-            ＋ 店舗枠を追加する
-          </ReviewButton>
+          quota.quota !== null && (
+            <>
+              {/* 申し込みページと同じ器（2026-08-25 天真の指示）。
+                  「いま何店舗で、変えると何店舗・いくらになるか」をその場で見せる */}
+              <p className="pt-1 text-[15px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+                変更後の店舗枠
+              </p>
+              <PricingSimulator
+                storeCount={desired}
+                onChange={(n) => setDesiredQuota(n)}
+                countLabel="店舗枠"
+                totalLabel="変更後の月額"
+                min={minQuota}
+              />
+              <p className="text-[11.5px] font-medium leading-[1.6]" style={{ color: "var(--product-color-text-muted)" }}>
+                増やした分は、今月の残り日数ぶんの差額をすぐにご請求します。減らした分は、次のお支払いから反映されます。いま使っている店舗数（{quota.used}店舗）より少なくはできません
+              </p>
+              <ReviewButton
+                variant="primary"
+                // Stripe の遷移中に連動させない（2026-08-24 天真の指摘）。押しても開かないだけ
+                disabled={!changed}
+                onClick={() => !navigating && setConfirming(true)}
+              >
+                この内容で変更する
+              </ReviewButton>
+            </>
+          )
         )}
       </div>
 
@@ -265,14 +298,15 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-              店舗枠を追加する
+              店舗枠を変更する
             </p>
             <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-              店舗枠を {quota.quota} 店舗から {(quota.quota ?? 0) + 1} 店舗に増やします。月額は{" "}
-              {monthlyTotal === null ? "—" : formatYen(monthlyTotal)} から{" "}
-              {monthlyTotal === null ? "—" : formatYen(monthlyTotal + BILLING.additionalStoreMonthlyYen)} になります。
+              店舗枠を {quota.quota} 店舗から {desired} 店舗に{desired > (quota.quota ?? 0) ? "増やします" : "減らします"}。月額は{" "}
+              {monthlyTotal === null ? "—" : formatYen(monthlyTotal)} から {formatYen(desiredMonthly)} になります。
               {canPay
-                ? "ご登録のカードに、今月の残り日数ぶんの差額を今すぐご請求します"
+                ? desired > (quota.quota ?? 0)
+                  ? "ご登録のカードに、今月の残り日数ぶんの差額を今すぐご請求します"
+                  : "減らした分は、次のお支払いから反映されます"
                 : "お申し込み後、担当者が確認のうえご連絡します"}
             </p>
             {quotaError && (
@@ -281,7 +315,7 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
               </p>
             )}
             <ReviewButton variant="primary" disabled={quotaSubmitting} onClick={submitQuota}>
-              {quotaSubmitting ? "送信中..." : canPay ? "この内容で支払う" : "この内容で申し込む"}
+              {quotaSubmitting ? "送信中..." : canPay ? "この内容で変更する" : "この内容で申し込む"}
             </ReviewButton>
             <button
               type="button"

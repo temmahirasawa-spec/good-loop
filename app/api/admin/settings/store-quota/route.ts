@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getStoreQuotaState } from "@/lib/admin/store-quota";
 import { BILLING } from "@/lib/admin/constants";
+import { isValidStoreCount } from "@/lib/signup/plan";
 
 /**
  * 店舗枠の追加申し込み（設定・お支払い、2026-08-21）。
@@ -13,7 +14,7 @@ import { BILLING } from "@/lib/admin/constants";
  * そのとき store_quota_requests は不要になる。
  */
 
-export async function POST() {
+export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -32,10 +33,23 @@ export async function POST() {
     return NextResponse.json({ error: "すでに申し込み済みです。担当者からのご連絡をお待ちください。" }, { status: 409 });
   }
 
+  // 希望の枠数（ステッパー化・2026-08-25）。指定が無ければ従来どおり +1
+  const body = (await request.json().catch(() => null)) as { desiredQuota?: unknown } | null;
+  const desired = body?.desiredQuota === undefined ? quota.quota + 1 : Number(body.desiredQuota);
+  if (!isValidStoreCount(desired) || desired === quota.quota) {
+    return NextResponse.json({ error: "店舗枠の値をご確認ください。" }, { status: 400 });
+  }
+  if (desired < quota.used) {
+    return NextResponse.json(
+      { error: `いま${quota.used}店舗をお使いのため、${quota.used}店舗より少なくはできません。` },
+      { status: 400 },
+    );
+  }
+
   const { error } = await supabase.from("store_quota_requests").insert({
     tenant_id: tenantId,
     current_quota: quota.quota,
-    requested_quota: quota.quota + 1,
+    requested_quota: desired,
     monthly_yen: BILLING.additionalStoreMonthlyYen,
   });
 
