@@ -135,7 +135,9 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
       */}
       {headerSlot &&
         createPortal(
-          <div className="w-fit">
+          // 幅180pxはFigma実測（2026-08-23、天真が位置と大きさを調整。node 792:16273）。
+          // 右端はページ見出しの行で ml-auto に寄せるので、カードの右端と揃う
+          <div className="w-[180px]">
             <ReviewButton variant="primary" onClick={() => setAdding(true)} disabled={!quota.canAddStore}>
               ＋ 店舗を追加
             </ReviewButton>
