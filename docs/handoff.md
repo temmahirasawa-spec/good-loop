@@ -3475,3 +3475,98 @@ Resend を繋いだら、両方を元に戻すこと（コードにコメント�
 私はデータの削除を行わない規則なので、消す場合は Supabase で実行してほしい。
 消し方は `tenants` の行を消すだけ（`on delete cascade` で連鎖する）。
 Auth のユーザーは別途 Authentication の画面から。
+
+## 2026-08-24（51回目）Resend の手順を公式で確認して書き直した
+
+**天真の「Resendやっちゃいましょう」から着手。** 推測で書かず、公式ドキュメントを実際に読んで確認した
+（Stripe で商品IDと価格IDを取り違えさせた反省）。
+
+### ⚠⚠ 判明した最重要の事実：Supabase の既定の送信は「1時間に2通」
+
+**「数通」ではなく2通だった**（[Supabase 公式](https://supabase.com/docs/guides/auth/auth-smtp)）。
+「本番での利用を想定したものではない」と明記されている。
+
+**新規登録が3件あった時点で、3人目に確認メールが届かない。**
+届かない人はログインできず、こちらは気づけない。
+→ **Resend を繋ぐまで新規登録（`/signup`）を公開してはいけない。**
+
+### ⚠ もう1つの落とし穴：独自SMTPを繋いでも30通/時に制限される
+
+Supabase は独自SMTPを設定した直後も **1時間30通** の保護をかける。
+**Authentication → Rate Limits で上げないと意味がない。** 手順書に明記した。
+
+### 決めたこと（2026-08-24 天真）
+
+| 項目 | 決定 | 理由 |
+|---|---|---|
+| 送信元 | **`noreply@mail.good-review.jp`** | Resend公式がサブドメインを強く推奨。評判が下がっても**本体のドメインに影響しない** |
+| 差出人名 | **`GOOD REVIEW`** | 店舗はサービス名で覚えている |
+
+### 調べた事実（2026-08-24 時点の公式）
+
+- **Resend Free**：月3,000通・**1日100通**・3ドメイン・保存30日
+- **Resend Pro**：$20/月・月50,000通・日次制限なし・10ドメイン
+- ドメイン追加時に**リージョンの選択**がある（受信者に近い場所を選ぶ）
+- 必要なDNSは **MX（バウンス用）＋ TXT×2（SPF・DKIM）**。DMARCは任意
+- **レコード名にドメイン部分を含めない**（`send.mail.good-review.jp` ではなく `send.mail` だけ）
+- 検証は通常15分・最大72時間
+- Supabase の SMTP 値：`smtp.resend.com` / `465` / user は固定文字列 **`resend`** / pass は APIキー
+- Resend の **Integrations** ページから Supabase 連携を自動設定する道もある
+
+手順は `docs/setup-tasks.md` 4章に全部書いた。
+
+### 次の作業（天真がアカウントを作ったあと）
+
+`RESEND_API_KEY` は**低評価アラートの実装**でだけ使う。
+確認メールとパスワード再設定は Supabase 経由なのでコードから鍵を使わない。
+
+Resend が繋がったら、`app/api/signup/route.ts` の `email_confirm: true` を `false` に戻し、
+完了画面の文言も「確認メールをお送りしました」に戻すこと（両方にコメントを残してある）。
+## 2026-08-24（52回目）Resend を接続し、確認メールを有効にした
+
+**天真の作業（同日）**
+
+- Resend のアカウント作成、`mail.good-review.jp` のドメイン認証
+- APIキーを**2つ**に分けた（`supabase-smtp` / `goodreview-app`）
+- `supabase-smtp` → Supabase の SMTP 設定（**Vercel には入れない。正しい**）
+- `goodreview-app` → `.env.local` と Vercel の `RESEND_API_KEY`
+
+### 実測で確認したこと
+
+| 確認 | 結果 |
+|---|---|
+| Resend API から直接送信 | **200**（＝ドメイン認証・鍵とも正常） |
+| Supabase 経由の送信（パスワード再設定） | Supabase が受け付けた |
+| 新規登録の確認メール | `emailSent: true` |
+| 未確認ユーザーはログインできないか | **400 Email not confirmed** ＝ メール確認が実際に効いている |
+| ユーザーが未確認で作られるか | ✔ `email_confirmed_at` が空 |
+
+### メールの経路は2つある。混同しないこと
+
+| 経路 | 送るもの | 鍵 | 設定場所 |
+|---|---|---|---|
+| **Supabase の SMTP** | パスワード再設定など、Supabase が自分で送るもの | `supabase-smtp` | Supabase の管理画面。**コードからは触らない** |
+| **`lib/email/send.ts`** | GOOD REVIEW が自分で送るもの（確認メール・低評価アラート） | `goodreview-app` | `RESEND_API_KEY` |
+
+**鍵が別なので、片方を作り直しても、もう片方は止まらない。**
+
+### ⚠ `generateLink` はメールを送らない（実測）
+
+Supabase の SMTP 設定は「Supabase が自分で送るメール」にしか効かない。
+`generateLink` は**リンクを作るだけ**なので、確認メールは
+`lib/signup/confirmation-email.ts` から**自分で Resend で送っている**。
+
+### 実装したもの
+
+- `lib/email/send.ts` … メール送信の土台。**HTMLではなくテキストで送る**
+  （店舗の方はスマホの標準メールアプリで読むことが多く、崩れるより確実に読めるほうがよい）
+- `lib/signup/confirmation-email.ts` … 確認メールの本文とリンク生成
+- `app/api/signup/route.ts` … `email_confirm: false` に戻し、確認メールを送るようにした
+- 完了画面の文言も「確認メールをお送りしました」に戻した
+
+### 天真の確認待ち
+
+1. **テストメールが2通届いているか**（Resend直・Supabase経由）。
+   差出人が `GOOD REVIEW <noreply@mail.good-review.jp>` になっているか
+2. **Supabase の Rate Limits を上げたか**（Authentication → Rate Limits）。
+   独自SMTPを繋いだ直後は **1時間30通** に制限される。ここを上げないと本番で足りない
