@@ -12,7 +12,7 @@ type QuotaProps = { quota: number | null; used: number; hasPendingRequest: boole
 
 type Props = {
   quota: QuotaProps;
-  billing: { status: BillingStatus; connected: boolean };
+  billing: { status: BillingStatus; subscribed: boolean };
   /** Stripe の鍵が揃っているか。揃っていなければ課金の導線を出さない（docs/specs/billing.md 7章） */
   stripeEnabled: boolean;
   card: BillingCard | null;
@@ -44,8 +44,11 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
   const extraStores = quota.quota === null ? null : Math.max(0, quota.quota - BILLING.includedStores);
   const monthlyTotal = extraStores === null ? null : BILLING.planMonthlyYen + extraStores * BILLING.additionalStoreMonthlyYen;
 
-  /** カードで決済できる状態か。鍵が揃っていて、かつカード登録済み */
-  const canPay = stripeEnabled && billing.connected;
+  /**
+   * カードで決済できる状態か。鍵が揃っていて、かつ**契約がある**こと。
+   * Stripe の顧客IDがあるだけでは足りない（カード登録前にも顧客は作られる）。
+   */
+  const canPay = stripeEnabled && billing.subscribed;
   /** 枠の追加が「申し込み」で処理される状態か（Stripe未接続の運用。supabase/0011） */
   const requested = !canPay && (done || quota.hasPendingRequest);
 
@@ -146,8 +149,8 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
           {canPay && <StripeLink path="/api/admin/billing/portal">変更</StripeLink>}
         </div>
 
-        {/* カード未登録のとき、登録の入口をここに出す（Stripeの鍵が揃っている場合だけ） */}
-        {stripeEnabled && !billing.connected && (
+        {/* 未契約のとき、登録の入口をここに出す（Stripeの鍵が揃っている場合だけ） */}
+        {stripeEnabled && !billing.subscribed && (
           <ReviewButton variant="primary" disabled={submitting} onClick={() => openStripe("/api/admin/billing/checkout")}>
             {submitting ? "開いています..." : "お支払い方法を登録する"}
           </ReviewButton>

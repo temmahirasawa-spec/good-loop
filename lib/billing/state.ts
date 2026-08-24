@@ -15,15 +15,22 @@ import type { BillingStatus } from "@/lib/billing/types";
 
 export type BillingState = {
   status: BillingStatus;
-  /** カードを登録して Stripe と繋がっているか */
-  connected: boolean;
+  /**
+   * 契約（サブスクリプション）があるか。
+   *
+   * **顧客IDの有無で判定してはいけない**（2026-08-24 の事故）。Stripe の顧客は
+   * カードを登録する前、決済画面を作る時点で先に作られる。前回の登録が途中で
+   * 失敗していると顧客IDだけが残り、カードが無いのに「登録済み」と誤判定して
+   * 「お支払い方法を登録する」が画面から消える。実際にそうなった。
+   */
+  subscribed: boolean;
   /** 今の請求期間の終わり（＝次回のお支払い日）。ISO文字列。未接続なら null */
   currentPeriodEnd: string | null;
   /** Stripe 側の顧客ID。カードと請求履歴を取りに行くのに使う */
   customerId: string | null;
 };
 
-const DISCONNECTED: BillingState = { status: "none", connected: false, currentPeriodEnd: null, customerId: null };
+const DISCONNECTED: BillingState = { status: "none", subscribed: false, currentPeriodEnd: null, customerId: null };
 
 function toStatus(value: unknown): BillingStatus {
   return value === "active" || value === "past_due" || value === "canceled" ? value : "none";
@@ -39,10 +46,11 @@ export async function getBillingState(): Promise<BillingState> {
 
   const { data } = await supabase
     .from("tenants")
-    .select("stripe_customer_id, billing_status, billing_current_period_end")
+    .select("stripe_customer_id, stripe_subscription_id, billing_status, billing_current_period_end")
     .eq("id", tenantId)
     .maybeSingle<{
       stripe_customer_id: string | null;
+      stripe_subscription_id: string | null;
       billing_status: string | null;
       billing_current_period_end: string | null;
     }>();
@@ -53,7 +61,7 @@ export async function getBillingState(): Promise<BillingState> {
 
   return {
     status: toStatus(data.billing_status),
-    connected: Boolean(data.stripe_customer_id),
+    subscribed: Boolean(data.stripe_subscription_id),
     currentPeriodEnd: data.billing_current_period_end,
     customerId: data.stripe_customer_id,
   };
