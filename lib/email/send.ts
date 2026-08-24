@@ -22,6 +22,9 @@ export const MAIL_FROM = "GOOD REVIEW <noreply@mail.good-review.jp>";
 
 export type SendResult = { ok: boolean; id?: string; error?: string };
 
+/** 送信を諦めるまでの時間。来店客を待たせないための上限 */
+const SEND_TIMEOUT_MS = 4000;
+
 export function isEmailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY);
 }
@@ -46,6 +49,10 @@ export async function sendEmail(params: {
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
+      // ⚠ 上限時間を必ず付ける。低評価アラートは**来店客が送信ボタンを押した流れの中で**
+      //   送っているため、Resend が遅いとその秒数だけ来店客を待たせてしまう。
+      //   届かないより、遅いほうが困る場面がある。
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
       body: JSON.stringify({
         from: MAIL_FROM,
@@ -66,7 +73,9 @@ export async function sendEmail(params: {
     const data = (await res.json().catch(() => null)) as { id?: string } | null;
     return { ok: true, id: data?.id };
   } catch (error) {
-    console.error("[email] 送信で例外", error);
-    return { ok: false, error: "exception" };
+    // 上限時間で打ち切った場合もここに来る。呼び出し側は結果を見て分岐できる
+    const timedOut = error instanceof Error && error.name === "TimeoutError";
+    console.error(`[email] 送信で例外${timedOut ? "（時間切れ）" : ""}`, error);
+    return { ok: false, error: timedOut ? "timeout" : "exception" };
   }
 }
