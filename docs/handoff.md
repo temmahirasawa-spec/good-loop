@@ -3324,3 +3324,45 @@ PC/SP 対で10枚を組んだ。`npm run design:figma` 通過（違反0・ベー
 3. 来店客側の文言
 4. **トライアル期限のDB表現が未設計**（`trial_ends_at` 列を足すなど）。
    スキーマ変更なので着手前に相談する
+
+## 2026-08-24（49回目）placeholder の色を揃え、`text/disabled` を `text/muted` に改名
+
+**天真が SP 側を修正し、PC を合わせるよう指示。** placeholder が本文と同じ濃さで
+「入力済みに見える」状態だった。
+
+- **Figma 変数 `text/disabled` → `text/muted` に改名**（天真の指示）。
+  disabled（操作できない）と placeholder（まだ入力されていない）の両方に使うため、
+  片方だけを指す名前をやめた。変数の説明文にも理由を書いた
+- 実装側も同期：`--product-color-text-disabled` → `--product-color-text-muted`
+  （定義1＋使用5箇所）
+- PC 側の placeholder を SP に合わせた（**色だけでなく文言も**。
+  「株式会社ヨーキーズ／板倉 洋輔」→「株式会社◯◯／山田 太郎」）
+
+### エラー画面の整理（天真の SP 修正から読み取った規則）
+
+| 状態 | 色 |
+|---|---|
+| まだ入力されていない（placeholder が見えている） | `text/muted` |
+| 入力済み（エラーでもここは濃いまま） | `text/primary` |
+
+エラー画面のパスワード `••••••••` だけが「入力済み」なので濃い。PC もこれに合わせた。
+
+### ⚠ 見つけた問題：グレー系トークンが実装と全体的にずれている
+
+**`text/disabled` だけではなかった。** Figma のグレーは緑がかっているのに、
+実装は純グレーのまま。**7個ずれている**（2026-08-24 実測）。
+
+| トークン | Figma | 実装 |
+|---|---|---|
+| text/primary | `#233029` | `#1a1a1a` |
+| text/secondary | `#5b6660` | `#646464` |
+| text/tertiary | `#8e9691` | `#999999` |
+| text/muted | `#c2c7c4` | `#c4c4c4` |
+| border/default | `#dcdfdd` | `#dddddd` |
+| border/divider | `#edefee` | `#ededed` |
+| bg/primary・secondary・tertiary | `#fafbfa`・`#f5f7f6`・`#eff1f0` | `#fafafa`・`#f5f5f5`・`#efefef` |
+
+色つき（accent・status・icon）は**すべて一致**している。ずれているのはグレー系だけ。
+
+**今回は名前の変更だけにとどめ、値は直していない。** 全画面のグレーが変わるため、
+同期するかどうかは天真の判断（下記）。

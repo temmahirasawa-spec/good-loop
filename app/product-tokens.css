@@ -19,7 +19,9 @@
   --product-color-text-primary: #1a1a1a;
   --product-color-text-secondary: #646464;
   --product-color-text-tertiary: #999999;
-  --product-color-text-disabled: #c4c4c4;
+  /* 操作できない状態のテキストと、入力欄のプレースホルダの両方に使う
+     （2026-08-24、天真の指示で Figma の text/disabled → text/muted に改名） */
+  --product-color-text-muted: #c4c4c4;
   --product-color-border-default: #dddddd;
   --product-color-border-divider: #ededed;
   --product-color-surface-white: #ffffff;

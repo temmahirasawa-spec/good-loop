@@ -43,7 +43,7 @@ export function RatingButton({
         style={{ fontSize: large ? 15 : 10, fontWeight: 700 }}
       >
         <span style={{ color: "var(--product-color-status-warning)" }}>{"★".repeat(level)}</span>
-        {level < 5 && <span style={{ color: "var(--product-color-text-disabled)" }}>{"★".repeat(5 - level)}</span>}
+        {level < 5 && <span style={{ color: "var(--product-color-text-muted)" }}>{"★".repeat(5 - level)}</span>}
       </span>
       <span
         className="whitespace-nowrap"

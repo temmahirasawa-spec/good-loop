@@ -38,10 +38,10 @@ const HEIGHT: Record<Size, string> = {
 function styleOf(variant: ButtonStyle, disabled: boolean) {
   if (disabled) {
     return variant === "primary"
-      ? { backgroundColor: "var(--product-color-bg-tertiary)", color: "var(--product-color-text-disabled)" }
+      ? { backgroundColor: "var(--product-color-bg-tertiary)", color: "var(--product-color-text-muted)" }
       : {
           backgroundColor: "var(--product-color-surface-white)",
-          color: "var(--product-color-text-disabled)",
+          color: "var(--product-color-text-muted)",
           borderWidth: 1.2,
           borderColor: "var(--product-color-border-default)",
         };
@@ -77,7 +77,7 @@ export function ReviewButton(props: Props) {
         style={{
           backgroundColor: "var(--product-color-surface-white)",
           borderColor: "var(--product-color-border-default)",
-          color: props.disabled ? "var(--product-color-text-disabled)" : "var(--product-color-text-secondary)",
+          color: props.disabled ? "var(--product-color-text-muted)" : "var(--product-color-text-secondary)",
         }}
       >
         <RefreshIcon disabled={props.disabled} className="size-[13px] shrink-0" />
@@ -119,7 +119,7 @@ export function ReviewButton(props: Props) {
         style={{
           backgroundColor: props.disabled ? "var(--product-color-bg-tertiary)" : "var(--product-color-surface-white)",
           borderColor: "var(--product-color-border-default)",
-          color: props.disabled ? "var(--product-color-text-disabled)" : "var(--product-color-text-primary)",
+          color: props.disabled ? "var(--product-color-text-muted)" : "var(--product-color-text-primary)",
         }}
       >
         <PinIcon disabled={props.disabled} className="size-[17px] shrink-0" />
