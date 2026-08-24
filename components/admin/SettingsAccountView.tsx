@@ -6,6 +6,7 @@ import { ReviewInput } from "@/components/admin/ReviewInput";
 import { LogoutButton } from "@/components/admin/LogoutButton";
 import { WithdrawModal } from "@/components/admin/WithdrawModal";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { PASSWORD_PLACEHOLDER, validatePassword } from "@/lib/password";
 import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
 import { AccountIcon } from "@/components/admin/SettingsMenuIcons";
 
@@ -140,11 +141,13 @@ export function SettingsAccountView({ initialEmail }: { initialEmail: string }) 
           label="パスワード"
           displayValue="••••••••"
           fields={[
-            { placeholder: "新しいパスワード（8文字以上）", type: "password" },
+            { placeholder: PASSWORD_PLACEHOLDER, type: "password" },
             { placeholder: "新しいパスワード（確認）", type: "password" },
           ]}
           onSave={async ([password, confirmPassword]) => {
-            if (password.length < 8) return "パスワードは8文字以上で入力してください";
+            // 決まりごとは lib/password.ts に集約する（画面ごとに条件を書かない）
+            const invalid = validatePassword(password);
+            if (invalid) return invalid;
             if (password !== confirmPassword) return "パスワードが一致しません";
             const supabase = createSupabaseBrowserClient();
             const { error } = await supabase.auth.updateUser({ password });
