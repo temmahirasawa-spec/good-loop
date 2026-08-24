@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ReviewInput } from "@/components/admin/ReviewInput";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { PASSWORD_PLACEHOLDER, PASSWORD_RULE_TEXT, validatePassword } from "@/lib/password";
 
 /**
  * パスワード再設定・確認（Figmaに対応ノード無し。天真確認・案A決定 2026-08-06）。
@@ -34,8 +35,10 @@ export default function ResetPasswordConfirmPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 8) {
-      setError("パスワードは8文字以上で入力してください");
+    // 決まりごとは lib/password.ts に集約する（画面ごとに条件を書かない）
+    const invalid = validatePassword(password);
+    if (invalid) {
+      setError(invalid);
       return;
     }
     if (password !== confirmPassword) {
@@ -104,13 +107,16 @@ export default function ResetPasswordConfirmPage() {
               <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
                 新しいパスワード
               </p>
-              <ReviewInput value={password} onChange={setPassword} type="password" placeholder="8文字以上" />
+              <p className="text-[11.5px] font-medium" style={{ color: "var(--product-color-text-tertiary)" }}>
+                {PASSWORD_RULE_TEXT}
+              </p>
+              <ReviewInput value={password} onChange={setPassword} type="password" placeholder={PASSWORD_PLACEHOLDER} />
             </div>
             <div className="flex w-full flex-col items-start gap-2">
               <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
                 新しいパスワード（確認）
               </p>
-              <ReviewInput value={confirmPassword} onChange={setConfirmPassword} type="password" placeholder="8文字以上" />
+              <ReviewInput value={confirmPassword} onChange={setConfirmPassword} type="password" placeholder="もう一度入力してください" />
             </div>
             <ReviewButton variant="primary" type="submit" disabled={submitting}>
               {submitting ? "変更中…" : "パスワードを変更する"}
