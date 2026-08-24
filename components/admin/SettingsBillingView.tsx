@@ -36,9 +36,21 @@ type Props = {
 export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoices, lookupFailed }: Props) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  /**
+   * 進行中の状態は**用途ごとに分ける**（2026-08-24 天真の指摘）。
+   *
+   * 1つの `submitting` を上下のカードで共有していたため、「お支払い方法を登録する」を
+   * 押すと、無関係な「店舗枠を追加する」まで灰色になっていた。関係の無い操作が
+   * 連動して止まるのは、何が起きているのか分からず不自然に見える。
+   *
+   * 遷移中に押されたときは**何も起きない**ようにするだけに留め、見た目は変えない。
+   */
+  const [navigating, setNavigating] = useState(false);
+  const [quotaSubmitting, setQuotaSubmitting] = useState(false);
+  const [stripeError, setStripeError] = useState<string | null>(null);
+  const [quotaError, setQuotaError] = useState<string | null>(null);
 
   // 枠が読み取れなかったときは金額を計算できない（数字を出さず「—」にする）
   const extraStores = quota.quota === null ? null : Math.max(0, quota.quota - BILLING.includedStores);
@@ -54,26 +66,27 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
 
   /** Stripe の画面へ送る。URLはサーバー側で作る（鍵をブラウザに出さないため） */
   async function openStripe(path: string) {
-    setSubmitting(true);
-    setError(null);
+    if (navigating) return; // 二重に押されても2つ目は無視する
+    setNavigating(true);
+    setStripeError(null);
     try {
       const res = await fetch(path, { method: "POST" });
       const data = await res.json().catch(() => null);
       if (res.ok && typeof data?.url === "string") {
         window.location.href = data.url;
-        return; // 遷移するので submitting は戻さない
+        return; // 遷移するので navigating は戻さない
       }
-      setError(typeof data?.error === "string" ? data.error : "お支払いの画面を開けませんでした。もう一度お試しください。");
+      setStripeError(typeof data?.error === "string" ? data.error : "お支払いの画面を開けませんでした。もう一度お試しください。");
     } catch {
-      setError("お支払いの画面を開けませんでした。もう一度お試しください。");
+      setStripeError("お支払いの画面を開けませんでした。もう一度お試しください。");
     }
-    setSubmitting(false);
+    setNavigating(false);
   }
 
   /** 店舗枠を1つ増やす。カード登録済みなら決済、そうでなければ申し込み */
   async function submitQuota() {
-    setSubmitting(true);
-    setError(null);
+    setQuotaSubmitting(true);
+    setQuotaError(null);
     try {
       const res = await fetch(canPay ? "/api/admin/billing/quota" : "/api/admin/settings/store-quota", { method: "POST" });
       if (res.ok) {
@@ -82,12 +95,12 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
         router.refresh();
       } else {
         const data = await res.json().catch(() => null);
-        setError(typeof data?.error === "string" ? data.error : "申し込めませんでした。もう一度お試しください。");
+        setQuotaError(typeof data?.error === "string" ? data.error : "申し込めませんでした。もう一度お試しください。");
       }
     } catch {
-      setError("申し込めませんでした。もう一度お試しください。");
+      setQuotaError("申し込めませんでした。もう一度お試しください。");
     }
-    setSubmitting(false);
+    setQuotaSubmitting(false);
   }
 
   /** 「プランを変更」「変更」など、Stripe の画面へ送るだけの小さなリンク */
@@ -95,7 +108,7 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
     return (
       <button
         type="button"
-        disabled={submitting}
+        disabled={navigating}
         onClick={() => openStripe(path)}
         className="whitespace-nowrap text-[12.5px] disabled:opacity-50"
         style={{ color: "var(--review-accent-primary)" }}
@@ -151,8 +164,8 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
 
         {/* 未契約のとき、登録の入口をここに出す（Stripeの鍵が揃っている場合だけ） */}
         {stripeEnabled && !billing.subscribed && (
-          <ReviewButton variant="primary" disabled={submitting} onClick={() => openStripe("/api/admin/billing/checkout")}>
-            {submitting ? "開いています..." : "お支払い方法を登録する"}
+          <ReviewButton variant="primary" disabled={navigating} onClick={() => openStripe("/api/admin/billing/checkout")}>
+            {navigating ? "開いています..." : "お支払い方法を登録する"}
           </ReviewButton>
         )}
 
@@ -179,14 +192,14 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
           ))
         )}
         {canPay && (
-          <ReviewButton variant="outline" disabled={submitting} onClick={() => openStripe("/api/admin/billing/portal")}>
+          <ReviewButton variant="outline" disabled={navigating} onClick={() => openStripe("/api/admin/billing/portal")}>
             請求履歴をすべて見る
           </ReviewButton>
         )}
 
-        {error && (
+        {stripeError && (
           <p className="text-[12px] font-medium" style={{ color: "var(--product-color-status-warning)" }}>
-            {error}
+            {stripeError}
           </p>
         )}
       </div>
@@ -227,7 +240,13 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
             </p>
           </div>
         ) : (
-          <ReviewButton variant="primary" disabled={quota.quota === null || submitting} onClick={() => setConfirming(true)}>
+          <ReviewButton
+            variant="primary"
+            // ここを Stripe の遷移中に連動させない（2026-08-24 天真の指摘）。
+            // 押しても開かないだけで、見た目は変えない
+            disabled={quota.quota === null}
+            onClick={() => !navigating && setConfirming(true)}
+          >
             ＋ 店舗枠を追加する
           </ReviewButton>
         )}
@@ -238,7 +257,7 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
         <div
           className="fixed inset-0 z-50 flex items-end justify-center md:items-center"
           style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-          onClick={() => !submitting && setConfirming(false)}
+          onClick={() => !quotaSubmitting && setConfirming(false)}
         >
           <div
             className="flex max-h-[90dvh] w-full flex-col items-start gap-4 overflow-y-auto rounded-t-[20px] p-6 md:w-[420px] md:rounded-2xl"
@@ -256,19 +275,19 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
                 ? "ご登録のカードに、今月の残り日数ぶんの差額を今すぐご請求します"
                 : "お申し込み後、担当者が確認のうえご連絡します"}
             </p>
-            {error && (
+            {quotaError && (
               <p className="text-[12px] font-medium" style={{ color: "var(--product-color-status-warning)" }}>
-                {error}
+                {quotaError}
               </p>
             )}
-            <ReviewButton variant="primary" disabled={submitting} onClick={submitQuota}>
-              {submitting ? "送信中..." : canPay ? "この内容で支払う" : "この内容で申し込む"}
+            <ReviewButton variant="primary" disabled={quotaSubmitting} onClick={submitQuota}>
+              {quotaSubmitting ? "送信中..." : canPay ? "この内容で支払う" : "この内容で申し込む"}
             </ReviewButton>
             <button
               type="button"
               onClick={() => {
                 setConfirming(false);
-                setError(null);
+                setQuotaError(null);
               }}
               className="w-full text-center text-[12.5px] font-medium"
               style={{ color: "var(--product-color-text-secondary)" }}
