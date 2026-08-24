@@ -82,6 +82,16 @@ export async function POST(req: Request) {
       success_url: `${origin}/admin/settings/billing`,
       cancel_url: `${origin}/admin/settings/billing`,
       locale: "ja",
+      // Managed Payments（Stripe が販売事業者として表に立ち、消費税の計算・申告・納付を
+      // 代行する仕組み）は使わない（2026-08-24 天真の決定）。
+      // 販売事業者は株式会社UTUTU のままにする。/terms・/privacy が「提供者＝UTUTU」で
+      // 書かれており、そちらと食い違わせないため。
+      //
+      // **アカウント側の既定が「有効」なので、ここで明示的に切る必要がある。**
+      // 切らないと商品ごとの税コード登録が必須になり、
+      // 「this product tax code is ineligible for Managed Payments」で決済を作れない
+      // （2026-08-24、本番で実際に起きた）。
+      managed_payments: { enabled: false },
     });
 
     if (!session.url) throw new Error("Checkout セッションのURLが返らなかった");
