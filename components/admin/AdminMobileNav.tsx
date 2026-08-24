@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStoreName } from "./StoreNameContext";
 import { SETTINGS_NAV } from "@/lib/admin/settings-nav";
+import { CoachMarks, coachMarksPending } from "@/components/admin/CoachMarks";
 import {
   AccountIcon,
   BillingIcon,
@@ -32,12 +33,12 @@ const SETTINGS_ICONS = {
  * 店舗詳細のようなサブページは戻るボタンにする（backHref を渡す）。
  */
 const NAV_ITEMS = [
-  { href: "/admin", label: "トップ" },
+  { href: "/admin", label: "トップ", coach: "top" },
   // 集計（2026-08-22 新設。docs/specs/analytics.md）
-  { href: "/admin/analytics", label: "集計" },
-  { href: "/admin/responses", label: "回答一覧" },
+  { href: "/admin/analytics", label: "集計", coach: "analytics" },
+  { href: "/admin/responses", label: "回答一覧", coach: "responses" },
   // 2026-08-23、SPもタブに戻したのでPCと同じく最初のタブへ直接送る（Figmaコメント 1895812707）
-  { href: "/admin/settings/brand", label: "設定" },
+  { href: "/admin/settings/brand", label: "設定", coach: "settings" },
 ];
 
 
@@ -49,8 +50,19 @@ export function AdminMobileTopBar({
   backHref?: string;
 }) {
   const [open, setOpen] = useState(false);
+  // コーチマーク（SP）。初めてメニューを開いたときに開始する（2026-08-24 天真の決定）。
+  // PCは (dashboard)/layout.tsx の CoachMarksAutoStart 側
+  const [coaching, setCoaching] = useState(false);
   const pathname = usePathname();
   const storeName = useStoreName();
+
+  function handleOpen() {
+    setOpen(true);
+    if (coachMarksPending()) {
+      // ドロワーの開くアニメーションが終わってから位置を測る
+      setTimeout(() => setCoaching(true), 250);
+    }
+  }
 
   return (
     <>
@@ -68,7 +80,7 @@ export function AdminMobileTopBar({
         ) : (
           <button
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={handleOpen}
             aria-label="メニューを開く"
             className="flex size-11 shrink-0 flex-col items-center justify-center gap-[5px] rounded-xl border"
             style={{ borderColor: "var(--product-color-border-divider)", backgroundColor: "var(--product-color-surface-white)" }}
@@ -109,6 +121,7 @@ export function AdminMobileTopBar({
                 <Link
                   key={item.href}
                   href={item.href}
+                  data-coach={item.coach}
                   onClick={() => setOpen(false)}
                   className="flex h-11 w-full shrink-0 items-center rounded-[10px] px-3.5 py-2.5"
                   style={{ backgroundColor: active ? "var(--product-color-text-primary)" : "transparent" }}
@@ -155,6 +168,7 @@ export function AdminMobileTopBar({
                 </div>
         </div>
       )}
+      {open && coaching && <CoachMarks onFinish={() => setCoaching(false)} />}
     </>
   );
 }

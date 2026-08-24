@@ -25,6 +25,9 @@
   --product-color-border-default: #dcdfdd;
   --product-color-border-divider: #edefee;
   --product-color-surface-white: #ffffff;
+  /* 暗幕・反転面の地。Figma の Color コレクション surface/ink（2026-08-24 同期。
+     コーチマークのオーバーレイで初めて使うことになり、未定義だったため追加） */
+  --product-color-surface-ink: #233029;
   --product-color-bg-primary: #fafbfa;
   --product-color-bg-secondary: #f5f7f6;
   --product-color-bg-tertiary: #eff1f0;

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { CoachMarksAutoStart } from "@/components/admin/CoachMarks";
 import { StoreNameProvider } from "@/components/admin/StoreNameContext";
 import { getCurrentStore } from "@/lib/admin/current-store";
 
@@ -29,6 +30,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <StoreNameProvider value={storeName}>
       <div className="flex h-dvh w-full items-start" style={{ backgroundColor: "var(--product-color-bg-primary)" }}>
+        {/* コーチマーク（PC）。初回だけサイドバーの4項目を順に説明する。SPはドロワー側 */}
+        <CoachMarksAutoStart />
         <AdminSidebar storeName={storeName} />
         <div
           className="flex h-full flex-1 flex-col items-start gap-4 overflow-auto px-4 pb-8 pt-6 md:gap-6 md:px-8 md:pb-10 md:pt-8"
