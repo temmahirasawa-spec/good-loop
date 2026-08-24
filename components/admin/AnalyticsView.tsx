@@ -1,5 +1,7 @@
 "use client";
 
+import { SURVEY_TALLY_NOTE } from "@/lib/admin/constants";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AdminMobileTopBar } from "@/components/admin/AdminMobileNav";
@@ -19,7 +21,7 @@ import type { TagAggregate, TagAggregates } from "@/lib/admin/queries";
 
 type StoreOption = { id: string; name: string };
 
-const NOTE = "選んだ項目ごとに集計されます。あとから追加・削除できますが、項目を変えるとその前後の数字は分けて数えられます。";
+// 文言は lib/admin/constants.ts に集約（オンボーディングのステップ4と共通）
 
 /** 1項目ぶんの横棒。PCは1行、SPは2段に折り返す */
 function BarRow({ item, color }: { item: TagAggregate; color: string }) {
@@ -205,7 +207,7 @@ export function AnalyticsView({
           style={{ backgroundColor: "var(--review-accent-wash)" }}
         >
           <p className="text-xs md:text-[13px]" style={{ color: "var(--product-color-text-primary)" }}>
-            {NOTE}
+            {SURVEY_TALLY_NOTE}
           </p>
         </div>
       ) : null}

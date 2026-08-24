@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { ReviewInput } from "@/components/admin/ReviewInput";
-import { BUSINESS_CATEGORIES, INDUSTRY_THEMES } from "@/lib/admin/constants";
+import { BUSINESS_CATEGORIES, INDUSTRY_THEMES, SURVEY_TALLY_NOTE } from "@/lib/admin/constants";
 import type { TagPreset } from "@/lib/store-tags";
 
 /**
@@ -212,19 +212,11 @@ export function OnboardingFlow({ presets }: { presets: Record<string, TagPreset>
             primaryLabel="次へ"
             onPrimary={next}
           >
-            <div className="flex w-full flex-wrap gap-2">
-              {(presets[category]?.good ?? []).map((label) => (
-                <span
-                  key={label}
-                  className="rounded-full border px-4 py-2.5 text-[13px] font-medium"
-                  style={{ borderColor: "var(--product-color-border-default)", color: "var(--product-color-text-primary)" }}
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
+            {/* グループの見出しは設定＞アンケート項目と同じ言葉にそろえる */}
+            <TagPreview label="良かった点（★5・4のお客様に表示）" tags={presets[category]?.good ?? []} />
+            <TagPreview label="改善点（★3・2・1のお客様に表示）" tags={presets[category]?.improve ?? []} />
             <p className="text-[12px] font-medium leading-[1.7]" style={{ color: "var(--product-color-text-tertiary)" }}>
-              選んだ項目ごとに集計されます。あとから追加・削除できますが、項目を変えるとその前後の数字は分けて数えられます。
+              {SURVEY_TALLY_NOTE}
             </p>
           </StepFrame>
         )}
@@ -340,6 +332,29 @@ function ProgressBar({ step }: { step: number }) {
       <p className="text-xs font-medium tabular-nums" style={{ color: "var(--product-color-text-secondary)" }}>
         {step} / {TOTAL_STEPS}
       </p>
+    </div>
+  );
+}
+
+/* ── ステップ4: プリセットの一覧（良かった点／改善点） ────── */
+
+function TagPreview({ label, tags }: { label: string; tags: string[] }) {
+  return (
+    <div className="flex w-full flex-col items-start gap-2">
+      <p className="text-[12px] font-bold" style={{ color: "var(--product-color-text-secondary)" }}>
+        {label}
+      </p>
+      <div className="flex w-full flex-wrap gap-2">
+        {tags.map((t) => (
+          <span
+            key={t}
+            className="rounded-full border px-4 py-2.5 text-[13px] font-medium"
+            style={{ borderColor: "var(--product-color-border-default)", color: "var(--product-color-text-primary)" }}
+          >
+            {t}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
