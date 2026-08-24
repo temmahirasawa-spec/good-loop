@@ -286,8 +286,21 @@ Stripe はアカウントを作ると、まず **サンドボックス（テス�
 
 #### ④ 値を入れる場所
 
-`.env.local`（このパソコンの中）と、Vercel の3環境（Production / Preview / Development）。
+| 場所 | 設定 |
+|---|---|
+| `.env.local`（このパソコンの中） | 4つとも書く。ローカルの開発はここから読む |
+| Vercel | 4つとも **Sensitive をオン**にして、**Production and Preview** に入れる |
+
 **リポジトリには絶対に書かないでください**（`npm run secrets` が検出して止めます）。
+
+> **Vercel の「Sensitive」は付けたままにしてください**（2026-08-24）。
+> 保存後は Vercel の画面でも値を表示できなくなる設定で、`STRIPE_SECRET_KEY` のように
+> **それ1つで請求も返金もできる鍵**にこそ付けるべきものです。
+>
+> Sensitive を付けると **Development が選べなくなります**が、それで問題ありません。
+> Vercel の Development は「`vercel env pull` で開発者のパソコンに値を配る」ための環境で、
+> GOOD REVIEW のローカル開発は `.env.local` から直接読んでいるため使っていません。
+> 「配れること」と「二度と読み出せないこと」は両立しないので、Vercel 側が組み合わせを禁じています。
 
 ---
 
