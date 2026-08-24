@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { STRIPE_ENABLED, STRIPE_PRICE_BASE } from "@/lib/billing/config";
+import { STRIPE_ENABLED, STRIPE_PRICE_ADDITIONAL_STORE, STRIPE_PRICE_BASE } from "@/lib/billing/config";
 import { getStripe } from "@/lib/billing/stripe";
 import { appOrigin, ensureStripeCustomer, getTenantBilling } from "@/lib/billing/server";
+import { getStoreQuotaState } from "@/lib/admin/store-quota";
+import { BILLING } from "@/lib/admin/constants";
 
 /**
  * カードの登録と初回のお支払い（docs/specs/billing.md 6章）。
@@ -10,8 +12,14 @@ import { appOrigin, ensureStripeCustomer, getTenantBilling } from "@/lib/billing
  * ブラウザをそちらへ送るだけ。カード番号は GOOD REVIEW のサーバーを一切通らない
  * （2026-08-24 天真の決定）。
  *
- * 契約は「基本プラン × 1」だけで始める。追加店舗の明細は、店舗枠を増やすとき
- * （/api/admin/billing/quota）に作る。数量0の明細を先に置いておく形は取らない。
+ * ── いま使っている店舗枠ぶんの契約を作る（2026-08-24 追加）──────────
+ * 基本プランだけの契約を作ってはいけない。カード登録前の契約先は、運営が手で
+ * `store_quota` を増やしている場合があり（例: 夙川店のテナントは 3）、
+ * 基本プラン（1店舗込み）だけで契約すると Stripe からの通知で **枠が 3 → 1 に減る**。
+ * 既存の店舗は消えないが枠オーバーになり、以後1店舗も追加できなくなる。
+ *
+ * そのため「いまの枠と同じ数で契約する」＝ 3店舗使っているなら3店舗ぶん払う、
+ * という自然な形にしている。
  */
 
 export async function POST(req: Request) {
@@ -27,6 +35,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "すでにご契約済みです。変更はお支払い方法の画面から行えます。" }, { status: 409 });
   }
 
+  const quota = await getStoreQuotaState();
+  if (quota.quota === null) {
+    // 枠が読めない状態で契約を作ると、いくつぶんの契約なのかが決められない。
+    // 少ない数で契約してしまうと枠が減るので、ここでは進めずに止める
+    return NextResponse.json({ error: "店舗枠を取得できませんでした。時間をおいてお試しください。" }, { status: 503 });
+  }
+
+  // いまの枠のうち、基本プランに含まれない超過ぶん
+  const additionalStores = Math.max(0, quota.quota - BILLING.includedStores);
+
   try {
     const stripe = getStripe();
     const customer = await ensureStripeCustomer(tenant);
@@ -35,7 +53,13 @@ export async function POST(req: Request) {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer,
-      line_items: [{ price: STRIPE_PRICE_BASE, quantity: 1 }],
+      line_items:
+        additionalStores > 0
+          ? [
+              { price: STRIPE_PRICE_BASE, quantity: 1 },
+              { price: STRIPE_PRICE_ADDITIONAL_STORE, quantity: additionalStores },
+            ]
+          : [{ price: STRIPE_PRICE_BASE, quantity: 1 }],
       // 契約先IDは通知の両方の経路（セッション・契約）に載せる。
       // Stripe から届く通知の種類によって、載っている場所が違うため
       metadata: { tenant_id: tenant.tenantId },
