@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { StoreNameProvider } from "@/components/admin/StoreNameContext";
 import { getCurrentStore } from "@/lib/admin/current-store";
@@ -18,7 +19,12 @@ import { getCurrentStore } from "@/lib/admin/current-store";
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const store = await getCurrentStore();
-  const storeName = store?.name ?? "";
+
+  // 店舗が1つも無い＝新規登録の直後（signup は店舗を作らない。オンボーディングの
+  // ステップ2で聞くため）。管理画面は店舗前提で組まれているので、先に作ってもらう
+  if (!store) redirect("/admin/onboarding");
+
+  const storeName = store.name;
 
   return (
     <StoreNameProvider value={storeName}>
