@@ -135,13 +135,28 @@ async function onSubscriptionChanged(subscription: Stripe.Subscription) {
 
   // 店舗枠 = 基本プランに含まれる店舗数 ＋ 「追加店舗」の数量
   const additional = subscription.items.data.find((item) => item.price.id === STRIPE_PRICE_ADDITIONAL_STORE);
-  const storeQuota = BILLING.includedStores + (additional?.quantity ?? 0);
+  const paidQuota = BILLING.includedStores + (additional?.quantity ?? 0);
+
+  const admin = createSupabaseAdminClient();
+
+  // **いま使っている店舗数を下回る枠には絶対にしない**（2026-08-24）。
+  // 下回らせると、運用中の店舗が枠オーバーの状態になり、以後1店舗も追加できなくなる。
+  // 決済の入口（/api/admin/billing/checkout）は現在の枠と同じ数で契約を作るので
+  // 通常ここには掛からないが、Stripe のカスタマーポータルから数量を減らされた場合や、
+  // 運営が手で枠を増やしていた契約先があとから契約した場合の保険として置く。
+  //
+  // 「払っていない店舗が使えてしまう」状態にはなるが、それは未払いと同じ扱いで、
+  // 人が連絡して決める（docs/specs/billing.md 4章）。画面が壊れるほうが害が大きい。
+  const { count } = await admin
+    .from("stores")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId);
+  const storeQuota = Math.max(paidQuota, count ?? 0);
 
   // 請求期間は契約そのものではなく、明細（subscription item）が持っている
   // （Stripe API 2026-07-29.dahlia。2026-08-24 に型で実測）
   const periodEnd = subscription.items.data[0]?.current_period_end ?? null;
 
-  const admin = createSupabaseAdminClient();
   await admin
     .from("tenants")
     .update({
