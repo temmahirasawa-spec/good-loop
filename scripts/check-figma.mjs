@@ -248,6 +248,7 @@ function checkSection(page, sec, depth = 0) {
     for (const sub of subs) {
       checkSectionColor(`${label} / ${sub.name}`, sub, SECTION_COLOR_INNER, "中枠の");
       checkFit(`${label} / ${sub.name}`, sub, true);
+      checkOverlap(`${label} / ${sub.name}`, sub);
     }
   } else if (requirePair && kids.some((c) => c.type === "FRAME" || c.type === "COMPONENT" || c.type === "COMPONENT_SET")) {
     // ── 新構成（2026-08-22、天真の指示）：セクション ＞ フレーム（PCとSPが同居） ──
@@ -262,6 +263,31 @@ function checkSection(page, sec, depth = 0) {
   // 99 は素材置き場だが、**並べ方の規約は同じ**。ここを野放しにすると、
   // 部品を _Archives に移したあとに穴が空いたままになる（2026-08-26 に実際に起きた）。
   checkFit(label, sec, /^\s*99/.test(sec.name));
+  checkOverlap(label, sec);
+}
+
+/**
+ * 画面のフレーム同士が重なっていないか。
+ *
+ * `checkFit` の間隔の検査は「同じ行のとなり合う2つ」しか見ないので、
+ * 行をまたいで食い込んでいる重なりは素通りする（2026-08-26、`04 トップ / Dashboard` で
+ * SPの行がPCの行に118px食い込んでいたのを検品が見逃した）。総当たりで見る。
+ *
+ * 対象は画面のフレームだけ。ラベルのテキストや遷移図の矢印は、
+ * **わざと重ねてある**ので数に入れない。
+ */
+const OVERLAP_TYPES = ["FRAME", "COMPONENT", "COMPONENT_SET", "INSTANCE"];
+function checkOverlap(label, node) {
+  const f = (node.children || []).filter((c) => OVERLAP_TYPES.includes(c.type)).map((c) => [c, box(c)]);
+  for (let i = 0; i < f.length; i++) {
+    for (let j = i + 1; j < f.length; j++) {
+      const [an, a] = f[i], [bn, b] = f[j];
+      const ox = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+      const oy = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+      if (ox > TOL && oy > TOL)
+        H(label, `「${an.name}」と「${bn.name}」が ${Math.round(ox)}×${Math.round(oy)}px 重なっています`);
+    }
+  }
 }
 
 /** 中身の外接矩形が、ちょうど100pxの余白で収まっているか */
