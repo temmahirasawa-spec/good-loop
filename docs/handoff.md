@@ -4027,3 +4027,23 @@ MTG ページと同じ理由。ここに入れることが「もう直さない�
 `01 Rating UI Exploration` の 80px 間隔のように**本物の違反**も混ざっているが、
 天真から指示のない再レイアウトになるため、今回は対象を PC/SP のサブセクションと
 `99` にとどめた。ここを広げるときは、先にそれらのページを100pxで並べ直すこと。
+
+### App Design Master と Components も同じ形にした（同日・追記）
+
+天真から「App Design Master の方も同じように整理しておいて」と指示があり、
+重なりの検査を全ページに広げたところ、**Web 以外にも3ヶ所あった**。
+
+| 場所 | 崩れ |
+|---|---|
+| `App / 04 トップ / Dashboard` | **SPの行がPCの行に 390×118px 食い込んでいた** |
+| `Components / 05 Web Components` | FAQ Accordion と Pricing Card、Device Mockup と Section Heading が重なっていた |
+| `App / 01 Rating UI Exploration` | 横の間隔が80px、行間が95px（どちらも100pxのはず） |
+
+`01 Rating UI Exploration` の2行目（`A / Survey Top` `C / Survey Top`）は、
+**元になったパターンの真下に置くことに意味がある**ので列は動かしていない。
+`Components / 05 Web Components` は見出しテキストと部品を対にして縦に積み直した
+（見出し→部品は50px、対と対のあいだは100px）。
+
+**触っていないもの**
+`02 基本形 / 画面遷移図` は矢印が画面のあいだをつなぐ図なので、
+100pxで並べ直すと図として読めなくなる。ラベルのテキストも同じ理由で対象外にしてある。
