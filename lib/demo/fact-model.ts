@@ -165,3 +165,45 @@ export function materialChips(signals: Signal[]): MaterialChip[] {
   // 良かったことでまとめ、気になったことでまとめる（交互に混ざらないように）
   return [...lead, ...positive, ...negative];
 }
+
+/* ── 今日の感想（タグの整理棚。2026-08-28 の再設計） ─────── */
+
+export type KansouGroup = { id: string; title: string; chips: MaterialChip[] };
+
+/**
+ * 回答タグを意味のまとまりへ整理する（docs/specs/survey-v2.md §18）。
+ *
+ * Signal の id が構造を持っている（item:/attr:/service:/…）ため、**決定論で整理できる**。
+ * AIに整理させる案もあったが、待ち時間ゼロ・誤分類ゼロのこちらを採る。
+ * **空のグループは返さない**（回答に応じて必要なまとまりだけが生まれる）。
+ */
+export function kansouGroups(signals: Signal[]): KansouGroup[] {
+  const food: MaterialChip[] = [];
+  const service: MaterialChip[] = [];
+  const space: MaterialChip[] = [];
+  const goodPoints: MaterialChip[] = [];
+  const concerns: MaterialChip[] = [];
+  const words: MaterialChip[] = [];
+
+  for (const s of signals) {
+    const chip: MaterialChip = { id: s.id, label: s.provisional || s.label, polarity: s.polarity };
+    if (s.id.startsWith("item:")) food.push({ ...chip, label: s.label, lead: true });
+    else if (s.id.startsWith("cat:")) continue; // 品まで選ばれるのでカテゴリは出さない
+    else if (s.id.startsWith("attr:") || s.id === "free:attr" || s.id.startsWith("followup:1")) food.push(chip);
+    else if (s.id.startsWith("service:")) service.push(chip);
+    else if (s.id.startsWith("atmosphere:")) space.push(chip);
+    else if (s.id.startsWith("good:")) goodPoints.push(chip);
+    else if (s.id.startsWith("concern:") || s.id === "free:concern" || s.id.startsWith("followup:2")) concerns.push(chip);
+    else if (s.isFree) words.push(chip);
+  }
+
+  const groups: KansouGroup[] = [
+    { id: "food", title: "料理", chips: food },
+    { id: "service", title: "接客", chips: service },
+    { id: "space", title: "店内・過ごし方", chips: space },
+    { id: "good", title: "良かったこと", chips: goodPoints },
+    { id: "concern", title: "気になったこと", chips: concerns },
+    { id: "words", title: "ひとこと", chips: words },
+  ];
+  return groups.filter((g) => g.chips.length > 0);
+}

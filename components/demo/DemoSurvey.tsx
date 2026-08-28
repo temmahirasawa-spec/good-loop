@@ -26,14 +26,15 @@ import {
   applyEmoji,
   draftableSignals,
   joinSentences,
-  materialChips,
+  kansouGroups,
   validateSentences,
   type Sentence,
   type Signal,
 } from "@/lib/demo/fact-model";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { AiSparkleIcon, CheckCircleOutlineIcon, RefreshIcon } from "@/components/rating-flow/icons";
-import { DraftCanvas, useTypewriter } from "./DraftCanvas";
+import { useTypewriter } from "./DraftCanvas";
+import { KansouPanel } from "./KansouPanel";
 import { BackIcon, CheckMarkIcon, MicIcon, StopIcon } from "./icons";
 
 /**
@@ -51,7 +52,13 @@ import { BackIcon, CheckMarkIcon, MicIcon, StopIcon } from "./icons";
  *     目的は本人の体験の特定。MEOワードを言わせることではない
  */
 
-type Phase = "chapters" | "draft" | "destination" | "done";
+/**
+ * 画面の流れ（2026-08-28 の再設計。docs/specs/survey-v2.md §18）:
+ * intro → questions →（selfwrite）→ summary → destination →
+ *   Google: offer →（draft ＝ここで初めてAI生成｜selfwrite）→ done
+ *   お店:   store（構造化タグのまま。文章化しない）→ done
+ */
+type Phase = "intro" | "questions" | "selfwrite" | "summary" | "destination" | "offer" | "draft" | "store" | "done";
 type Destination = "google" | "store";
 
 /**
@@ -86,7 +93,15 @@ export function DemoSurvey() {
   const [followupQA, setFollowupQA] = useState<{ question: string; answer: string; chapter: number }[]>([]);
 
   /* ── 進行 ─────────────────────────────── */
-  const [phase, setPhase] = useState<Phase>("chapters");
+  const [phase, setPhase] = useState<Phase>("intro");
+  /** 自由記述の入口（intro＝回答方法として選んだ / google＝下書き提案で「自分で書く」を選んだ） */
+  const [selfOrigin, setSelfOrigin] = useState<"intro" | "google">("intro");
+  const [selfText, setSelfText] = useState("");
+  const [storeNote, setStoreNote] = useState("");
+  /** draft 画面の中身（ai＝AIが生成 / self＝本人の文章） */
+  const [draftMode, setDraftMode] = useState<"ai" | "self">("ai");
+  /** 回答タップの回数（確認画面の「◯回のタップで」に使う） */
+  const [tapCount, setTapCount] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [followup, setFollowup] = useState<Followup | null>(null);
   const [destination, setDestination] = useState<Destination | null>(null);
@@ -96,13 +111,9 @@ export function DemoSurvey() {
   const [tone, setTone] = useState<Tone>("normal");
   const [emoji, setEmoji] = useState(false);
   const [seed, setSeed] = useState(1);
-  const [chapterDrafts, setChapterDrafts] = useState<Record<number, Sentence[]>>({});
   const [finalText, setFinalText] = useState("");
   const [edited, setEdited] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [refining, setRefining] = useState(false);
-  /** 直近で言葉になった句（イエローの下線が走る対象） */
-  const [freshText, setFreshText] = useState("");
 
   const ateNothing = categories.includes(EAT_NOTHING_ID);
   const effectiveFocus = items.length === 1 ? items[0] : focusItem;
@@ -123,6 +134,7 @@ export function DemoSurvey() {
   const [excluded, setExcluded] = useState<string[]>([]);
 
   const flyToDraft = useCallback((el: HTMLElement, label: string) => {
+    setTapCount((c) => c + 1);
     setFreshChips((prev) => (prev.includes(label) ? prev : [...prev, label]));
     window.setTimeout(() => setFreshChips((prev) => prev.filter((l) => l !== label)), 1200);
 
@@ -308,8 +320,11 @@ export function DemoSurvey() {
         required: true,
       })),
     ],
-    // 章4 伝えたいこと
-    freeText.trim() ? [{ id: "free:message", label: freeText.trim(), provisional: freeText.trim(), isFree: true, required: true }] : [],
+    // 章4 伝えたいこと（＋自由記述で書いた人の文章）
+    [
+      ...(freeText.trim() ? [{ id: "free:message", label: freeText.trim(), provisional: freeText.trim(), isFree: true, required: true }] : []),
+      ...(selfText.trim() ? [{ id: "free:self", label: selfText.trim(), provisional: selfText.trim(), isFree: true, required: true }] : []),
+    ],
   ];
 
   const allSignals = chapterSignalsList.flat();
@@ -362,86 +377,17 @@ export function DemoSurvey() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doneSteps]);
 
-  /* ── 器の中身 ────────────────────────────
-     整文済みの章は文章、まだの章は material chip。**不自然な仮文は出さない** */
-  const refinedText = joinSentences([0, 1, 2, 3].flatMap((i) => chapterDrafts[i] ?? []));
-  const refinedIds = new Set([0, 1, 2, 3].flatMap((i) => (chapterDrafts[i] ?? []).flatMap((s) => s.sourceSignalIds)));
-  const pendingChips = materialChips(allSignals.filter((s) => !refinedIds.has(s.id)));
-
-  /* ── AI整文（idle debounce・章単位・中断あり） ── */
-  const abortRef = useRef<AbortController | null>(null);
+  /* ── 今日の感想（タグの整理棚）──
+     アンケート中に文章は作らない（2026-08-28 の再設計）。AI整文はGoogleを選んで
+     「回答から下書きをつくる」を選んだときだけ走る */
+  const visibleSignals = allSignals.filter((sig) => !excluded.includes(sig.id) && sig.label !== "特になし");
+  const groups = kansouGroups(visibleSignals);
+  const kansouCount = groups.reduce((a, g) => a + g.chips.length, 0);
   const versionRef = useRef(0);
-  const refinedKeyRef = useRef<Record<number, string>>({});
-  const callCountRef = useRef<Record<number, number>>({});
-
-  const refineChapter = useCallback(
-    async (chapter: number) => {
-      const signals = draftableSignals(chapterSignalsList[chapter] ?? []);
-      const meaningful = signals.filter((s) => s.label !== "特になし");
-      // 品名だけでは文章にならない。「どうだったか」に当たる材料が1つ以上要る
-      const descriptive = meaningful.filter((s) => !s.id.startsWith("item:") && !s.id.startsWith("cat:"));
-      if (meaningful.length < 2 || descriptive.length < 1) return;
-      const key = meaningful.map((s) => s.id).join(",");
-      if (refinedKeyRef.current[chapter] === key) return; // signal setが変わっていない
-      if ((callCountRef.current[chapter] ?? 0) >= 3) return; // 章あたり最大3回
-      if (edited !== null) return; // 手動編集ロック中は触らない
-
-      abortRef.current?.abort();
-      const ac = new AbortController();
-      abortRef.current = ac;
-      const myVersion = ++versionRef.current;
-      callCountRef.current[chapter] = (callCountRef.current[chapter] ?? 0) + 1;
-      setRefining(true);
-      try {
-        const previous = joinSentences([0, 1, 2, 3].filter((i) => i < chapter).flatMap((i) => chapterDrafts[i] ?? []));
-        const res = await fetch("/api/demo/draft", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: "refine",
-            signals: meaningful.map(({ id, label, itemLabel, isFree, required }) => ({ id, label, itemLabel, isFree, required })),
-            previousText: previous,
-            tone,
-            seed,
-          }),
-          signal: ac.signal,
-        });
-        const data = (await res.json()) as { sentences: Sentence[] | null };
-        if (myVersion !== versionRef.current) return; // 古い応答は破棄
-        if (!data.sentences) return;
-        const verdict = validateSentences(data.sentences, meaningful);
-        if (!verdict.ok) {
-          console.error("[demo] 整文を破棄:", verdict.reason);
-          return; // material のまま。エラーは画面に出さない
-        }
-        refinedKeyRef.current[chapter] = key;
-        setChapterDrafts((prev) => ({ ...prev, [chapter]: verdict.sentences }));
-        setFreshText(joinSentences(verdict.sentences));
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") console.error("[demo] 整文に失敗", error);
-      } finally {
-        if (myVersion === versionRef.current) setRefining(false);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [signalIdsKey, tone, seed, edited]
-  );
-
-  /** 最後の操作から700msのidleで、その章だけを整文する */
-  useEffect(() => {
-    if (phase !== "chapters") return;
-    const timer = setTimeout(() => {
-      for (const chapter of [1, 2, 3]) {
-        void refineChapter(chapter);
-      }
-    }, 600);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signalIdsKey, phase]);
 
   /* ── AI追質問（★非依存の引き金だけ・最大2問） ── */
   useEffect(() => {
-    if (phase !== "chapters" || followup) return;
+    if (phase !== "questions" || followup) return;
     const ask = async (reason: FollowupReason, chapter: number) => {
       if (followupQA.length >= 2 || askedReasonsRef.current.has(reason)) return;
       askedReasonsRef.current.add(reason);
@@ -475,10 +421,7 @@ export function DemoSurvey() {
       const signals = draftableSignals(allSignals)
         .filter((s) => s.label !== "特になし")
         .filter((s) => !excluded.includes(s.id));
-      if (signals.length === 0) {
-        setFinalText(refinedText);
-        return;
-      }
+      if (signals.length === 0) return;
       setGenerating(true);
       const myVersion = ++versionRef.current;
       try {
@@ -503,16 +446,14 @@ export function DemoSurvey() {
           }
           console.error("[demo] 最終整文を破棄:", verdict.reason);
         }
-        setFinalText((prev) => prev || refinedText);
       } catch (error) {
         console.error("[demo] 最終整文に失敗", error);
-        setFinalText((prev) => prev || refinedText);
       } finally {
         setGenerating(false);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [signalIdsKey, refinedText, excluded]
+    [signalIdsKey, excluded]
   );
 
   /** 除外リストを明示して仕上げる（トグル直後に古い state を使わないため） */
@@ -557,7 +498,7 @@ export function DemoSurvey() {
   );
 
   useEffect(() => {
-    if (phase !== "draft") return;
+    if (phase !== "draft" || draftMode !== "ai") return;
     void generateFinal({ tone, seed });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
@@ -610,7 +551,7 @@ export function DemoSurvey() {
         <p className="text-center text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
           {STORE_NAME}
         </p>
-        {phase === "chapters" ? (
+        {phase === "questions" ? (
           <div className="flex w-full flex-col gap-[var(--product-space-4)]">
             <div className="flex w-full gap-[var(--product-space-4)]">
               {CHAPTERS.map((c, i) => (
@@ -635,8 +576,8 @@ export function DemoSurvey() {
         ) : null}
       </div>
 
-      <div className={phase === "chapters" ? "flex w-full flex-1 flex-col pb-[220px]" : "flex w-full flex-1 flex-col"}>
-        {phase === "chapters" ? (
+      <div className={phase === "questions" ? "flex w-full flex-1 flex-col pb-[220px]" : "flex w-full flex-1 flex-col"}>
+        {phase === "questions" ? (
           /* ── 連続インタビュー：質問が下へ追加されていく（章ごとの「次へ」は無い） ── */
           <div className="flex w-full flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)]">
             <Step
@@ -654,6 +595,7 @@ export function DemoSurvey() {
                 onSelect={(id) => {
                   tick();
                   setRating(id);
+                  setTapCount((c) => c + 1);
                   // single は短い間を置いて次へ
                   window.setTimeout(() => finishStep("rating"), 260);
                 }}
@@ -676,6 +618,7 @@ export function DemoSurvey() {
                   onSelect={(id) => {
                     tick();
                     setVisit(id);
+                    setTapCount((c) => c + 1);
                     window.setTimeout(() => finishStep("visit"), 260);
                   }}
                 />
@@ -925,11 +868,269 @@ export function DemoSurvey() {
             {/* 感想が成立するまでは出さない（常時disabledは「まだ終われない」圧になる） */}
             {canFinish ? (
               <div className="review-rise flex w-full flex-col items-center pb-[var(--product-space-16)] pt-[var(--product-space-8)]">
-                <ReviewButton variant="primary" size="lg" onClick={() => { tick(); setPhase("draft"); }}>
-                  この感想を仕上げる
+                <ReviewButton variant="primary" size="lg" onClick={() => { tick(); setPhase("summary"); }}>
+                  今日の感想を確認する
                 </ReviewButton>
               </div>
             ) : null}
+          </div>
+        ) : null}
+
+        {phase === "intro" ? (
+          /* ── 入口：口コミもAIも強調しない。約束は3つだけ ── */
+          <div className="review-rise flex w-full flex-1 flex-col justify-center gap-[var(--product-space-24)] px-[var(--product-space-24)] pb-[var(--product-space-40)]">
+            <div className="flex w-full flex-col gap-[var(--product-space-12)]">
+              <h1 className="text-[22px] font-bold leading-[1.6]" style={{ color: "var(--product-color-text-primary)" }}>
+                今日の体験を、
+                <br />
+                1分で聞かせてください。
+              </h1>
+              <p className="text-[15px] font-medium leading-[1.9]" style={{ color: "var(--product-color-text-secondary)" }}>
+                いくつかの質問に答えるだけで、感じたことを簡単に残せます。
+                <br />
+                最後に、この声の届け先を選べます。
+              </p>
+            </div>
+            <div className="flex w-full flex-col items-center gap-[var(--product-space-12)]">
+              <ReviewButton variant="primary" size="lg" onClick={() => { tick(); setPhase("questions"); }}>
+                はじめる
+              </ReviewButton>
+              <button
+                type="button"
+                onClick={() => { tick(); setSelfOrigin("intro"); setPhase("selfwrite"); }}
+                className="flex h-11 items-center justify-center text-[13px] font-medium"
+                style={{ color: "var(--product-color-text-secondary)" }}
+              >
+                自分の言葉で書きたい方はこちら
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {phase === "selfwrite" ? (
+          /* ── 自由記述。書いたあとの届け先は本人が選ぶ（回答方法の選択であって、届け先の選択ではない） ── */
+          <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pt-[var(--product-space-16)]">
+            <div className="flex w-full flex-col gap-[var(--product-space-4)]">
+              <h1 className="text-xl font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+                今日の感想を、そのままどうぞ
+              </h1>
+              <p className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+                {selfOrigin === "google" ? "書き終わったら、そのまま投稿に使えます" : "書き終わったら、届け先を選べます"}
+              </p>
+            </div>
+            <FreeTextField value={selfText} onChange={setSelfText} rows={7} placeholder="思ったことを、そのままの言葉で" />
+            <div className="mt-auto flex w-full flex-col items-center gap-[var(--product-space-4)] pb-[var(--product-space-16)]">
+              <ReviewButton
+                variant="primary"
+                size="lg"
+                disabled={selfText.trim() === ""}
+                onClick={() => {
+                  tick();
+                  if (selfOrigin === "google") {
+                    setDraftMode("self");
+                    setEdited(selfText.trim());
+                    setPhase("draft");
+                  } else {
+                    setPhase("destination");
+                  }
+                }}
+              >
+                書き終わった
+              </ReviewButton>
+              <button
+                type="button"
+                onClick={() => setPhase(selfOrigin === "google" ? "offer" : "intro")}
+                className="flex h-11 items-center justify-center text-[13px] font-medium"
+                style={{ color: "var(--product-color-text-muted)" }}
+              >
+                もどる
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {phase === "summary" ? (
+          /* ── 確認：まず「まとまった」ことを伝える。修正・削除はここで ── */
+          <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pt-[var(--product-space-16)]">
+            <div className="flex w-full flex-col gap-[var(--product-space-8)]">
+              <h1 className="text-xl font-bold leading-[1.5]" style={{ color: "var(--product-color-text-primary)" }}>
+                今日の感想がまとまりました
+              </h1>
+              <p className="text-sm font-medium leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
+                {tapCount}回のタップで、{kansouCount}つのことを教えていただきました。
+                <br />
+                外したいものはタップで外せます。
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-[var(--product-space-16)]">
+              {kansouGroups(allSignals.filter((sig) => sig.label !== "特になし")).map((group) => (
+                <div key={group.id} className="flex w-full flex-col gap-[var(--product-space-8)]">
+                  <p className="text-[12px] font-bold" style={{ color: "var(--product-color-text-secondary)" }}>
+                    {group.title}
+                  </p>
+                  <div className="flex w-full flex-wrap gap-[var(--product-space-8)]">
+                    {group.chips.map((chip) => {
+                      const off = excluded.includes(chip.id);
+                      const negative = chip.polarity === "negative";
+                      return (
+                        <button
+                          key={chip.id}
+                          type="button"
+                          aria-pressed={!off}
+                          onClick={() => {
+                            tick();
+                            setExcluded((prev) => (off ? prev.filter((x) => x !== chip.id) : [...prev, chip.id]));
+                          }}
+                          className="flex items-center gap-[var(--product-space-4)] rounded-[var(--product-radius-full)] border-solid px-[var(--product-space-12)] py-[var(--product-space-4)]"
+                          style={{
+                            minHeight: "var(--product-touch-min)",
+                            borderWidth: off ? 1.5 : 2,
+                            opacity: off ? 0.45 : 1,
+                            borderColor: off
+                              ? "var(--product-color-border-default)"
+                              : negative
+                                ? "var(--product-color-status-warning)"
+                                : "var(--review-accent-primary)",
+                            backgroundColor: off
+                              ? "var(--product-color-surface-white)"
+                              : negative
+                                ? "var(--product-color-status-warning-wash)"
+                                : "var(--review-accent-wash)",
+                            color: off
+                              ? "var(--product-color-text-muted)"
+                              : negative
+                                ? "var(--product-color-status-warning)"
+                                : "var(--review-accent-primary)",
+                          }}
+                        >
+                          <span className="text-[13px] font-bold">{chip.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-auto flex w-full flex-col items-center gap-[var(--product-space-4)] pb-[var(--product-space-16)] pt-[var(--product-space-8)]">
+              <ReviewButton variant="primary" size="lg" disabled={kansouCount === 0} onClick={() => { tick(); setPhase("destination"); }}>
+                届け先を選ぶ
+              </ReviewButton>
+              <button
+                type="button"
+                onClick={() => setPhase("questions")}
+                className="flex h-11 items-center justify-center text-[13px] font-medium"
+                style={{ color: "var(--product-color-text-muted)" }}
+              >
+                回答に戻る
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {phase === "offer" ? (
+          /* ── Googleを選んだときだけ、初めて文章の話をする ── */
+          <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pt-[var(--product-space-16)]">
+            <div className="flex w-full flex-col gap-[var(--product-space-8)]">
+              <h1 className="text-xl font-bold leading-[1.5]" style={{ color: "var(--product-color-text-primary)" }}>
+                Googleへの投稿には
+                <br />
+                文章が必要です
+              </h1>
+              <p className="text-sm font-medium leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
+                回答した内容から下書きを作ることも、自分の言葉で書くこともできます。
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-[var(--product-space-12)]">
+              <button
+                type="button"
+                onClick={() => { tick(); setDraftMode("ai"); setEdited(null); setPhase("draft"); }}
+                className="review-rise flex w-full flex-col items-center gap-[var(--product-space-4)] rounded-[var(--product-radius-md)] border-[1.5px] border-solid px-[var(--product-space-16)] py-[var(--product-space-20)] transition-transform active:scale-[0.98]"
+                style={{ backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--product-color-border-default)" }}
+              >
+                <span className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+                  回答から下書きをつくる
+                </span>
+                <span className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+                  あなたが選んだ内容だけで作ります
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { tick(); setSelfOrigin("google"); setPhase("selfwrite"); }}
+                className="review-rise flex w-full flex-col items-center gap-[var(--product-space-4)] rounded-[var(--product-radius-md)] border-[1.5px] border-solid px-[var(--product-space-16)] py-[var(--product-space-20)] transition-transform active:scale-[0.98]"
+                style={{ animationDelay: "60ms", backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--product-color-border-default)" }}
+              >
+                <span className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+                  自分で書く
+                </span>
+                <span className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+                  そのままの言葉で書けます
+                </span>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPhase("destination")}
+              className="mt-auto flex h-11 items-center justify-center pb-[var(--product-space-16)] text-[13px] font-medium"
+              style={{ color: "var(--product-color-text-muted)" }}
+            >
+              もどる
+            </button>
+          </div>
+        ) : null}
+
+        {phase === "store" ? (
+          /* ── お店へ。文章化は強制しない。構造化タグのまま届く ── */
+          <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pt-[var(--product-space-16)]">
+            <div className="flex w-full flex-col gap-[var(--product-space-8)]">
+              <h1 className="text-xl font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+                お店に届く内容
+              </h1>
+              <p className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+                このままの形で、お店の担当者に届きます
+              </p>
+            </div>
+            <div
+              className="flex w-full flex-col gap-[var(--product-space-16)] rounded-[var(--product-radius-md)] p-[var(--product-space-16)]"
+              style={{ backgroundColor: "var(--product-color-surface-white)" }}
+            >
+              {groups.map((group) => (
+                <div key={group.id} className="flex w-full flex-col gap-[var(--product-space-4)]">
+                  <p className="text-[12px] font-bold" style={{ color: "var(--product-color-text-secondary)" }}>
+                    {group.title}
+                  </p>
+                  <div className="flex w-full flex-wrap gap-[var(--product-space-4)]">
+                    {group.chips.map((chip) => (
+                      <span
+                        key={chip.id}
+                        className="flex items-center rounded-[var(--product-radius-full)] px-[var(--product-space-8)] py-[2px] text-[13px] font-bold"
+                        style={{
+                          backgroundColor:
+                            chip.polarity === "negative" ? "var(--product-color-status-warning-wash)" : "var(--review-accent-wash)",
+                          color: chip.polarity === "negative" ? "var(--product-color-status-warning)" : "var(--review-accent-primary)",
+                        }}
+                      >
+                        {chip.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <FreeTextField value={storeNote} onChange={setStoreNote} rows={2} placeholder="ひとことを追加する（任意）" />
+            <div className="mt-auto flex w-full flex-col items-center gap-[var(--product-space-4)] pb-[var(--product-space-16)]">
+              <ReviewButton variant="primary" size="lg" onClick={() => { tick(); setPhase("done"); }}>
+                お店に届ける
+              </ReviewButton>
+              <button
+                type="button"
+                onClick={() => setPhase("destination")}
+                className="flex h-11 items-center justify-center text-[13px] font-medium"
+                style={{ color: "var(--product-color-text-muted)" }}
+              >
+                もどる
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -951,31 +1152,40 @@ export function DemoSurvey() {
               setEdited(null);
               void generateFinalWith(next);
             }}
-            onNext={() => setPhase("destination")}
-            onBack={() => setPhase("chapters")}
+            onNext={() => setPhase("done")}
+            onBack={() => setPhase(draftMode === "self" ? "selfwrite" : "offer")}
             canvas={<EditableCanvas value={draft} onChange={setEdited} streaming={generating} />}
           />
         ) : null}
 
         {phase === "destination" ? (
-          <DestinationStep draft={draft} onChoose={(d) => { setDestination(d); setPhase("done"); }} />
+          <DestinationStep
+            onChoose={(d) => {
+              tick();
+              setDestination(d);
+              if (d === "store") setPhase("store");
+              else if (selfText.trim()) {
+                // 自由記述で書いた人は、その文章をそのまま使う
+                setDraftMode("self");
+                setEdited(selfText.trim());
+                setPhase("draft");
+              } else setPhase("offer");
+            }}
+          />
         ) : null}
 
         {phase === "done" ? <DoneStep destination={destination} /> : null}
       </div>
 
-      {phase === "chapters" ? (
+      {phase === "questions" ? (
         <div ref={canvasRef} className="sticky bottom-0 z-10 mx-auto w-full max-w-[390px]">
-          <DraftCanvas
-            text={refinedText}
-            chips={pendingChips}
-            busy={refining}
-            freshText={freshText}
+          <KansouPanel
+            groups={groups}
             freshChips={freshChips}
             chipZoneRef={chipZoneRef}
             expanded={expanded}
             onToggle={() => setExpanded(!expanded)}
-            emptyHint="選ぶと、ここに感想が組み上がっていきます"
+            emptyHint="答えると、ここに今日の感想がたまっていきます"
           />
         </div>
       ) : null}
@@ -1646,24 +1856,18 @@ function AutoGrowTextarea({ value, onChange }: { value: string; onChange: (v: st
  * 宛先を選ぶ（案I）。**全員に完全同一の1枚**（2026-08-28 天真の決定）。
  * 2つのカードは重さを揃え、**どちらが良いかを書かない。事実だけ書く**。
  */
-function DestinationStep({ draft, onChoose }: { draft: string; onChoose: (d: Destination) => void }) {
+function DestinationStep({ onChoose }: { onChoose: (d: Destination) => void }) {
   const cards: { id: Destination; title: string; note: string }[] = [
-    { id: "google", title: "Googleにも投稿する", note: "Googleマップに公開されます" },
-    // 「代表が直接読みます」は多店舗展開に合わないため変更（2026-08-28）
-    { id: "store", title: "お店にだけ届ける", note: "お店の担当者が確認します" },
+    { id: "google", title: "Googleでみんなに広める", note: "Googleマップに公開されます" },
+    { id: "store", title: "お店の担当者に伝える", note: "お店の担当者が確認します" },
   ];
   return (
     <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-32)] pt-[var(--product-space-24)]">
       <h1 className="text-xl font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-        この感想を、どうしますか？
+        この感想の届け先を
+        <br />
+        選んでください
       </h1>
-      {/* 全文を見せる（3行で切らない。自分の言葉を確かめてから宛先を選べるように） */}
-      <p
-        className="rounded-[var(--product-radius-md)] p-[var(--product-space-12)] text-[13px] leading-[1.8]"
-        style={{ backgroundColor: "var(--review-accent-wash)", color: "var(--product-color-text-secondary)" }}
-      >
-        {draft}
-      </p>
       <div className="flex w-full flex-col gap-[var(--product-space-12)]">
         {cards.map((card, i) => (
           <button
@@ -1703,7 +1907,7 @@ function DoneStep({ destination }: { destination: Destination | null }) {
       <p className="text-center text-sm font-medium leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
         {destination === "google"
           ? "このあとGoogleマップの投稿画面が開きます"
-          : "いただいた内容は店舗責任者が確認し改善に活かしてまいります"}
+          : "いただいた内容は、お店の担当者が確認し改善に活かしてまいります"}
       </p>
       <p className="text-center text-xs font-medium" style={{ color: "var(--product-color-text-muted)" }}>
         これは検証用のデモです。回答は保存されません
