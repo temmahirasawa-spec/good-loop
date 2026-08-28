@@ -82,7 +82,6 @@ export function DemoSurvey() {
   const [expanded, setExpanded] = useState(false);
   const [followup, setFollowup] = useState<Followup | null>(null);
   const [destination, setDestination] = useState<Destination | null>(null);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const askedReasonsRef = useRef<Set<string>>(new Set());
 
   /* ── 生成 ─────────────────────────────── */
@@ -100,6 +99,23 @@ export function DemoSurvey() {
   const ateNothing = categories.includes(EAT_NOTHING_ID);
   const effectiveFocus = items.length === 1 ? items[0] : focusItem;
   const focusLabel = effectiveFocus ? findItem(effectiveFocus)?.label ?? "" : "";
+
+  /* ── 進行の単位（2026-08-28 修正仕様） ───────────────
+     single は選んだら次へ。multiple は**自分で「選び終わった」と決める**まで進まない。
+     「いくつでも選べます」と言いながら1つで先へ送ると、1つ選べば終わりだと受け取られるため。 */
+  const [doneSteps, setDoneSteps] = useState<string[]>([]);
+  const [editingStep, setEditingStep] = useState<string | null>(null);
+  const stepRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const scrollTargetRef = useRef<string | null>(null);
+
+  const isDone = (id: string) => doneSteps.includes(id);
+
+  /** 一区切りついた。次の未回答へスクロールし、章の進捗もここで進む */
+  function finishStep(id: string) {
+    setEditingStep(null);
+    setDoneSteps((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    scrollTargetRef.current = id;
+  }
 
   /* ── 品の感想の選択肢（AI生成・品選択時に先読み） ── */
   const [attrChoices, setAttrChoices] = useState<Choice[] | null>(null);
@@ -232,8 +248,52 @@ export function DemoSurvey() {
   const allSignals = chapterSignalsList.flat();
   const signalIdsKey = chapterSignalsList.map((sig) => sig.map((x) => x.id).join(",")).join("|");
 
-  /** 現在地の章（進捗表示用。ページ送りではなく「どこまで答えたか」） */
-  const currentChapter = freeText.trim() || atmosphere.length > 0 ? (concern.length > 0 || good.length > 0 ? 3 : 2) : items.length > 0 || ateNothing ? 1 : 0;
+  /**
+   * 章とステップの対応。進捗は**「選び終わった」を押した時にだけ**進む
+   * （次の質問がDOMに現れただけでは進めない。自分で区切りをつけた感覚を作るため）。
+   */
+  const STEP_CHAPTER: Record<string, number> = {
+    rating: 0,
+    visit: 0,
+    food: 1,
+    focus: 1,
+    attrs: 1,
+    service: 1,
+    atmosphere: 2,
+    good: 2,
+    concern: 2,
+    message: 3,
+  };
+  /** 食事なしなら品・特徴の質問は現れないので、進捗の母数から外す */
+  const skippedSteps = new Set<string>(ateNothing ? ["focus", "attrs"] : items.length > 1 ? [] : ["focus"]);
+  const chapterProgress = [0, 1, 2, 3].map((chapter) => {
+    const ids = Object.keys(STEP_CHAPTER).filter((id) => STEP_CHAPTER[id] === chapter);
+    const done = ids.filter((id) => doneSteps.includes(id)).length;
+    const total = ids.filter((id) => !skippedSteps.has(id)).length || 1;
+    return Math.min(done / total, 1);
+  });
+  const currentChapter = Math.max(0, chapterProgress.findIndex((p) => p < 1));
+
+  /**
+   * 「選び終わった」または single の選択で一区切りついたら、次の未回答へ送る。
+   * **multiple の選択そのものではスクロールしない**（1つ選んで画面が動くと、
+   * 1つで終わりだと受け取られるため）。
+   */
+  useEffect(() => {
+    const from = scrollTargetRef.current;
+    if (!from) return;
+    scrollTargetRef.current = null;
+    const timer = setTimeout(() => {
+      const order = Object.keys(STEP_CHAPTER);
+      const next = order.slice(order.indexOf(from) + 1).find((id) => !doneSteps.includes(id) && stepRefs.current[id]);
+      const el = next ? stepRefs.current[next] : null;
+      if (!el) return;
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+    }, 120);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doneSteps]);
 
   /* ── 器の中身 ────────────────────────────
      整文済みの章は文章、まだの章は material chip。**不自然な仮文は出さない** */
@@ -406,7 +466,6 @@ export function DemoSurvey() {
       concern.filter((x) => x !== "none").length > 0 ||
       freeText.trim() !== "");
 
-  const toggleCollapse = (key: string) => setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
     <div
@@ -449,79 +508,145 @@ export function DemoSurvey() {
         {phase === "chapters" ? (
           /* ── 連続インタビュー：質問が下へ追加されていく（章ごとの「次へ」は無い） ── */
           <div className="flex w-full flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)]">
-            <Q label="評価" summary={labelsOf(RATING_CHOICES, rating ? [rating] : []).join("")} collapsed={!!collapsed.rating && rating !== null} onToggle={() => toggleCollapse("rating")}>
-              <FieldTitle title="本日の体験はいかがでしたか？" />
-              <CardList choices={RATING_CHOICES} selected={rating ? [rating] : []} onSelect={(id) => { tick(); setRating(id); }} />
-            </Q>
+            <Step
+              id="rating"
+              title="本日の体験はいかがでしたか？"
+              summary={labelsOf(RATING_CHOICES, rating ? [rating] : []).join("")}
+              done={isDone("rating")}
+              editing={editingStep === "rating"}
+              onEdit={() => setEditingStep("rating")}
+              refs={stepRefs}
+            >
+              <CardList
+                choices={RATING_CHOICES}
+                selected={rating ? [rating] : []}
+                onSelect={(id) => {
+                  tick();
+                  setRating(id);
+                  // single は短い間を置いて次へ
+                  window.setTimeout(() => finishStep("rating"), 520);
+                }}
+              />
+            </Step>
 
-            {rating ? (
-              <RevealBlock>
-                <Q label="来店" summary={labelsOf(VISIT_CHOICES, visit ? [visit] : []).join("")} collapsed={!!collapsed.visit && visit !== null} onToggle={() => toggleCollapse("visit")}>
-                  <FieldTitle title="今日で何回目のご来店ですか？" />
-                  <Segmented choices={VISIT_CHOICES} selected={visit} onSelect={(id) => { tick(); setVisit(id); }} />
-                </Q>
-              </RevealBlock>
+            {isDone("rating") ? (
+              <Step
+                id="visit"
+                title="今日で何回目のご来店ですか？"
+                summary={labelsOf(VISIT_CHOICES, visit ? [visit] : []).join("")}
+                done={isDone("visit")}
+                editing={editingStep === "visit"}
+                onEdit={() => setEditingStep("visit")}
+                refs={stepRefs}
+              >
+                <Segmented
+                  choices={VISIT_CHOICES}
+                  selected={visit}
+                  onSelect={(id) => {
+                    tick();
+                    setVisit(id);
+                    window.setTimeout(() => finishStep("visit"), 520);
+                  }}
+                />
+              </Step>
             ) : null}
 
-            {visit ? (
-              <RevealBlock>
-                <Q label="料理" summary={ateNothing ? "食べていない" : categories.map((c) => MENU.find((m) => m.id === c)?.label ?? "").filter(Boolean).join("、")} collapsed={!!collapsed.cat && categories.length > 0} onToggle={() => toggleCollapse("cat")}>
-                  <FieldTitle title="今日は何を召し上がりましたか？" note="いくつでも" />
-                  <ChipGrid
-                    choices={[...MENU.map((c) => ({ id: c.id, label: c.label })), { id: EAT_NOTHING_ID, label: "食べていない" }]}
-                    selected={categories}
-                    exclusiveId={EAT_NOTHING_ID}
-                    onToggle={(id) => {
-                      tick();
-                      setCategories((prev) => {
-                        const next = prev.includes(id)
-                          ? prev.filter((x) => x !== id)
-                          : id === EAT_NOTHING_ID
-                            ? [EAT_NOTHING_ID]
-                            : [...prev.filter((x) => x !== EAT_NOTHING_ID), id];
-                        const allowed = new Set(MENU.filter((c) => next.includes(c.id)).flatMap((c) => c.items.map((i) => i.id)));
-                        setItems((cur) => cur.filter((x) => allowed.has(x)));
-                        return next;
-                      });
-                    }}
-                  />
-                </Q>
-              </RevealBlock>
+            {isDone("visit") ? (
+              <Step
+                id="food"
+                title="今日は何を召し上がりましたか？"
+                note="いくつでも"
+                summary={
+                  ateNothing
+                    ? "食べていない"
+                    : items.map((id) => findItem(id)?.label ?? "").filter(Boolean).join("・") ||
+                      categories.map((c) => MENU.find((m) => m.id === c)?.label ?? "").filter(Boolean).join("・")
+                }
+                done={isDone("food")}
+                editing={editingStep === "food"}
+                onEdit={() => setEditingStep("food")}
+                refs={stepRefs}
+                /* 子質問（品）で1つ以上選ぶまで「選び終わった」を出さない */
+                canFinish={ateNothing || items.length > 0}
+                onFinish={() => finishStep("food")}
+                multi
+              >
+                <ChipGrid
+                  choices={[...MENU.map((c) => ({ id: c.id, label: c.label })), { id: EAT_NOTHING_ID, label: "食べていない" }]}
+                  selected={categories}
+                  exclusiveId={EAT_NOTHING_ID}
+                  onToggle={(id) => {
+                    tick();
+                    setCategories((prev) => {
+                      const next = prev.includes(id)
+                        ? prev.filter((x) => x !== id)
+                        : id === EAT_NOTHING_ID
+                          ? [EAT_NOTHING_ID]
+                          : [...prev.filter((x) => x !== EAT_NOTHING_ID), id];
+                      const allowed = new Set(MENU.filter((c) => next.includes(c.id)).flatMap((c) => c.items.map((i) => i.id)));
+                      setItems((cur) => cur.filter((x) => allowed.has(x)));
+                      return next;
+                    });
+                  }}
+                />
+                {/* 子質問は同じブロックの中に開く（カテゴリを足せば、その品もここに増える） */}
+                {!ateNothing &&
+                  MENU.filter((c) => categories.includes(c.id)).map((c) => (
+                    <div key={c.id} className="review-rise flex w-full flex-col gap-[var(--product-space-8)]">
+                      <FieldTitle title={`${c.label}、どれを？`} note="いくつでも" />
+                      <ChipGrid
+                        choices={c.items}
+                        selected={items}
+                        onToggle={(id) => {
+                          tick();
+                          setItems((prev) => {
+                            const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+                            if (next.length <= 1) setFocusItem(null);
+                            return next;
+                          });
+                        }}
+                      />
+                    </div>
+                  ))}
+              </Step>
             ) : null}
 
-            {!ateNothing &&
-              MENU.filter((c) => categories.includes(c.id)).map((c) => (
-                <RevealBlock key={c.id}>
-                  <FieldTitle title={`${c.label}、どれを？`} note="いくつでも" />
-                  <ChipGrid
-                    choices={c.items}
-                    selected={items}
-                    onToggle={(id) => {
-                      tick();
-                      setItems((prev) => {
-                        const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-                        if (next.length <= 1) setFocusItem(null);
-                        return next;
-                      });
-                    }}
-                  />
-                </RevealBlock>
-              ))}
-
-            {items.length > 1 ? (
-              <RevealBlock>
-                <FieldTitle title="特に印象に残った1品は？" />
+            {isDone("food") && !ateNothing && items.length > 1 ? (
+              <Step
+                id="focus"
+                title="特に印象に残った1品は？"
+                summary={focusLabel}
+                done={isDone("focus")}
+                editing={editingStep === "focus"}
+                onEdit={() => setEditingStep("focus")}
+                refs={stepRefs}
+              >
                 <ChipGrid
                   choices={items.map((id) => findItem(id)).filter((i): i is Choice => Boolean(i))}
                   selected={focusItem ? [focusItem] : []}
-                  onToggle={(id) => { tick(); setFocusItem(id); }}
+                  onToggle={(id) => {
+                    tick();
+                    setFocusItem(id);
+                    window.setTimeout(() => finishStep("focus"), 520);
+                  }}
                 />
-              </RevealBlock>
+              </Step>
             ) : null}
 
-            {effectiveFocus ? (
-              <RevealBlock>
-                <FieldTitle title={`「${focusLabel}」はどうでした？`} note="いくつでも" />
+            {isDone("food") && !ateNothing && effectiveFocus && (items.length === 1 || isDone("focus")) ? (
+              <Step
+                id="attrs"
+                title={`「${focusLabel}」はどうでした？`}
+                note="いくつでも"
+                summary={[...attrs.filter((a) => a !== "その他"), attrNote.trim()].filter(Boolean).join("・")}
+                done={isDone("attrs")}
+                editing={editingStep === "attrs"}
+                onEdit={() => setEditingStep("attrs")}
+                refs={stepRefs}
+                canFinish={attrs.length > 0 || attrNote.trim() !== ""}
+                onFinish={() => finishStep("attrs")}
+                multi
+              >
                 {attrChoices ? (
                   <ChipGrid
                     choices={[...attrChoices, { id: "その他", label: "その他" }]}
@@ -532,14 +657,25 @@ export function DemoSurvey() {
                   <ChoicesLoading />
                 )}
                 <FreeTextField value={attrNote} onChange={setAttrNote} />
-              </RevealBlock>
+              </Step>
             ) : null}
 
             {followup ? <FollowupCard followup={followup} onAnswer={answerFollowup} onSkip={() => setFollowup(null)} /> : null}
 
-            {ateNothing || attrs.length > 0 || attrNote.trim() ? (
-              <RevealBlock>
-                <FieldTitle title="スタッフの様子はどうでした？" note="いくつでも" />
+            {isDone("attrs") || (isDone("food") && ateNothing) ? (
+              <Step
+                id="service"
+                title="スタッフの様子はどうでした？"
+                note="いくつでも"
+                summary={labelsOf(SERVICE_CHOICES, service).join("・") || (service.includes("none") ? "特になし" : "")}
+                done={isDone("service")}
+                editing={editingStep === "service"}
+                onEdit={() => setEditingStep("service")}
+                refs={stepRefs}
+                canFinish={service.length > 0}
+                onFinish={() => finishStep("service")}
+                multi
+              >
                 <ChipGrid
                   choices={SERVICE_CHOICES}
                   selected={service}
@@ -549,12 +685,23 @@ export function DemoSurvey() {
                     setService((p) => (p.includes(id) ? p.filter((x) => x !== id) : id === "none" ? ["none"] : [...p.filter((x) => x !== "none"), id]));
                   }}
                 />
-              </RevealBlock>
+              </Step>
             ) : null}
 
-            {service.length > 0 ? (
-              <RevealBlock>
-                <FieldTitle title="お店の中はどうでした？" note="いくつでも" />
+            {isDone("service") ? (
+              <Step
+                id="atmosphere"
+                title="お店の中はどうでした？"
+                note="いくつでも"
+                summary={labelsOf(ATMOSPHERE_CHOICES, atmosphere).join("・") || (atmosphere.includes("none") ? "特になし" : "")}
+                done={isDone("atmosphere")}
+                editing={editingStep === "atmosphere"}
+                onEdit={() => setEditingStep("atmosphere")}
+                refs={stepRefs}
+                canFinish={atmosphere.length > 0}
+                onFinish={() => finishStep("atmosphere")}
+                multi
+              >
                 <ChipGrid
                   choices={ATMOSPHERE_CHOICES}
                   selected={atmosphere}
@@ -564,12 +711,23 @@ export function DemoSurvey() {
                     setAtmosphere((p) => (p.includes(id) ? p.filter((x) => x !== id) : id === "none" ? ["none"] : [...p.filter((x) => x !== "none"), id]));
                   }}
                 />
-              </RevealBlock>
+              </Step>
             ) : null}
 
-            {atmosphere.length > 0 ? (
-              <RevealBlock>
-                <FieldTitle title="良かったところがあれば教えてください" note="無ければ「特になし」で" />
+            {isDone("atmosphere") ? (
+              <Step
+                id="good"
+                title="良かったところがあれば教えてください"
+                note="無ければ「特になし」で"
+                summary={labelsOf(GOOD_CHOICES, good).join("・") || (good.includes("none") ? "特になし" : "")}
+                done={isDone("good")}
+                editing={editingStep === "good"}
+                onEdit={() => setEditingStep("good")}
+                refs={stepRefs}
+                canFinish={good.length > 0}
+                onFinish={() => finishStep("good")}
+                multi
+              >
                 <ChipGrid
                   choices={GOOD_CHOICES}
                   selected={good}
@@ -579,12 +737,23 @@ export function DemoSurvey() {
                     setGood((p) => (p.includes(id) ? p.filter((x) => x !== id) : id === "none" ? ["none"] : [...p.filter((x) => x !== "none"), id]));
                   }}
                 />
-              </RevealBlock>
+              </Step>
             ) : null}
 
-            {good.length > 0 ? (
-              <RevealBlock>
-                <FieldTitle title="気になったところがあれば教えてください" note="無ければ「特になし」で" />
+            {isDone("good") ? (
+              <Step
+                id="concern"
+                title="気になったところがあれば教えてください"
+                note="無ければ「特になし」で"
+                summary={[...labelsOf(CONCERN_CHOICES, concern), concernNote.trim()].filter(Boolean).join("・") || (concern.includes("none") ? "特になし" : "")}
+                done={isDone("concern")}
+                editing={editingStep === "concern"}
+                onEdit={() => setEditingStep("concern")}
+                refs={stepRefs}
+                canFinish={concern.length > 0}
+                onFinish={() => finishStep("concern")}
+                multi
+              >
                 <ChipGrid
                   choices={CONCERN_CHOICES}
                   selected={concern}
@@ -595,22 +764,36 @@ export function DemoSurvey() {
                   }}
                 />
                 <FreeTextField value={concernNote} onChange={setConcernNote} />
-              </RevealBlock>
+              </Step>
             ) : null}
 
-            {concern.length > 0 ? (
-              <RevealBlock>
-                <FieldTitle title="ほかに伝えたいことがあれば" note="なくても大丈夫です" />
+            {isDone("concern") ? (
+              <Step
+                id="message"
+                title="ほかに伝えたいことがあれば"
+                note="なくても大丈夫です"
+                summary={freeText.trim()}
+                done={isDone("message")}
+                editing={editingStep === "message"}
+                onEdit={() => setEditingStep("message")}
+                refs={stepRefs}
+                canFinish
+                finishLabel="書き終わった ↓"
+                onFinish={() => finishStep("message")}
+                multi
+              >
                 <FreeTextField value={freeText} onChange={setFreeText} rows={3} placeholder="そのままの言葉でどうぞ（任意）" />
-              </RevealBlock>
+              </Step>
             ) : null}
 
-            {/* フロー中の「次へ」は無い。最後にひとつだけ */}
-            <div className="flex w-full flex-col items-center pb-[var(--product-space-16)] pt-[var(--product-space-8)]">
-              <ReviewButton variant="primary" size="lg" disabled={!canFinish} onClick={() => { tick(); setPhase("draft"); }}>
-                この感想を仕上げる
-              </ReviewButton>
-            </div>
+            {/* 感想が成立するまでは出さない（常時disabledは「まだ終われない」圧になる） */}
+            {canFinish ? (
+              <div className="review-rise flex w-full flex-col items-center pb-[var(--product-space-16)] pt-[var(--product-space-8)]">
+                <ReviewButton variant="primary" size="lg" onClick={() => { tick(); setPhase("draft"); }}>
+                  この感想を仕上げる
+                </ReviewButton>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -653,43 +836,102 @@ export function DemoSurvey() {
   );
 }
 
-/** 回答済みの質問を短いsummaryへ畳む／再展開する容器 */
-function Q({
-  label,
+/**
+ * 質問ひとつぶんの容器（2026-08-28 修正仕様）。
+ *
+ * ・**single** … 選ぶと呼び出し側が短い間を置いて次へ送る
+ * ・**multiple** … 1つ選んでも進まない。**本人が「選び終わった ↓」を押すまで**その場に留まる
+ *   （「いくつでも選べます」と言いながら1つで送ると、1つ選べば終わりだと受け取られるため）
+ * ・終えた質問は**コンパクトな要約**になり、「変更」で再展開できる（選択状態は保持）
+ *
+ * 「選び終わった ↓」は右寄せの小さなアウトライン。**主CTAの強さは出さない**
+ * （フォーム送信・画面遷移に見せない）。
+ */
+function Step({
+  id,
+  title,
+  note,
   summary,
-  collapsed,
-  onToggle,
+  done,
+  editing,
+  onEdit,
+  refs,
+  multi,
+  canFinish,
+  onFinish,
+  finishLabel = "選び終わった ↓",
   children,
 }: {
-  label: string;
+  id: string;
+  title: string;
+  note?: string;
   summary: string;
-  collapsed: boolean;
-  onToggle: () => void;
+  done: boolean;
+  editing: boolean;
+  onEdit: () => void;
+  refs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
+  multi?: boolean;
+  canFinish?: boolean;
+  onFinish?: () => void;
+  finishLabel?: string;
   children: React.ReactNode;
 }) {
-  if (collapsed && summary) {
+  if (done && !editing) {
     return (
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-[var(--product-space-12)] rounded-[var(--product-radius-md)] border-[1.5px] border-solid px-[var(--product-space-16)] py-[var(--product-space-8)] text-left"
-        style={{ backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--product-color-border-default)" }}
+      <div
+        ref={(el) => {
+          refs.current[id] = el;
+        }}
+        className="flex w-full scroll-mt-[92px] items-center justify-between gap-[var(--product-space-12)]"
       >
         <span className="flex min-w-0 flex-col">
-          <span className="text-[11px] font-bold" style={{ color: "var(--product-color-text-secondary)" }}>{label}</span>
-          <span className="truncate text-[13px] font-medium" style={{ color: "var(--product-color-text-primary)" }}>{summary}</span>
+          <span className="text-[12px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            {title}
+          </span>
+          <span className="truncate text-[14px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+            {summary || "（未回答）"}
+          </span>
         </span>
-        <span className="shrink-0 text-[12px] font-bold" style={{ color: "var(--review-accent-primary)" }}>変更</span>
-      </button>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="flex h-11 shrink-0 items-center px-[var(--product-space-8)] text-[13px] font-bold"
+          style={{ color: "var(--review-accent-primary)" }}
+        >
+          変更
+        </button>
+      </div>
     );
   }
+
   return (
-    <div className="flex w-full flex-col gap-[var(--product-space-12)]">
+    <div
+      ref={(el) => {
+        refs.current[id] = el;
+      }}
+      className="review-rise flex w-full scroll-mt-[92px] flex-col gap-[var(--product-space-12)]"
+      style={{ scrollMarginBottom: 240 }}
+    >
+      <FieldTitle title={title} note={note} />
       {children}
-      {summary ? (
-        <button type="button" onClick={onToggle} className="self-start text-[12px] font-bold" style={{ color: "var(--product-color-text-muted)" }}>
-          畳む
-        </button>
+      {multi && canFinish ? (
+        <div className="review-rise flex w-full flex-col items-end gap-[var(--product-space-4)]">
+          <p className="w-full text-[12px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            ほかにも選べます。あとから変更できます
+          </p>
+          <button
+            type="button"
+            onClick={onFinish}
+            className="flex h-11 items-center justify-center rounded-[var(--product-radius-full)] border-[1.5px] border-solid px-[var(--product-space-16)] transition-transform active:scale-95"
+            style={{
+              borderColor: "var(--review-accent-light)",
+              backgroundColor: "var(--product-color-surface-white)",
+              color: "var(--review-accent-primary)",
+            }}
+          >
+            <span className="text-[13px] font-bold">{finishLabel}</span>
+          </button>
+        </div>
       ) : null}
     </div>
   );
@@ -711,27 +953,6 @@ function ChoicesLoading() {
           />
         ))}
       </span>
-    </div>
-  );
-}
-
-/** 新しく現れた質問ブロック。見出しが見える位置まで穏やかにスクロールする */
-function RevealBlock({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    // 器（最大220px）に隠れないよう、下端の余白を確保したうえで見出しを見せる
-    el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
-  }, []);
-  return (
-    <div
-      ref={ref}
-      className="review-rise flex w-full scroll-mt-[92px] flex-col gap-[var(--product-space-12)]"
-      style={{ scrollMarginBottom: 240 }}
-    >
-      {children}
     </div>
   );
 }
