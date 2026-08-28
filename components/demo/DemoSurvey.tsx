@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  BLOCKS,
   STORE_NAME,
   TONES,
   collectPicked,
   composeSentences,
-  visibleQuestions,
+  isBlockComplete,
+  visibleInBlock,
   type Answers,
+  type Block,
   type Question,
   type Texts,
   type Tone,
@@ -37,17 +40,7 @@ import { BackIcon, CheckMarkIcon, MicIcon, StopIcon } from "./icons";
 type Phase = "questions" | "draft" | "destination" | "done";
 type Destination = "google" | "store";
 
-const AUTO_ADVANCE_MS = 220;
 
-/**
- * 進捗の分母（2026-08-28）。
- *
- * 分岐で質問が増える設計のため、実際の問数をそのまま出すと**分母が増えていく**。
- * 「1/3」で始まって「5/7」になるのは、終わりが見えず体験として最悪。
- * そこで**見込みの問数で固定**し、最後の質問に着いたときだけ実数に補正する。
- * 途中で増えることはなく、終わりは必ず「7 / 7」で揃う（早く終わるぶんには気持ちがよい）。
- */
-const PLANNED_QUESTIONS = 7;
 
 /** 端末を短く震わせる（対応していない端末では何も起きない） */
 function tick() {
@@ -76,10 +69,10 @@ export function DemoSurvey() {
     aiDraftRef.current = aiDraft;
   }, [aiDraft]);
 
-  const questions = visibleQuestions(answers);
-  const current: Question | undefined = questions[index];
-  const isLastQuestion = index + 1 >= questions.length;
-  const total = isLastQuestion ? index + 1 : Math.max(PLANNED_QUESTIONS, questions.length);
+  const block: Block | undefined = BLOCKS[index];
+  const shownQuestions = block ? visibleInBlock(block, answers) : [];
+  const canProceed = block ? isBlockComplete(block, answers) : false;
+  const total = BLOCKS.length;
 
   // 質問中の器はこちら（即時・APIを呼ばない）。素材が集まっていく様子を見せる担当
   const composed = useMemo(
@@ -195,11 +188,13 @@ export function DemoSurvey() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
+  /**
+   * 画面を終える。**質問は次の画面へ進み、生成は後ろで進行する**
+   * （2026-08-28 天真「その画面の最後の質問に答えると生成が開始」）。
+   */
   function goNext(next: Answers) {
-    // 画面を進めるのと同時に、いま答えたぶんを書き足させる
-    void appendLive(next, texts, tone);
-    const list = visibleQuestions(next);
-    if (index + 1 >= list.length) {
+    if (block?.generates) void appendLive(next, texts, tone);
+    if (index + 1 >= BLOCKS.length) {
       setPhase("draft");
       setExpanded(true);
       return;
@@ -209,9 +204,7 @@ export function DemoSurvey() {
 
   function selectSingle(q: Question, choiceId: string) {
     tick();
-    const next = { ...answers, [q.id]: [choiceId] };
-    setAnswers(next);
-    window.setTimeout(() => goNext(next), AUTO_ADVANCE_MS);
+    setAnswers({ ...answers, [q.id]: [choiceId] });
   }
 
   function toggleMulti(q: Question, choiceId: string) {
@@ -233,11 +226,13 @@ export function DemoSurvey() {
     if (phase === "draft") {
       setPhase("questions");
       setExpanded(false);
-      setIndex(Math.max(questions.length - 1, 0));
+      setIndex(BLOCKS.length - 1);
       return;
     }
     if (index > 0) setIndex(index - 1);
   }
+
+  const answeredCount = index + 1;
 
   // 器を画面下に固定するのは質問中だけ。下書き画面では読むものが主役なので上に置く
   const stickyCanvas = phase === "questions";
@@ -276,7 +271,7 @@ export function DemoSurvey() {
               <div
                 className="h-full rounded-[var(--product-radius-full)] transition-[width] duration-300 ease-out"
                 style={{
-                  width: `${Math.round(((index + 1) / total) * 100)}%`,
+                  width: `${Math.round((answeredCount / total) * 100)}%`,
                   backgroundColor: "var(--review-accent-primary)",
                 }}
               />
@@ -285,28 +280,33 @@ export function DemoSurvey() {
               className="shrink-0 text-xs font-bold tabular-nums"
               style={{ color: "var(--product-color-text-secondary)" }}
             >
-              {index + 1} / {total}
+              {answeredCount} / {total}
             </p>
           </div>
         ) : null}
       </div>
 
       {/* 器のぶんの余白を本文側で確保する（固定要素に中身を隠させない） */}
-      <div className={stickyCanvas ? "flex w-full flex-1 flex-col pb-[148px]" : "flex w-full flex-1 flex-col"}>
-        {phase === "questions" && current ? (
-          <QuestionStep
-            key={current.id}
-            question={current}
-            selected={answers[current.id] ?? []}
-            text={texts[current.id] ?? ""}
-            onSelectSingle={(cid) => selectSingle(current, cid)}
-            onToggleMulti={(cid) => toggleMulti(current, cid)}
-            onChangeText={(v) => setTexts({ ...texts, [current.id]: v })}
+      <div className={stickyCanvas ? "flex w-full flex-1 flex-col pb-[168px]" : "flex w-full flex-1 flex-col"}>
+        {phase === "questions" && block ? (
+          <BlockStep
+            key={block.id}
+            block={block}
+            questions={shownQuestions}
+            answers={answers}
+            texts={texts}
+            canProceed={canProceed}
+            onSelectSingle={selectSingle}
+            onToggleMulti={toggleMulti}
+            onChangeText={(qid, v) => setTexts({ ...texts, [qid]: v })}
             onConfirm={() => goNext(answers)}
             onSkip={() => {
-              const next = { ...answers, [current.id]: [] };
-              setAnswers(next);
-              goNext(next);
+              const cleared = { ...answers };
+              block.questions.forEach((question) => {
+                if ((cleared[question.id] ?? []).length === 0) cleared[question.id] = [];
+              });
+              setAnswers(cleared);
+              goNext(cleared);
             }}
           />
         ) : null}
@@ -364,42 +364,112 @@ export function DemoSurvey() {
   );
 }
 
-function QuestionStep({
-  question,
-  selected,
-  text,
+/**
+ * 1画面ぶんの質問（2026-08-28「1画面1生成」）。
+ *
+ * **前の質問に答えると、次の質問がふわっと現れる。** 一度に全部見せない。
+ * 最後の質問まで答えると「次へ」が押せるようになり、押した時点で
+ * この画面ぶんの文章が書き足される。
+ */
+function BlockStep({
+  block,
+  questions,
+  answers,
+  texts,
+  canProceed,
   onSelectSingle,
   onToggleMulti,
   onChangeText,
   onConfirm,
   onSkip,
 }: {
-  question: Question;
-  selected: string[];
-  text: string;
-  onSelectSingle: (choiceId: string) => void;
-  onToggleMulti: (choiceId: string) => void;
-  onChangeText: (value: string) => void;
+  block: Block;
+  questions: Question[];
+  answers: Answers;
+  texts: Texts;
+  canProceed: boolean;
+  onSelectSingle: (q: Question, choiceId: string) => void;
+  onToggleMulti: (q: Question, choiceId: string) => void;
+  onChangeText: (questionId: string, value: string) => void;
   onConfirm: () => void;
   onSkip: () => void;
 }) {
-  const [recording, setRecording] = useState(false);
-
   return (
-    <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-16)] px-[var(--product-space-20)] pt-[var(--product-space-20)]">
+    <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pt-[var(--product-space-20)]">
       <div className="flex w-full flex-col gap-[var(--product-space-4)]">
         <h1
           className="text-xl font-bold leading-[1.5] tracking-[0.2px]"
           style={{ color: "var(--product-color-text-primary)" }}
         >
-          {question.title}
+          {block.title}
         </h1>
-        {question.note ? (
+        {block.note ? (
           <p className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-            {question.note}
+            {block.note}
           </p>
         ) : null}
       </div>
+
+      {questions.map((question, qi) => (
+        <QuestionField
+          key={question.id}
+          question={question}
+          first={qi === 0}
+          selected={answers[question.id] ?? []}
+          text={texts[question.id] ?? ""}
+          onSelectSingle={(cid) => onSelectSingle(question, cid)}
+          onToggleMulti={(cid) => onToggleMulti(question, cid)}
+          onChangeText={(v) => onChangeText(question.id, v)}
+        />
+      ))}
+
+      <div className="flex w-full flex-col items-center gap-[var(--product-space-4)] pb-[var(--product-space-8)] pt-[var(--product-space-8)]">
+        <ReviewButton variant="primary" size="lg" disabled={!canProceed} onClick={onConfirm}>
+          次へ
+        </ReviewButton>
+        <button
+          type="button"
+          onClick={onSkip}
+          className="flex h-11 items-center justify-center px-[var(--product-space-16)] text-[13px] font-medium"
+          style={{ color: "var(--product-color-text-muted)" }}
+        >
+          スキップ
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** 質問ひとつぶん（見出し＋選択肢＋任意のテキスト欄） */
+function QuestionField({
+  question,
+  first,
+  selected,
+  text,
+  onSelectSingle,
+  onToggleMulti,
+  onChangeText,
+}: {
+  question: Question;
+  first: boolean;
+  selected: string[];
+  text: string;
+  onSelectSingle: (choiceId: string) => void;
+  onToggleMulti: (choiceId: string) => void;
+  onChangeText: (value: string) => void;
+}) {
+  const [recording, setRecording] = useState(false);
+
+  return (
+    <div className={`flex w-full flex-col gap-[var(--product-space-12)] ${first ? "" : "review-rise"}`}>
+      <p className="text-[15px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+        {question.title}
+        {question.note ? (
+          <span className="pl-[var(--product-space-8)] text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            {question.note}
+          </span>
+        ) : null}
+      </p>
 
       <div className="flex w-full flex-col gap-[var(--product-space-8)]">
         {question.choices.map((choice, i) => {
@@ -412,7 +482,7 @@ function QuestionStep({
               onClick={() => (question.kind === "single" ? onSelectSingle(choice.id) : onToggleMulti(choice.id))}
               className="review-rise flex w-full items-center gap-[var(--product-space-12)] rounded-[var(--product-radius-md)] border-solid px-[var(--product-space-16)] py-[var(--product-space-12)] text-left transition-transform duration-100 active:scale-[0.975]"
               style={{
-                animationDelay: `${i * 40}ms`,
+                animationDelay: `${i * 35}ms`,
                 minHeight: "var(--product-touch-min)",
                 backgroundColor: isSelected ? "var(--review-accent-wash)" : "var(--product-color-surface-white)",
                 borderWidth: isSelected ? 2 : 1.5,
@@ -446,55 +516,37 @@ function QuestionStep({
       </div>
 
       {question.freeText ? (
-        <div className="flex w-full flex-col gap-[var(--product-space-8)]">
-          <div className="relative w-full">
-            <textarea
-              id={`text-${question.id}`}
-              value={text}
-              onChange={(e) => onChangeText(e.target.value)}
-              rows={2}
-              placeholder="ほかにあれば、そのままの言葉で（任意）"
-              className="w-full resize-none rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-12)] pr-[56px] text-[15px]"
-              style={{
-                backgroundColor: "var(--product-color-surface-white)",
-                borderColor: "var(--product-color-border-default)",
-                color: "var(--product-color-text-primary)",
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                tick();
-                setRecording(!recording);
-              }}
-              aria-label={recording ? "録音を停止" : "音声で入力"}
-              className="absolute right-[var(--product-space-8)] top-[var(--product-space-8)] flex size-11 items-center justify-center rounded-[var(--product-radius-full)] transition-transform active:scale-90"
-              style={{
-                backgroundColor: recording ? "var(--review-accent-primary)" : "var(--review-accent-wash)",
-                color: recording ? "var(--review-accent-on-primary)" : "var(--review-accent-primary)",
-              }}
-            >
-              {recording ? <StopIcon className="size-4" /> : <MicIcon className="size-5" />}
-            </button>
-          </div>
+        <div className="relative w-full">
+          <textarea
+            id={`text-${question.id}`}
+            value={text}
+            onChange={(e) => onChangeText(e.target.value)}
+            rows={2}
+            placeholder="ほかにあれば、そのままの言葉で（任意）"
+            className="w-full resize-none rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-12)] pr-[56px] text-[15px]"
+            style={{
+              backgroundColor: "var(--product-color-surface-white)",
+              borderColor: "var(--product-color-border-default)",
+              color: "var(--product-color-text-primary)",
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              tick();
+              setRecording(!recording);
+            }}
+            aria-label={recording ? "録音を停止" : "音声で入力"}
+            className="absolute right-[var(--product-space-8)] top-[var(--product-space-8)] flex size-11 items-center justify-center rounded-[var(--product-radius-full)] transition-transform active:scale-90"
+            style={{
+              backgroundColor: recording ? "var(--review-accent-primary)" : "var(--review-accent-wash)",
+              color: recording ? "var(--review-accent-on-primary)" : "var(--review-accent-primary)",
+            }}
+          >
+            {recording ? <StopIcon className="size-4" /> : <MicIcon className="size-5" />}
+          </button>
         </div>
       ) : null}
-
-      <div className="flex w-full flex-col items-center gap-[var(--product-space-4)] pb-[var(--product-space-8)]">
-        {question.kind === "multi" ? (
-          <ReviewButton variant="primary" size="lg" disabled={selected.length === 0} onClick={onConfirm}>
-            次へ
-          </ReviewButton>
-        ) : null}
-        <button
-          type="button"
-          onClick={onSkip}
-          className="flex h-11 items-center justify-center px-[var(--product-space-16)] text-[13px] font-medium"
-          style={{ color: "var(--product-color-text-muted)" }}
-        >
-          スキップ
-        </button>
-      </div>
     </div>
   );
 }

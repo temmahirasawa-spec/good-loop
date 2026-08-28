@@ -44,6 +44,27 @@ export type Question = {
   showIf?: (a: Answers) => boolean;
 };
 
+/**
+ * 画面のまとまり（2026-08-28、天真「1画面1質問ではなく**1画面1生成**」）。
+ *
+ * 星ひとつ答えただけで文章を書き始めると「今日は大変満足のいく体験をさせてもらいました」
+ * のような**勝手な文章**が出る。ユーザーは自分の言葉だと思えない。
+ *
+ * そこで **1文か2文を自然に書くのに足るだけの質問を1画面にまとめ**、
+ * その画面を終えたときに生成を始める。質問は次の画面へ進み、生成は後ろで進行する。
+ *
+ * 画面の中では、**前の質問に答えると次の質問が現れる**（一度に全部見せない）。
+ * 「次々に現れる」軽さは保ったまま、生成の単位だけを意味のあるまとまりにする。
+ */
+export type Block = {
+  id: string;
+  title: string;
+  note?: string;
+  questions: Question[];
+  /** この画面を終えたときに文章を書き足すか（材料にならない画面は false） */
+  generates: boolean;
+};
+
 export type Answers = Record<string, string[]>;
 export type Texts = Record<string, string>;
 
@@ -52,7 +73,6 @@ export const STORE_NAME = "YORKYS BRUNCH 夙川";
 /** 1問あたりの体感（進捗の「あと約◯秒」に使う） */
 export const SECONDS_PER_QUESTION = 4;
 
-const has = (a: Answers, qid: string, cid: string) => (a[qid] ?? []).includes(cid);
 const ratingOf = (a: Answers): number => Number((a.rating ?? [])[0] ?? 0);
 
 export const QUESTIONS: Question[] = [
@@ -79,31 +99,17 @@ export const QUESTIONS: Question[] = [
     ],
   },
   {
-    id: "topics",
-    title: "特に印象に残ったのは？",
-    note: "いくつでも選べます",
-    kind: "multi",
-    choices: [
-      { id: "food", label: "料理", sentences: [] },
-      { id: "drink", label: "ドリンク", sentences: [] },
-      { id: "service", label: "接客", sentences: [] },
-      { id: "atmosphere", label: "お店の雰囲気", sentences: [] },
-      { id: "wait", label: "待ち時間", sentences: [] },
-      { id: "price", label: "値段", sentences: [] },
-    ],
-  },
-  {
     id: "dish",
     title: "今日召し上がったものは？",
     note: "いくつでも選べます",
     kind: "multi",
-    showIf: (a) => has(a, "topics", "food"),
     choices: [
       { id: "pancake", label: "パンケーキ", sentences: ["パンケーキ"] },
       { id: "frenchtoast", label: "フレンチトースト", sentences: ["フレンチトースト"] },
       { id: "eggsbenedict", label: "エッグベネディクト", sentences: ["エッグベネディクト"] },
       { id: "pasta", label: "パスタ", sentences: ["パスタ"] },
-      { id: "other", label: "そのほか", sentences: ["料理"] },
+        { id: "other", label: "そのほか", sentences: ["料理"] },
+      { id: "nothing", label: "食べていない", sentences: [] },
     ],
   },
   {
@@ -112,7 +118,7 @@ export const QUESTIONS: Question[] = [
     note: "いくつでも選べます",
     kind: "multi",
     freeText: true,
-    showIf: (a) => (a.dish ?? []).length > 0,
+    showIf: (a) => (a.dish ?? []).filter((v) => v !== "nothing").length > 0,
     choices: [
       { id: "fluffy", label: "ふわふわだった", sentences: ["生地がふわふわでした", "驚くほどふわふわの生地でした", "ふわっとした食感が印象的でした"], casual: ["生地がふわっふわ", "びっくりするくらいふわふわ", "ふわっとした食感がよかった"] },
       { id: "melt", label: "口の中で溶けた", sentences: ["口の中で溶けるような食感でした", "口に入れるとすっと溶けていきました", "とろけるような口当たりでした"], casual: ["口の中で溶ける感じ", "口に入れるとすっと溶けた", "とろけるような口当たり"] },
@@ -128,8 +134,9 @@ export const QUESTIONS: Question[] = [
     note: "いくつでも選べます",
     kind: "multi",
     freeText: true,
-    showIf: (a) => has(a, "topics", "service") && (a.dish ?? []).length === 0,
+
     choices: [
+      { id: "none", label: "特になし", sentences: [] },
       { id: "kind", label: "感じがよかった", sentences: ["スタッフの方の感じがよかったです", "接客が感じよかったです", "スタッフの方の対応が心地よかったです"], casual: ["スタッフさんの感じがよかった", "接客が感じよかった", "対応が心地よかった"] },
       { id: "explain", label: "説明が分かりやすい", sentences: ["説明が分かりやすかったです", "メニューの説明も丁寧でした", "分かりやすく案内していただきました"], casual: ["説明が分かりやすかった", "メニューの説明も丁寧", "分かりやすく案内してくれた"] },
       { id: "quick", label: "対応が早い", sentences: ["対応が早かったです", "動きがてきぱきしていました", "対応がスムーズでした"], casual: ["対応が早かった", "動きがてきぱきしてた", "対応がスムーズ"] },
@@ -142,9 +149,9 @@ export const QUESTIONS: Question[] = [
     note: "いくつでも選べます",
     kind: "multi",
     freeText: true,
-    showIf: (a) =>
-      has(a, "topics", "atmosphere") && (a.dish ?? []).length === 0 && !has(a, "topics", "service"),
+
     choices: [
+      { id: "none", label: "特になし", sentences: [] },
       { id: "calm", label: "落ち着いて過ごせた", sentences: ["落ち着いて過ごせました", "ゆっくりと過ごせる空間でした", "静かに過ごせました"], casual: ["落ち着いて過ごせた", "ゆっくりできる空間", "静かに過ごせた"] },
       { id: "roomy", label: "席がゆったり", sentences: ["席がゆったりしていました", "席の間隔にゆとりがありました", "ゆったりとした席でした"], casual: ["席がゆったりしてた", "席の間隔にゆとりがあった", "ゆったりした席"] },
       { id: "clean", label: "清潔だった", sentences: ["店内も清潔でした", "店内はきれいに保たれていました", "清潔感がありました"], casual: ["店内も清潔", "店内はきれいに保たれてた", "清潔感があった"] },
@@ -157,7 +164,7 @@ export const QUESTIONS: Question[] = [
     note: "無ければ「特になし」で大丈夫です",
     kind: "multi",
     freeText: true,
-    showIf: (a) => ratingOf(a) >= 4,
+
     choices: [
       { id: "none", label: "特になし", sentences: [] },
       { id: "wait", label: "待ち時間", sentences: ["待ち時間は少し長く感じました", "待ち時間はやや気になりました", "少し待つ時間がありました"], casual: ["待ち時間は少し長く感じた", "待ち時間はちょっと気になった", "少し待つ時間があった"] },
@@ -172,7 +179,7 @@ export const QUESTIONS: Question[] = [
     note: "無ければ「特になし」で大丈夫です",
     kind: "multi",
     freeText: true,
-    showIf: (a) => ratingOf(a) > 0 && ratingOf(a) <= 3,
+    showIf: (a) => ratingOf(a) <= 3,
     choices: [
       { id: "none", label: "特になし", sentences: [] },
       { id: "taste", label: "料理の味", sentences: ["料理の味は良かったです", "味そのものは満足できました"], casual: ["料理の味はよかった", "味そのものは満足"] },
@@ -183,9 +190,73 @@ export const QUESTIONS: Question[] = [
   },
 ];
 
-/** いま出すべき質問だけを返す */
-export function visibleQuestions(answers: Answers): Question[] {
-  return QUESTIONS.filter((q) => !q.showIf || q.showIf(answers));
+const q = (id: string): Question => {
+  const found = QUESTIONS.find((x) => x.id === id);
+  if (!found) throw new Error(`question not found: ${id}`);
+  return found;
+};
+
+/**
+ * 画面の並び（2026-08-28、「1画面1生成」）。
+ *
+ * 1画面 ＝ 1文か2文を自然に書けるだけの材料。
+ * 最初の画面だけは生成しない（★と来店回数だけでは、書けることが「初めて伺いました」しかなく、
+ * 星から気持ちを推測させると勝手な文章になるため）。
+ */
+export const BLOCKS: Block[] = [
+  {
+    id: "visit",
+    title: "まず、今日のことを教えてください",
+    questions: [q("rating"), q("visit")],
+    generates: true,
+  },
+  {
+    id: "food",
+    title: "お料理はいかがでしたか？",
+    questions: [q("dish"), q("dish_detail")],
+    generates: true,
+  },
+  {
+    id: "store",
+    title: "お店の様子はいかがでしたか？",
+    note: "当てはまるものが無ければ「特になし」で大丈夫です",
+    questions: [q("service_detail"), q("atmosphere_detail")],
+    generates: true,
+  },
+  {
+    id: "concern",
+    title: "気になったことはありますか？",
+    note: "無ければ「特になし」で大丈夫です",
+    questions: [q("concern"), q("positive")],
+    generates: true,
+  },
+];
+
+/** その画面で、いま出すべき質問（前の質問に答えると次が現れる） */
+export function visibleInBlock(block: Block, answers: Answers): Question[] {
+  const out: Question[] = [];
+  for (const question of block.questions) {
+    if (question.showIf && !question.showIf(answers)) continue;
+    out.push(question);
+    // 未回答の質問が出たら、その先はまだ見せない
+    if ((answers[question.id] ?? []).length === 0) break;
+  }
+  return out;
+}
+
+/** その画面を先へ進められるか（最後の質問まで答えたか） */
+export function isBlockComplete(block: Block, answers: Answers): boolean {
+  const shown = visibleInBlock(block, answers);
+  const last = shown[shown.length - 1];
+  if (!last) return false;
+  const answered = (answers[last.id] ?? []).length > 0;
+  if (!answered) return false;
+  // まだ現れていない質問が残っていれば未完
+  const next = block.questions.find(
+    (question) =>
+      !shown.includes(question) && (!question.showIf || question.showIf(answers))
+  );
+  return !next;
 }
 
 /**
@@ -289,11 +360,11 @@ export function composeSentences(answers: Answers, texts: Texts, opts: DraftOpti
 /**
  * AIに渡す材料を集める（選んだ内容と、本人が書いた言葉）。
  *
- * **分岐のためだけの質問は材料に含めない**（2026-08-28）。
- * 「特に印象に残ったのは？」は次に出す質問を決めるための問いなので、
- * これを材料に渡すと「料理と接客が印象に残りました」というメタな文が生まれてしまう。
+ * **文章の材料にならない質問は渡さない**（2026-08-28）。
+ * ★の総合評価はそのひとつ。星から気持ちを推測させると
+ * 「今日は大変満足のいく体験をさせてもらいました」のような**勝手な文章**になる（天真の指摘）。
  */
-const ROUTING_ONLY = new Set(["topics"]);
+const ROUTING_ONLY = new Set(["rating"]);
 
 export function collectPicked(answers: Answers, texts: Texts) {
   const picked = QUESTIONS.filter((q) => !ROUTING_ONLY.has(q.id)).map((q) => ({
@@ -307,6 +378,5 @@ export function collectPicked(answers: Answers, texts: Texts) {
     .map((v) => v.trim())
     .filter((v) => v !== "");
 
-  const rating = Number((answers.rating ?? [])[0] ?? 0) || null;
-  return { rating, picked, written };
+  return { rating: null, picked, written };
 }
