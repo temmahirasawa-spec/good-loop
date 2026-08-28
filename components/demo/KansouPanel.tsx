@@ -44,7 +44,7 @@ export function KansouPanel({
     <div
       className="pointer-events-auto relative flex w-full flex-col rounded-t-[var(--product-radius-lg)] border-t-[1.5px] border-solid px-[var(--product-space-20)] pb-[var(--product-space-12)] pt-[var(--product-space-4)] transition-[max-height] duration-300"
       style={{
-        maxHeight: expanded ? "55dvh" : count > 0 ? 200 : 68,
+        maxHeight: expanded ? "55dvh" : count > 0 ? 200 : 84,
         backgroundColor: "color-mix(in srgb, var(--product-color-surface-white) 72%, transparent)",
         backdropFilter: "blur(20px) saturate(180%)",
         WebkitBackdropFilter: "blur(20px) saturate(180%)",

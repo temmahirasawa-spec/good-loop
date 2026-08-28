@@ -185,10 +185,16 @@ export function kansouGroups(signals: Signal[]): KansouGroup[] {
   const concerns: MaterialChip[] = [];
   const words: MaterialChip[] = [];
 
+  // 品が選ばれているカテゴリは、カテゴリのタグを出さない（品名と二重になるため）。
+  // ⚠ 品が無い間はカテゴリを**必ず出す**。ここを省くと「タグが飛ぶのに器に入らない」矛盾になる
+  //   （2026-08-28 実機バグ。カテゴリだけ選んだ時点で器が空のままだった）
+  const itemLabels = new Set(signals.filter((s) => s.id.startsWith("item:")).map((s) => s.itemLabel ?? ""));
   for (const s of signals) {
     const chip: MaterialChip = { id: s.id, label: s.provisional || s.label, polarity: s.polarity };
     if (s.id.startsWith("item:")) food.push({ ...chip, label: s.label, lead: true });
-    else if (s.id.startsWith("cat:")) continue; // 品まで選ばれるのでカテゴリは出さない
+    else if (s.id.startsWith("cat:")) {
+      if (s.includeInDraft !== false || itemLabels.size === 0) food.push({ ...chip, lead: true });
+    }
     else if (s.id.startsWith("attr:") || s.id === "free:attr" || s.id.startsWith("followup:1")) food.push(chip);
     else if (s.id.startsWith("service:")) service.push(chip);
     else if (s.id.startsWith("atmosphere:")) space.push(chip);
