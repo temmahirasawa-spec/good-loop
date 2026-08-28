@@ -151,17 +151,33 @@ export const VISIT_CHOICES: Choice[] = [
   { id: "regular", label: "常連" },
 ];
 
-/** 料理の感想（事実型）。「その他」はAI追質問の引き金になる */
-export const ATTR_CHOICES: Choice[] = [
-  { id: "fluffy", label: "ふわふわだった" },
-  { id: "melt", label: "口の中で溶けた" },
-  { id: "looks", label: "見た目がきれい" },
-  { id: "amount", label: "量がちょうどよい" },
-  { id: "warm", label: "できたてで温かい" },
-  { id: "rich", label: "味が濃厚" },
-  { id: "sweetness", label: "甘さがちょうどよい" },
-  { id: "other", label: "その他" },
-];
+/**
+ * 品の感想の選択肢は**AIが品名から作る**（/api/demo/draft の mode: "choices"）。
+ * ここにあるのは**AIが落ちたときのカテゴリ別の退避リスト**。
+ * 固定リスト1本だと「グリーンサラダボウルに『ふわふわだった』」が出る（2026-08-28 天真の指摘）。
+ */
+export const ATTR_FALLBACK: Record<string, string[]> = {
+  pancake: ["ふわふわだった", "口の中で溶けた", "見た目がきれい", "量がちょうどよい", "甘さがちょうどよい", "できたてで温かい"],
+  frenchtoast: ["しっとりしていた", "甘さがちょうどよい", "見た目がきれい", "量がちょうどよい", "できたてで温かい"],
+  toast: ["パンが香ばしい", "具がたっぷり", "見た目がきれい", "量がちょうどよい"],
+  benedict: ["ソースがおいしい", "卵がとろとろ", "見た目がきれい", "量がちょうどよい"],
+  burger: ["ボリュームがある", "バンズがおいしい", "素材の味がいい", "見た目がきれい"],
+  "pizza-pasta": ["味付けがよい", "生地・麺の食感がよい", "素材の味がいい", "量がちょうどよい", "できたてで温かい"],
+  rice: ["味付けがよい", "ボリュームがある", "見た目がきれい", "できたてで温かい"],
+  "salad-bowl": ["野菜が新鮮", "彩りがきれい", "量がちょうどよい", "ドレッシングがおいしい", "さっぱりしている"],
+  drink: ["香りがよい", "温度がちょうどよい", "甘さがちょうどよい", "見た目がきれい"],
+};
+
+export function fallbackAttrsFor(itemId: string): string[] {
+  for (const category of MENU) {
+    if (category.items.some((i) => i.id === itemId)) return ATTR_FALLBACK[category.id] ?? ATTR_FALLBACK.pancake;
+  }
+  return ATTR_FALLBACK.pancake;
+}
+
+export function categoryOf(itemId: string): MenuCategory | undefined {
+  return MENU.find((c) => c.items.some((i) => i.id === itemId));
+}
 
 export const SERVICE_CHOICES: Choice[] = [
   { id: "none", label: "特になし" },

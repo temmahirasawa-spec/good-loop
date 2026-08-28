@@ -54,8 +54,13 @@ export const LIVE_SYSTEM_PROMPT = `あなたは、お客様がアンケートで
 絶対に守ること:
 - **すでに書いた文章は繰り返さない。続きの文だけを出力する**
 - 新しく選ばれた内容だけを使う。**材料に無いことは一切書かない**
+- **材料がひとつだけなら、1文だけ書く**（例：来店回数だけなら「何度か利用しています。」で終わる。
+  お店の対応・料理・雰囲気など、材料に無いことを付け足して膨らませない）
+- **材料に無いのに、お店や料理や接客を褒めない・けなさない**
 - 場面や状況を勝手に作らない（「ゆっくり過ごしながら」「友人と」など）
 - 選ばれていない感情・評価・再訪意向を書かない（「大満足」「また来たい」など）
+- 「参考」として総合評価が渡された場合、**評価そのものは書かず**、評価と矛盾する
+  明るさ・褒め言葉・不満も書かない（★2の人の文章に褒め言葉を足さない）
 - **1〜2文だけ**。長く書かない
 - 前の文と自然につながるようにする（接続詞を使ってよい）
 - 前置き・説明・カギ括弧を付けない。続きの文そのものだけを出力する`;
@@ -109,7 +114,11 @@ export function pickWritingHint(seed: number): string {
 export function buildDraftUserPrompt(input: DraftInput, seed: number): string {
   const lines: string[] = [];
 
-  if (input.rating) lines.push(`総合評価: ★${input.rating}`);
+  if (input.rating) {
+    lines.push(
+      `参考: 総合評価は★${input.rating}。評価そのものは書かない。評価と矛盾する褒め言葉や不満も書かない。`
+    );
+  }
   for (const group of input.picked) {
     if (group.values.length > 0) lines.push(`${group.question}: ${group.values.join("、")}`);
   }
@@ -140,10 +149,15 @@ export function buildLiveUserPrompt(
   written: string,
   newValues: { question: string; values: string[] }[],
   freeText: string[],
-  tone: "normal" | "casual"
+  tone: "normal" | "casual",
+  rating: number | null
 ): string {
   const lines: string[] = [];
   lines.push(written ? `ここまで書いた文章:\n${written}` : "ここまで書いた文章: （まだありません）");
+  if (rating) {
+    // ★は材料ではなくガードレール。書かせず、矛盾するトーンだけを防ぐ
+    lines.push(`参考: 総合評価は★${rating}。評価そのものは書かない。評価と矛盾する褒め言葉や不満も書かない。`);
+  }
   lines.push("");
   lines.push("新しく選ばれた内容:");
   for (const group of newValues) {
@@ -217,4 +231,30 @@ export function buildFollowupUserPrompt(
     "low-rating-unclear": "評価が低いのに、何が悪かったのかが選ばれていない",
   };
   return `ここまでの回答:\n${context}\n\n足りない情報: ${why[reason]}\n\nこの情報を補うための質問をひとつ、JSONで出力してください。`;
+}
+
+/**
+ * 品の感想の選択肢をAIが作る（2026-08-28 天真「サラダにふわふわが出る。AI走ってない」への対応）。
+ *
+ * これが「質問設計にAIを使う」の最小の実体。品名から、その品に**実際に起こりうる事実**だけを
+ * 選択肢にする。本番では店舗のメニュー説明・注文データも材料になる。
+ */
+export const CHOICES_MODEL = LIVE_MODEL;
+export const CHOICES_MAX_TOKENS = 300;
+
+export const CHOICES_SYSTEM_PROMPT = `あなたは、飲食店のアンケートの選択肢を設計します。
+渡された料理・ドリンクについて、お客様が「そうそう、これ」とタップできる感想の選択肢を作ります。
+
+絶対に守ること:
+- **その品で実際に起こりうる事実だけ**にする（サラダに「ふわふわ」を出さない）
+- 事実型にする。「感動した」「幸せ」のような感情の言葉や、個性的すぎる言い回しは使わない
+- 良い/悪いの方向へ誘導しない。中立の事実にする（「新鮮だった」は可。「最高だった」は不可）
+- 宣伝文句・検索ワードのような言葉を入れない
+- 各選択肢は12文字以内
+
+出力は次のJSONだけ（前置き・説明・コードブロック記号は付けない）:
+{"choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4", "選択肢5", "選択肢6"]}`;
+
+export function buildChoicesUserPrompt(itemLabel: string, categoryLabel: string): string {
+  return `品名: ${itemLabel}（カテゴリ: ${categoryLabel}）\n\nこの品の感想の選択肢を6個、JSONで出力してください。`;
 }

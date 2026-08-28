@@ -1,10 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import {
+  CHOICES_MAX_TOKENS,
+  CHOICES_MODEL,
+  CHOICES_SYSTEM_PROMPT,
   DRAFT_MAX_TOKENS,
   FOLLOWUP_FALLBACK,
   FOLLOWUP_MAX_TOKENS,
   FOLLOWUP_MODEL,
   FOLLOWUP_SYSTEM_PROMPT,
+  buildChoicesUserPrompt,
   buildFollowupUserPrompt,
   type FollowupReason,
   DRAFT_MODEL,
@@ -34,6 +38,14 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** モデルがコードフェンスや前置きを付けてもJSONを取り出す */
+function extractJson(text: string): unknown {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error("no json");
+  return JSON.parse(text.slice(start, end + 1));
+}
+
 export async function POST(req: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return new Response("ANTHROPIC_API_KEY が設定されていません", { status: 503 });
@@ -42,13 +54,41 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as
     | (DraftInput & {
         seed?: number;
-        mode?: "live" | "final" | "followup";
+        mode?: "live" | "final" | "followup" | "choices";
         written_so_far?: string;
         reason?: FollowupReason;
+        itemLabel?: string;
+        categoryLabel?: string;
       })
     | null;
   if (!body || !Array.isArray(body.picked)) {
     return new Response("invalid request body", { status: 400 });
+  }
+
+  // 品の感想の選択肢を作る（品名に合った事実型だけ。サラダに「ふわふわ」を出さない）
+  if (body.mode === "choices") {
+    const anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    try {
+      const message = await anthropicClient.messages.create(
+        {
+          model: CHOICES_MODEL,
+          max_tokens: CHOICES_MAX_TOKENS,
+          system: CHOICES_SYSTEM_PROMPT,
+          messages: [
+            { role: "user", content: buildChoicesUserPrompt(body.itemLabel ?? "", body.categoryLabel ?? "") },
+          ],
+        },
+        { timeout: 6000, maxRetries: 0 }
+      );
+      const block = message.content.find((b) => b.type === "text");
+      const parsed = extractJson(block && "text" in block ? block.text : "") as { choices?: unknown };
+      if (Array.isArray(parsed.choices) && parsed.choices.every((c) => typeof c === "string") && parsed.choices.length >= 3) {
+        return Response.json({ choices: parsed.choices.slice(0, 8) });
+      }
+      throw new Error("unexpected shape");
+    } catch {
+      return Response.json({ choices: null }); // クライアント側がカテゴリ別の固定リストに退避する
+    }
   }
 
   // AI追質問（docs/specs/survey-v2.md 追記参照）。ストリーミング不要なのでJSONで返す
@@ -66,7 +106,7 @@ export async function POST(req: Request) {
         { timeout: 6000, maxRetries: 0 }
       );
       const block = message.content.find((b) => b.type === "text");
-      const parsed = JSON.parse(block && "text" in block ? block.text : "") as {
+      const parsed = extractJson(block && "text" in block ? block.text : "") as {
         question?: unknown;
         choices?: unknown;
       };
@@ -102,7 +142,7 @@ export async function POST(req: Request) {
             {
               role: "user",
               content: live
-                ? buildLiveUserPrompt(body.written_so_far ?? "", body.picked, body.written, body.tone)
+                ? buildLiveUserPrompt(body.written_so_far ?? "", body.picked, body.written, body.tone, body.rating)
                 : buildDraftUserPrompt(body, body.seed ?? 1),
             },
           ],

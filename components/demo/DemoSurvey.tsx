@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ATMOSPHERE_CHOICES,
-  ATTR_CHOICES,
   CHAPTERS,
   CONCERN_CHOICES,
   EAT_NOTHING_ID,
@@ -14,6 +13,8 @@ import {
   STORE_NAME,
   TONES,
   VISIT_CHOICES,
+  categoryOf,
+  fallbackAttrsFor,
   findItem,
   labelsOf,
   type Choice,
@@ -90,9 +91,53 @@ export function DemoSurvey() {
   }, [aiDraft]);
 
   const ratingNum = Number(rating ?? 0);
+
+  /**
+   * 品の感想の選択肢。**品名からAIが作る**（落ちたらカテゴリ別の退避リスト）。
+   * 選択肢の id はラベルそのもの（AI生成のため固定 id が無い）。
+   */
+  const [attrChoices, setAttrChoices] = useState<Choice[] | null>(null);
+  const attrCacheRef = useRef<Map<string, string[]>>(new Map());
   const ateNothing = categories.includes(EAT_NOTHING_ID);
   const effectiveFocus = items.length === 1 ? items[0] : focusItem;
   const focusLabel = effectiveFocus ? findItem(effectiveFocus)?.label ?? "" : "";
+
+  useEffect(() => {
+    if (!effectiveFocus) {
+      setAttrChoices(null);
+      return;
+    }
+    setAttrs([]);
+    const cached = attrCacheRef.current.get(effectiveFocus);
+    if (cached) {
+      setAttrChoices(cached.map((label) => ({ id: label, label })));
+      return;
+    }
+    setAttrChoices(null); // 取得中はローディング表示
+    const itemLabel = findItem(effectiveFocus)?.label ?? "";
+    const categoryLabel = categoryOf(effectiveFocus)?.label ?? "";
+    let cancelled = false;
+    (async () => {
+      let labels: string[];
+      try {
+        const res = await fetch("/api/demo/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "choices", itemLabel, categoryLabel, picked: [], written: [], rating: null, tone: "normal", emoji: false }),
+        });
+        const data = (await res.json()) as { choices: string[] | null };
+        labels = data.choices ?? fallbackAttrsFor(effectiveFocus);
+      } catch {
+        labels = fallbackAttrsFor(effectiveFocus);
+      }
+      if (cancelled) return;
+      attrCacheRef.current.set(effectiveFocus, labels);
+      setAttrChoices(labels.map((label) => ({ id: label, label })));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveFocus]);
 
   /** いまの全材料。appendLive が usedRef で「まだ送っていないものだけ」を送る */
   const collectMaterials = useCallback(() => {
@@ -101,7 +146,7 @@ export function DemoSurvey() {
     if (items.length > 0)
       picked.push({ question: "召し上がったもの", values: items.map((id) => findItem(id)?.label ?? "").filter(Boolean) });
     if (effectiveFocus && attrs.length > 0)
-      picked.push({ question: `「${focusLabel}」の感想`, values: labelsOf(ATTR_CHOICES, attrs) });
+      picked.push({ question: `「${focusLabel}」の感想`, values: attrs.filter((a) => a !== "その他") });
     if (service.length > 0) picked.push({ question: "接客", values: labelsOf(SERVICE_CHOICES, service) });
     if (atmosphere.length > 0) picked.push({ question: "お店の様子", values: labelsOf(ATMOSPHERE_CHOICES, atmosphere) });
     if (concern.length > 0) picked.push({ question: "気になったこと", values: labelsOf(CONCERN_CHOICES, concern) });
@@ -134,7 +179,7 @@ export function DemoSurvey() {
           written_so_far: base,
           picked: fresh,
           written: freshText,
-          rating: null,
+          rating: Number(rating ?? 0) || null,
           tone,
           emoji: false,
         }),
@@ -155,7 +200,7 @@ export function DemoSurvey() {
     } finally {
       setStreaming(false);
     }
-  }, [collectMaterials, tone]);
+  }, [collectMaterials, tone, rating]);
 
   /** 最後の仕上げ（Sonnet・全体を書き直す）。空欄から始める */
   const generateFinal = useCallback(
@@ -171,7 +216,7 @@ export function DemoSurvey() {
         const res = await fetch("/api/demo/draft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "final", picked, written, rating: null, ...opts }),
+          body: JSON.stringify({ mode: "final", picked, written, rating: Number(rating ?? 0) || null, ...opts }),
           signal: ac.signal,
         });
         const reader = res.body?.getReader();
@@ -188,7 +233,7 @@ export function DemoSurvey() {
         setStreaming(false);
       }
     },
-    [collectMaterials]
+    [collectMaterials, rating]
   );
 
   useEffect(() => {
@@ -211,7 +256,7 @@ export function DemoSurvey() {
   function detectFollowupReason(): FollowupReason | null {
     if (followupCount >= 2) return null;
     const asked = new Set(followupQA.map((qa) => qa.question));
-    if (effectiveFocus && (attrs.includes("other") || (attrs.length === 0 && attrNote.trim() === "")) && !asked.has("item"))
+    if (effectiveFocus && (attrs.includes("その他") || (attrs.length === 0 && attrNote.trim() === "")) && !asked.has("item"))
       return "vague-item";
     if (ratingNum >= 4 && concern.includes("wait")) return "wait-detail";
     if (ratingNum > 0 && ratingNum <= 3 && labelsOf(POSITIVE_CHOICES, positive).length === 0 && concernNote.trim() === "")
@@ -301,7 +346,7 @@ export function DemoSurvey() {
     if (i === 1)
       return ateNothing
         ? "お食事なし"
-        : [items.map((id) => findItem(id)?.label ?? ""), labelsOf(ATTR_CHOICES, attrs), labelsOf(SERVICE_CHOICES, service)]
+        : [items.map((id) => findItem(id)?.label ?? ""), attrs.filter((a) => a !== "その他"), labelsOf(SERVICE_CHOICES, service)]
             .flat()
             .filter(Boolean)
             .join("・");
@@ -449,18 +494,36 @@ export function DemoSurvey() {
                         <ChipGrid
                           choices={items.map((id) => findItem(id)).filter((i): i is Choice => Boolean(i))}
                           selected={focusItem ? [focusItem] : []}
-                          onToggle={(id) => { tick(); setFocusItem(id); setAttrs([]); }}
+                          onToggle={(id) => { tick(); setFocusItem(id); }}
                         />
                       </div>
                     ) : null}
                     {effectiveFocus ? (
                       <div className="review-rise flex w-full flex-col gap-[var(--product-space-12)]">
                         <FieldTitle title={`「${focusLabel}」はどうでした？`} note="いくつでも" />
-                        <ChipGrid
-                          choices={ATTR_CHOICES}
-                          selected={attrs}
-                          onToggle={(id) => { tick(); setAttrs((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])); }}
-                        />
+                        {attrChoices ? (
+                          <ChipGrid
+                            choices={[...attrChoices, { id: "その他", label: "その他" }]}
+                            selected={attrs}
+                            onToggle={(id) => { tick(); setAttrs((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])); }}
+                          />
+                        ) : (
+                          <div className="flex h-11 items-center gap-[var(--product-space-8)]">
+                            <AiSparkleIcon className="size-[15px] shrink-0" />
+                            <span className="text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+                              この品に合わせた選択肢を用意しています
+                            </span>
+                            <span className="flex items-center gap-[3px]" aria-hidden>
+                              {[0, 1, 2].map((i) => (
+                                <span
+                                  key={i}
+                                  className="review-pulse size-[5px] rounded-[var(--product-radius-full)]"
+                                  style={{ backgroundColor: "var(--review-accent-primary)", animationDelay: `${i * 160}ms` }}
+                                />
+                              ))}
+                            </span>
+                          </div>
+                        )}
                         <FreeTextField value={attrNote} onChange={setAttrNote} />
                       </div>
                     ) : null}
