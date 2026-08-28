@@ -171,3 +171,50 @@ body {
     background-size: 100% 0.35em;
   }
 }
+
+/*
+ * 選んだ言葉が Living Draft へ飛ぶ（2026-08-28）。
+ * 「タップした事実が感想文へ変換される」ことを、説明なしで体験させるための演出。
+ * 派手にせず、控えめで速く。連続タップの邪魔をしない。
+ */
+@keyframes review-fly {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.95;
+  }
+  30% {
+    transform: translate(calc(var(--fly-dx) * 0.28), calc(var(--fly-dy) * 0.2 - 14px)) scale(0.94);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(var(--fly-dx), var(--fly-dy)) scale(0.78);
+    opacity: 0;
+  }
+}
+
+.review-fly {
+  animation: review-fly 420ms cubic-bezier(0.32, 0, 0.2, 1) forwards;
+}
+
+/* 到着した語句が一瞬だけ光る（700msで透明へ） */
+@keyframes review-flash {
+  0% {
+    background-color: var(--product-color-status-warning-wash);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.review-flash {
+  animation: review-flash 700ms ease-out 380ms forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-fly {
+    display: none;
+  }
+  .review-flash {
+    animation-delay: 0ms;
+  }
+}

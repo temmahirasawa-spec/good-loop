@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import {
   ATMOSPHERE_CHOICES,
   CHAPTERS,
@@ -53,6 +53,13 @@ import { BackIcon, CheckMarkIcon, MicIcon, StopIcon } from "./icons";
 type Phase = "chapters" | "draft" | "destination" | "done";
 type Destination = "google" | "store";
 
+/**
+ * 選んだ言葉を Living Draft へ飛ばす関数を配る（2026-08-28）。
+ * 呼び出し箇所が多いため context で渡す。器が画面外なら飛ばさず、
+ * Draft側の短いハイライトだけにする。
+ */
+const FlyContext = createContext<((el: HTMLElement, label: string) => void) | null>(null);
+
 /** 端末を短く震わせる（対応していない端末では何も起きない） */
 function tick() {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.(8);
@@ -103,6 +110,39 @@ export function DemoSurvey() {
   /* ── 進行の単位（2026-08-28 修正仕様） ───────────────
      single は選んだら次へ。multiple は**自分で「選び終わった」と決める**まで進まない。
      「いくつでも選べます」と言いながら1つで先へ送ると、1つ選べば終わりだと受け取られるため。 */
+  /** 飛んでいる最中のゴーストチップ（最大3件。連続タップでも重くしない） */
+  const [flights, setFlights] = useState<{ key: number; label: string; x: number; y: number; dx: number; dy: number }[]>([]);
+  const flightKeyRef = useRef(0);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  /** 直近に器へ届いた語句（一瞬だけ光る） */
+  const [freshChips, setFreshChips] = useState<string[]>([]);
+
+  const flyToDraft = useCallback((el: HTMLElement, label: string) => {
+    setFreshChips((prev) => (prev.includes(label) ? prev : [...prev, label]));
+    window.setTimeout(() => setFreshChips((prev) => prev.filter((l) => l !== label)), 1200);
+
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const target = canvasRef.current?.getBoundingClientRect();
+    if (!target) return;
+    // 器が画面外なら飛ばさない（見えないところへ派手に飛ばさない）
+    if (target.top > window.innerHeight || target.bottom < 0) return;
+    const from = el.getBoundingClientRect();
+    const key = ++flightKeyRef.current;
+    setFlights((prev) => [
+      ...prev.slice(-2),
+      {
+        key,
+        label,
+        x: from.left,
+        y: from.top,
+        dx: target.left + 24 - from.left,
+        dy: target.top + 40 - from.top,
+      },
+    ]);
+    window.setTimeout(() => setFlights((prev) => prev.filter((f) => f.key !== key)), 460);
+  }, []);
+
   const [doneSteps, setDoneSteps] = useState<string[]>([]);
   const [editingStep, setEditingStep] = useState<string | null>(null);
   const stepRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -468,10 +508,29 @@ export function DemoSurvey() {
 
 
   return (
+    <FlyContext.Provider value={flyToDraft}>
     <div
       className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-col"
       style={{ backgroundColor: "var(--product-color-bg-primary)" }}
     >
+      {/* 飛んでいるゴーストチップ。操作はブロックしない */}
+      {flights.map((f) => (
+        <span
+          key={f.key}
+          aria-hidden
+          className="review-fly pointer-events-none fixed z-50 rounded-[var(--product-radius-full)] px-[var(--product-space-8)] py-[2px] text-[13px] font-bold"
+          style={{
+            left: f.x,
+            top: f.y,
+            backgroundColor: "var(--review-accent-wash)",
+            color: "var(--review-accent-primary)",
+            ["--fly-dx" as string]: `${f.dx}px`,
+            ["--fly-dy" as string]: `${f.dy}px`,
+          }}
+        >
+          {f.label}
+        </span>
+      ))}
       <div
         className="sticky top-0 z-20 flex w-full flex-col gap-[var(--product-space-8)] px-[var(--product-space-20)] pb-[var(--product-space-8)] pt-[var(--product-space-12)]"
         style={{ backgroundColor: "var(--product-color-bg-primary)" }}
@@ -820,12 +879,13 @@ export function DemoSurvey() {
       </div>
 
       {phase === "chapters" ? (
-        <div className="sticky bottom-0 z-10 mx-auto w-full max-w-[390px]">
+        <div ref={canvasRef} className="sticky bottom-0 z-10 mx-auto w-full max-w-[390px]">
           <DraftCanvas
             text={refinedText}
             chips={pendingChips}
             busy={refining}
             freshText={freshText}
+            freshChips={freshChips}
             expanded={expanded}
             onToggle={() => setExpanded(!expanded)}
             emptyHint="選ぶと、ここに感想が組み上がっていきます"
@@ -833,6 +893,7 @@ export function DemoSurvey() {
         </div>
       ) : null}
     </div>
+    </FlyContext.Provider>
   );
 }
 
@@ -1045,6 +1106,7 @@ function ChipGrid({
   onToggle: (id: string) => void;
   exclusiveId?: string;
 }) {
+  const fly = useContext(FlyContext);
   return (
     <div className="flex w-full flex-wrap gap-[var(--product-space-8)]">
       {choices.map((choice) => {
@@ -1055,7 +1117,11 @@ function ChipGrid({
             key={choice.id}
             type="button"
             aria-pressed={isSelected}
-            onClick={() => onToggle(choice.id)}
+            onClick={(e) => {
+              // 選んだときだけ飛ばす（解除・「特になし」では飛ばさない）
+              if (!isSelected && choice.id !== exclusiveId) fly?.(e.currentTarget, choice.label);
+              onToggle(choice.id);
+            }}
             className="review-rise flex items-center gap-[var(--product-space-8)] rounded-[var(--product-radius-full)] border-solid px-[var(--product-space-16)] py-[var(--product-space-8)] transition-transform duration-100 active:scale-95"
             style={{
               minHeight: "var(--product-touch-min)",

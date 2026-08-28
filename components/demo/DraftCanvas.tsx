@@ -32,6 +32,7 @@ export function DraftCanvas({
   chips,
   busy,
   freshText,
+  freshChips,
   expanded,
   onToggle,
   emptyHint,
@@ -44,6 +45,8 @@ export function DraftCanvas({
   busy: boolean;
   /** 直近で言葉になった部分（イエローの下線が左→右に走る） */
   freshText: string;
+  /** 直近に届いた語句（到着した瞬間だけ淡く光る） */
+  freshChips: string[];
   expanded: boolean;
   onToggle: () => void;
   emptyHint: string;
@@ -131,9 +134,15 @@ export function DraftCanvas({
             {chips.map((chip) => (
               <span
                 key={chip.id}
-                className="review-rise flex items-center rounded-[var(--product-radius-full)] px-[var(--product-space-8)] py-[2px] text-[13px] font-bold"
+                className={`review-rise flex items-center rounded-[var(--product-radius-full)] px-[var(--product-space-8)] py-[2px] text-[13px] font-bold ${
+                  freshChips.includes(chip.label) ? "review-flash" : ""
+                }`}
                 style={{
-                  backgroundColor: chip.lead ? "var(--review-accent-wash)" : "var(--product-color-bg-tertiary)",
+                  backgroundColor: freshChips.includes(chip.label)
+                    ? undefined
+                    : chip.lead
+                      ? "var(--review-accent-wash)"
+                      : "var(--product-color-bg-tertiary)",
                   color: chip.lead ? "var(--review-accent-primary)" : "var(--product-color-text-secondary)",
                 }}
               >
