@@ -77,10 +77,14 @@ export function DraftCanvas({
    *   empty（1行・誘い文だけ）→ writing（4行に展開）→ resting（2行に縮んで質問へ場所を返す）
    *   → expanded（タップで全文）
    */
+  /**
+   * 高さ（2026-08-28 修正仕様）: empty=1行 / writing=3行（一時的） / resting=2行 / expanded=全文。
+   * ヘッダー32px＋余白を含めた全体で、resting が 88〜104px に収まるようにしてある。
+   */
   const maxHeight = expanded
-    ? 260
+    ? 320
     : busy
-      ? LINE_HEIGHT * 4
+      ? LINE_HEIGHT * 3
       : shown
         ? LINE_HEIGHT * 2
         : LINE_HEIGHT;
@@ -91,7 +95,7 @@ export function DraftCanvas({
 
   return (
     <div
-      className="pointer-events-auto w-full rounded-t-[var(--product-radius-lg)] border-t-[1.5px] border-solid px-[var(--product-space-20)] pb-[var(--product-space-16)] pt-[var(--product-space-12)]"
+      className="pointer-events-auto w-full rounded-t-[var(--product-radius-lg)] border-t-[1.5px] border-solid px-[var(--product-space-20)] pb-[var(--product-space-12)] pt-[var(--product-space-4)]"
       style={{
         backgroundColor: "var(--product-color-surface-white)",
         borderColor: "var(--review-accent-primary)",
@@ -102,7 +106,7 @@ export function DraftCanvas({
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex h-11 w-full items-center justify-between gap-[var(--product-space-8)]"
+        className="flex h-8 w-full items-center justify-between gap-[var(--product-space-8)]"
       >
         <span className="flex items-center gap-[var(--product-space-8)]">
           <AiSparkleIcon className="size-[15px] shrink-0" />

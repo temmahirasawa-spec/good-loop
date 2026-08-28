@@ -1,188 +1,121 @@
 import "server-only";
+import type { FollowupReason } from "./draft-prompt-types";
+export type { FollowupReason };
 
 /**
- * アンケート v2 プロトタイプの下書き生成プロンプト（docs/specs/survey-v2.md 6章）。
+ * アンケート v2 プロトタイプの生成プロンプト（docs/specs/survey-v2.md §12）。
  *
  * ⚠ **プロンプトの文面は CLAUDE.md 3章の「止まって確認する」項目。**
- * ここを変えるときは必ず天真に文面を見せること。
- *
- * ⚠ **書き方のヒントで話題を指定してはいけない**（2026-08-28、実測で判明）。
- * 「お店の雰囲気から書き始めてください」のような指示を混ぜたところ、
- * **選ばれてもいない雰囲気をAIが作り出した**（「落ち着いた雰囲気の中で」「ゆっくり過ごしながら」）。
- * ヒントは**材料の範囲内で語順・長さ・語り口だけを変える**ものに限ること。
- *
- * 2026-08-28、実機検証で「感想の羅列になっていて不自然。これではステマと言われる」
- * という指摘を受けて新設した。ルールベース合成（選んだ断片をそのまま繋ぐ）の限界が
- * 実物で確認できたため、**AIに書かせる**方式へ切り替える。
+ * 2026-08-28、canonical fact model 版を天真に提示し承認済み。
  *
  * 設計の芯:
- *   ・変えてよいのは**表現**だけ。**事実は作らない**
- *   ・**羅列にしない**（関係のあるものをまとめて1文にする）
- *   ・**入力が少なければ短く終わる**（字数を稼がない）
- *   ・**毎回ランダムに書き方の指示を混ぜる**（同じ店で似た文面が並ぶのを防ぐ）
+ *   ・入力は id 付きの「事実の一覧」だけ。**★（総合評価）は一切渡さない**（集計専用）
+ *   ・出力は JSON。**各文に sourceSignalIds（根拠の事実id）が必須**
+ *   ・意味の拡張禁止（「厚みがあった」→「食べ応えがあった」にしない）
+ *   ・文体で変えてよいのは語尾・敬語・接続・文の長さだけ
+ *   ・検証はクライアント側の validateSentences（lib/demo/fact-model.ts）が行い、
+ *     通らなければ生成全体を捨てて直前の正常な文章を維持する
  */
 
-export type DraftInput = {
-  rating: number | null;
-  /** 選ばれた内容。質問ごとにまとめる */
-  picked: { question: string; values: string[] }[];
-  /** 本人が書いた文。最優先の材料 */
-  written: string[];
-  tone: "normal" | "casual";
-  emoji: boolean;
-};
+/** 章の途中の整文（速さ優先） */
+export const REFINE_MODEL = "claude-haiku-4-5-20251001";
+export const REFINE_MAX_TOKENS = 600;
+/** 最後の仕上げ（質優先） */
+export const FINAL_MODEL = "claude-sonnet-5";
+export const FINAL_MAX_TOKENS = 800;
 
-/**
- * モデルの使い分け（2026-08-28、天真「タップしている最中も文章の繋がりが自然になっていくギミック」）。
- *
- * ・**live** … 質問が切り替わるたびに、続きの1〜2文を書き足す。**速さが命**なので Haiku
- * ・**final** … 全部答え終わったあとの仕上げ。**質は落とせない**ので Sonnet
- *
- * こうすると「書き足されていくのが見える」体験と「最後にきれいな文章になる」体験が両立する。
- * 途中は前の文を直せないぶん粗さが残るが、それは final で整う。
- */
-export const LIVE_MODEL = "claude-haiku-4-5-20251001";
-export const DRAFT_MODEL = "claude-sonnet-5";
-export const DRAFT_MAX_TOKENS = 500;
-export const LIVE_MAX_TOKENS = 200;
+export const REFINE_SYSTEM_PROMPT = `あなたは、お客様がアンケートで選んだ内容を、その人が書いたような自然な文章に整えます。
 
-/** 続きを書き足すときのシステムプロンプト（本文は共通の制約を引き継ぐ） */
-export const LIVE_SYSTEM_PROMPT = `あなたは、お客様がアンケートで選んだ内容をもとに、その人が自分で書いたように見えるクチコミの下書きを、少しずつ書き進めています。
-
-いま渡されるのは「ここまで書いた文章」と「新しく選ばれた内容」です。
+入力は「事実の一覧」です。各事実には id が付いています。
 
 絶対に守ること:
-- **すでに書いた文章は繰り返さない。続きの文だけを出力する**
-- 新しく選ばれた内容だけを使う。**材料に無いことは一切書かない**
-- **材料がひとつだけなら、1文だけ書く**（例：来店回数だけなら「何度か利用しています。」で終わる。
-  お店の対応・料理・雰囲気など、材料に無いことを付け足して膨らませない）
-- **材料に無いのに、お店や料理や接客を褒めない・けなさない**
-- 場面や状況を勝手に作らない（「ゆっくり過ごしながら」「友人と」など）
-- 選ばれていない感情・評価・再訪意向を書かない（「大満足」「また来たい」など）
-- 「参考」として総合評価が渡された場合、**評価そのものは書かず**、評価と矛盾する
-  明るさ・褒め言葉・不満も書かない（★2の人の文章に褒め言葉を足さない）
-- **1〜2文だけ**。長く書かない
-- 前の文と自然につながるようにする（接続詞を使ってよい）
-- 前置き・説明・カギ括弧を付けない。続きの文そのものだけを出力する`;
+- 事実の一覧にあることだけを書く。一覧に無い事実・感情・評価・頻度・因果関係を足さない
+- 事実をひとつも落とさない
+- 意味を拡張しない（「厚みがあった」を「食べ応えがあった」にしない。「落ち着いて過ごせた」を「ゆっくり食事を楽しめた」にしない。「びっくり」「毎回」など、事実に無い強調も足さない）
+- お客様が自分で書いた言葉（isFree）は、語彙と言い回しをできるだけそのまま残す
+- 関係のある事実はまとめて1文にしてよい。箇条書きのような羅列にしない
+- 謝罪・説明・質問・メタ発言を出力しない。書けない場合は {"sentences": []} を返す
 
-export const DRAFT_SYSTEM_PROMPT = `あなたは、お客様がアンケートで選んだ内容をもとに、その人が自分で書いたように見えるクチコミの下書きを作ります。
+出力は次のJSONだけ（前置き・コードブロック記号なし）:
+{"sentences": [{"text": "文", "sourceSignalIds": ["根拠のid"]}]}
+- 各文の sourceSignalIds には、その文の根拠になった事実の id を**すべて**入れる
+- 根拠の無い文を作らない
 
-絶対に守ること:
-- **与えられた材料に無いことは、文章を自然にするためであっても一切書かない**
-- 場面や状況を勝手に作らない（「ゆっくり過ごしながら」「落ち着いた雰囲気の中で」「友人と」「休日に」など、
-  材料に無い設定を足さない）
-- 選ばれていない事実（料理名・金額・時間・人数・天気・同行者）を書かない
-- 選ばれていない感情・評価・再訪意向・推薦意向を書かない
-  （「大満足」「最高」「忘れられない」「また来たい」「おすすめです」など。星の数は感情の根拠にしない）
-- 選ばれた内容をひとつも落とさない
-- 迷ったら書かない。**短くなることは失敗ではない**
+文体の指定があるとき、変えてよいのは語尾・敬語のレベル・接続表現・文の長さだけ。事実・感情・評価・頻度・因果関係・商品の特徴は変えない。`;
 
-書き方:
-- 選ばれた内容を並べず、関係のあるものをまとめて1文にする。箇条書きのような羅列にしない
-- 短くてよい。選ばれた内容が少なければ2文で終わってよい。字数を稼ぐために内容を膨らませない
-- 「心温まる」「素晴らしいひととき」「ぜひまた訪れたい」のような広告のような常套句を使わない
-- 完璧に整えすぎない。人が書いた文章には、少しの偏りや口語がある
-- 自由記述がある場合は、その人の言葉づかいを残す
+export type SignalInput = { id: string; label: string; itemLabel?: string; isFree?: boolean };
 
-出力:
-- クチコミの本文だけを書く。前置き・後書き・見出し・カギ括弧は付けない
-- 自分がAIであることには触れない`;
-
-/**
- * 書き出しと組み立てのばらつき（2026-08-28）。
- *
- * **同じ選択でも文章が似ないようにするための実体。** 生成のたびに1つ選んで混ぜる。
- * 2026-08-23の実測では、こうした振り分けで3文字組の類似度が
- * 中央値 0.32 → 0.14（半分以下）になることを確認している。
- */
+/** 書き方のばらつき（語順・長さ・語り口のみ。**話題を指定しない**＝捏造の原因になるため） */
 const WRITING_HINTS = [
-  "与えられた材料のうち、最後に挙げられたものから書き始めてください。",
-  "与えられた材料を、挙げられた順のまま書いてください。",
-  "全体の前置きを置かず、具体的なことから書き始めてください。",
-  "2文で短くまとめてください。",
-  "3文程度で、少しゆとりのある書き方にしてください。",
-  "体言止めを一度だけ使ってください。",
-  "話し言葉に近い、ゆるい書き出しにしてください。",
+  // 語順の操作は「最後の事実から書き始める」で不自然な並びが出たため、自然な順を基本にする
+  "事実を、体験の自然な流れの順に書いてください。",
+  "2〜3文で短くまとめてください。",
+  "少しゆとりのある文の長さにしてください。",
   "短い文を重ねる書き方にしてください。",
-  "一文を長めにして、つなげて書いてください。",
+  "一文をやや長めにして、つなげて書いてください。",
 ];
 
-export function pickWritingHint(seed: number): string {
-  return WRITING_HINTS[Math.abs(seed) % WRITING_HINTS.length];
-}
-
-export function buildDraftUserPrompt(input: DraftInput, seed: number): string {
+export function buildRefineUserPrompt(input: {
+  signals: SignalInput[];
+  previousText: string;
+  tone: "normal" | "casual";
+  seed: number;
+  mode: "refine" | "final";
+}): string {
   const lines: string[] = [];
-
-  if (input.rating) {
-    lines.push(
-      `参考: 総合評価は★${input.rating}。評価そのものは書かない。評価と矛盾する褒め言葉や不満も書かない。`
-    );
+  lines.push("事実の一覧:");
+  for (const s of input.signals) {
+    const item = s.itemLabel ? `（品名: ${s.itemLabel}）` : "";
+    const free = s.isFree ? "（お客様が自分で書いた言葉。そのまま残す）" : "";
+    lines.push(`- [${s.id}] ${s.label}${item}${free}`);
   }
-  for (const group of input.picked) {
-    if (group.values.length > 0) lines.push(`${group.question}: ${group.values.join("、")}`);
-  }
-  if (input.written.length > 0) {
-    lines.push(`お客様が自分で書いた言葉: ${input.written.join(" / ")}`);
-  }
-
   lines.push("");
+  if (input.mode === "refine" && input.previousText) {
+    lines.push(`ここまでの文章（出力に含めない。これに自然につながる続きだけを書く）:\n${input.previousText}`);
+    lines.push("");
+  }
   lines.push(
     input.tone === "casual"
-      ? "文体: 友人に話すような、ですます調ではない砕けた書き方にしてください。"
-      : "文体: ですます調の、ふつうの丁寧さで書いてください。"
-  );
-  lines.push(
-    input.emoji
-      ? "絵文字: 1〜2個だけ使ってください。**句点の代わりに文末へ置き、句点の後ろには置かないでください**（「〜でした。😊」ではなく「〜でした😊」）。"
-      : "絵文字: 使わないでください。"
-  );
-  lines.push(pickWritingHint(seed));
-  lines.push("");
-  lines.push("上記をもとに、クチコミの下書きを1つ書いてください。");
-
-  return lines.join("\n");
-}
-
-/** 続きを書き足させるときの指示 */
-export function buildLiveUserPrompt(
-  written: string,
-  newValues: { question: string; values: string[] }[],
-  freeText: string[],
-  tone: "normal" | "casual",
-  rating: number | null
-): string {
-  const lines: string[] = [];
-  lines.push(written ? `ここまで書いた文章:\n${written}` : "ここまで書いた文章: （まだありません）");
-  if (rating) {
-    // ★は材料ではなくガードレール。書かせず、矛盾するトーンだけを防ぐ
-    lines.push(`参考: 総合評価は★${rating}。評価そのものは書かない。評価と矛盾する褒め言葉や不満も書かない。`);
-  }
-  lines.push("");
-  lines.push("新しく選ばれた内容:");
-  for (const group of newValues) {
-    if (group.values.length > 0) lines.push(`- ${group.question}: ${group.values.join("、")}`);
-  }
-  if (freeText.length > 0) lines.push(`- お客様が自分で書いた言葉: ${freeText.join(" / ")}`);
-  lines.push("");
-  lines.push(
-    tone === "casual"
       ? "文体: 友人に話すような、ですます調ではない砕けた書き方。"
       : "文体: ですます調の、ふつうの丁寧さ。"
   );
-  lines.push("続きの文だけを書いてください。");
+  lines.push(WRITING_HINTS[Math.abs(input.seed) % WRITING_HINTS.length]);
+  lines.push("");
+  lines.push(
+    input.mode === "final"
+      ? "上の事実だけを使って、クチコミの下書き全体をJSONで出力してください。"
+      : "上の事実だけを使って、続きの文をJSONで出力してください。"
+  );
   return lines.join("\n");
 }
 
-/**
- * AI追質問（2026-08-28 天真の方針）。
- *
- * **AI作文を主役にせず、本人の感想を発見・具体化するためにAIを使う。**
- * 毎回は聞かない。情報が足りないとき（具体性不足・矛盾・「その他」）だけ、**最大2問**。
- * 目的は**本人の体験を特定すること**。MEOワードを口コミに入れさせることではない
- * （この線を越えると「AIっぽい感想文」「ステマ」の印象に戻る）。
- */
-export const FOLLOWUP_MODEL = LIVE_MODEL;
+/* ── 品の感想の選択肢（AIが品名から作る） ─────────────── */
+
+export const CHOICES_MODEL = REFINE_MODEL;
+export const CHOICES_MAX_TOKENS = 400;
+
+export const CHOICES_SYSTEM_PROMPT = `あなたは、飲食店のアンケートの選択肢を設計します。
+渡された料理・ドリンクについて、お客様が「そうそう、これ」とタップできる感想の選択肢を作ります。
+
+絶対に守ること:
+- **その品で実際に起こりうる事実だけ**にする（サラダに「ふわふわ」を出さない）
+- **味・食感・温度・量・見た目・香り**の軸から作る
+- **肯定・中立・否定をバランスさせる**。否定ばかり・肯定ばかりに偏らせない
+  （例: 「甘さがちょうどよかった」と「甘すぎた」の両方を入れる、など）
+- 事実型にする。「感動した」「幸せ」のような感情の言葉は使わない
+- 宣伝文句・検索ワードのような言葉を入れない
+- 各選択肢は12文字以内
+
+出力は次のJSONだけ（前置き・説明・コードブロック記号なし）:
+{"choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4", "選択肢5", "選択肢6", "選択肢7", "選択肢8"]}`;
+
+export function buildChoicesUserPrompt(itemLabel: string, categoryLabel: string): string {
+  return `品名: ${itemLabel}（カテゴリ: ${categoryLabel}）\n\nこの品の感想の選択肢を8個、JSONで出力してください。`;
+}
+
+/* ── AI追質問（★に依存しない引き金だけ。最大2問） ─────── */
+
+export const FOLLOWUP_MODEL = REFINE_MODEL;
 export const FOLLOWUP_MAX_TOKENS = 300;
 
 export const FOLLOWUP_SYSTEM_PROMPT = `あなたは、お店に来たお客様の体験を具体化するインタビュアーです。
@@ -198,10 +131,6 @@ export const FOLLOWUP_SYSTEM_PROMPT = `あなたは、お店に来たお客様�
 {"question": "質問文", "choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"]}
 選択肢は3〜5個。最後の選択肢は「その他」にする。`;
 
-import type { FollowupReason } from "./draft-prompt-types";
-export type { FollowupReason };
-
-/** AIが落ちたとき・変な形で返したときに使う固定の質問 */
 export const FOLLOWUP_FALLBACK: Record<FollowupReason, { question: string; choices: string[] }> = {
   "vague-item": {
     question: "その料理のどんなところが印象に残りましたか？",
@@ -212,49 +141,17 @@ export const FOLLOWUP_FALLBACK: Record<FollowupReason, { question: string; choic
     choices: ["入店まで", "注文まで", "料理が届くまで", "会計", "その他"],
   },
   "low-rating-unclear": {
-    question: "いちばん残念だったのは、どのあたりでしたか？",
+    question: "今日の体験で、いちばん印象に残ったのはどのあたりですか？",
     choices: ["料理", "接客", "待ち時間", "店内の環境", "その他"],
   },
 };
 
-export function buildFollowupUserPrompt(
-  picked: { question: string; values: string[] }[],
-  reason: FollowupReason
-): string {
-  const context = picked
-    .filter((g) => g.values.length > 0)
-    .map((g) => `${g.question}: ${g.values.join("、")}`)
-    .join("\n");
+export function buildFollowupUserPrompt(signals: SignalInput[], reason: FollowupReason): string {
+  const context = signals.map((s) => `- ${s.label}${s.itemLabel ? `（${s.itemLabel}）` : ""}`).join("\n");
   const why: Record<FollowupReason, string> = {
     "vague-item": "選んだ料理について、具体的な感想がまだ無い",
-    "wait-detail": "評価は高いのに「待ち時間」が気になった点として選ばれている。どの場面の待ち時間かが分からない",
-    "low-rating-unclear": "評価が低いのに、何が悪かったのかが選ばれていない",
+    "wait-detail": "「待ち時間」が気になった点として選ばれているが、どの場面の待ち時間かが分からない",
+    "low-rating-unclear": "回答が少なく、体験の中身がまだ分からない",
   };
   return `ここまでの回答:\n${context}\n\n足りない情報: ${why[reason]}\n\nこの情報を補うための質問をひとつ、JSONで出力してください。`;
-}
-
-/**
- * 品の感想の選択肢をAIが作る（2026-08-28 天真「サラダにふわふわが出る。AI走ってない」への対応）。
- *
- * これが「質問設計にAIを使う」の最小の実体。品名から、その品に**実際に起こりうる事実**だけを
- * 選択肢にする。本番では店舗のメニュー説明・注文データも材料になる。
- */
-export const CHOICES_MODEL = LIVE_MODEL;
-export const CHOICES_MAX_TOKENS = 300;
-
-export const CHOICES_SYSTEM_PROMPT = `あなたは、飲食店のアンケートの選択肢を設計します。
-渡された料理・ドリンクについて、お客様が「そうそう、これ」とタップできる感想の選択肢を作ります。
-
-絶対に守ること:
-- **その品で実際に起こりうる事実だけ**にする（サラダに「ふわふわ」を出さない）
-- 事実型にする。「感動した」「幸せ」のような感情の言葉や、個性的すぎる言い回しは使わない
-- 良い/悪いの方向へ誘導しない。中立の事実にする（「新鮮だった」は可。「最高だった」は不可）
-- 宣伝文句・検索ワードのような言葉を入れない
-- 各選択肢は12文字以内
-
-出力は次のJSONだけ（前置き・説明・コードブロック記号は付けない）:
-{"choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4", "選択肢5", "選択肢6"]}`;
-
-export function buildChoicesUserPrompt(itemLabel: string, categoryLabel: string): string {
-  return `品名: ${itemLabel}（カテゴリ: ${categoryLabel}）\n\nこの品の感想の選択肢を6個、JSONで出力してください。`;
 }

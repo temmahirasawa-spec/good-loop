@@ -14,7 +14,7 @@
 
 export const STORE_NAME = "YORKYS BRUNCH 夙川";
 
-export type Choice = { id: string; label: string };
+export type Choice = { id: string; label: string; provisional?: string };
 
 /** ── 章 ─────────────────────────────────────── */
 
@@ -146,9 +146,9 @@ export const RATING_CHOICES: Choice[] = [
 ];
 
 export const VISIT_CHOICES: Choice[] = [
-  { id: "first", label: "初めて" },
-  { id: "few", label: "2回目以降" },
-  { id: "regular", label: "常連" },
+  { id: "first", label: "初めて", provisional: "初めて利用しました" },
+  { id: "few", label: "2回目以降", provisional: "何度か利用しています" },
+  { id: "regular", label: "常連", provisional: "よく利用しています" },
 ];
 
 /**
@@ -181,34 +181,38 @@ export function categoryOf(itemId: string): MenuCategory | undefined {
 
 export const SERVICE_CHOICES: Choice[] = [
   { id: "none", label: "特になし" },
-  { id: "kind", label: "感じがよかった" },
-  { id: "explain", label: "説明が分かりやすい" },
-  { id: "quick", label: "対応が早い" },
-  { id: "care", label: "気配りがあった" },
+  { id: "kind", label: "感じがよかった", provisional: "スタッフの感じがよかったです" },
+  { id: "explain", label: "説明が分かりやすい", provisional: "説明が分かりやすかったです" },
+  { id: "quick", label: "対応が早い", provisional: "対応が早かったです" },
+  { id: "care", label: "気配りがあった", provisional: "気配りがありました" },
 ];
 
 export const ATMOSPHERE_CHOICES: Choice[] = [
   { id: "none", label: "特になし" },
-  { id: "calm", label: "落ち着いて過ごせた" },
-  { id: "roomy", label: "席がゆったり" },
-  { id: "clean", label: "清潔だった" },
-  { id: "bright", label: "明るくて気持ちいい" },
+  { id: "calm", label: "落ち着いて過ごせた", provisional: "落ち着いて過ごせました" },
+  { id: "roomy", label: "席がゆったり", provisional: "席がゆったりしていました" },
+  { id: "clean", label: "清潔だった", provisional: "店内は清潔でした" },
+  { id: "bright", label: "明るくて気持ちいい", provisional: "明るくて気持ちのよい店内でした" },
+];
+
+/**
+ * 章3は**全員共通の2問**（2026-08-28 承認）。評価による出し分けは行わない。
+ * 「良かったところ」→「気になったところ」の順で、どちらも「特になし」を選べる。
+ */
+export const GOOD_CHOICES: Choice[] = [
+  { id: "none", label: "特になし" },
+  { id: "taste", label: "料理の味", provisional: "料理の味がよかったです" },
+  { id: "service", label: "接客", provisional: "接客がよかったです" },
+  { id: "atmosphere", label: "雰囲気", provisional: "雰囲気がよかったです" },
+  { id: "location", label: "通いやすさ", provisional: "通いやすい場所でした" },
 ];
 
 export const CONCERN_CHOICES: Choice[] = [
   { id: "none", label: "特になし" },
-  { id: "wait", label: "待ち時間" },
-  { id: "seat", label: "席の間隔" },
-  { id: "price", label: "値段" },
-  { id: "noise", label: "店内の音" },
-];
-
-export const POSITIVE_CHOICES: Choice[] = [
-  { id: "none", label: "特になし" },
-  { id: "taste", label: "料理の味" },
-  { id: "service", label: "接客" },
-  { id: "atmosphere", label: "雰囲気" },
-  { id: "location", label: "通いやすさ" },
+  { id: "wait", label: "待ち時間", provisional: "待ち時間が気になりました" },
+  { id: "seat", label: "席の間隔", provisional: "席の間隔が気になりました" },
+  { id: "price", label: "値段", provisional: "値段が気になりました" },
+  { id: "noise", label: "店内の音", provisional: "店内の音が気になりました" },
 ];
 
 export const labelsOf = (choices: Choice[], ids: string[]): string[] =>

@@ -3,36 +3,36 @@ import {
   CHOICES_MAX_TOKENS,
   CHOICES_MODEL,
   CHOICES_SYSTEM_PROMPT,
-  DRAFT_MAX_TOKENS,
+  FINAL_MAX_TOKENS,
+  FINAL_MODEL,
   FOLLOWUP_FALLBACK,
   FOLLOWUP_MAX_TOKENS,
   FOLLOWUP_MODEL,
   FOLLOWUP_SYSTEM_PROMPT,
+  REFINE_MAX_TOKENS,
+  REFINE_MODEL,
+  REFINE_SYSTEM_PROMPT,
   buildChoicesUserPrompt,
   buildFollowupUserPrompt,
+  buildRefineUserPrompt,
   type FollowupReason,
-  DRAFT_MODEL,
-  DRAFT_SYSTEM_PROMPT,
-  LIVE_MAX_TOKENS,
-  LIVE_MODEL,
-  LIVE_SYSTEM_PROMPT,
-  buildDraftUserPrompt,
-  buildLiveUserPrompt,
-  type DraftInput,
+  type SignalInput,
 } from "@/lib/demo/draft-prompt";
 
 /**
- * アンケート v2 プロトタイプの下書き生成（docs/specs/survey-v2.md 段1）。
+ * アンケート v2 プロトタイプの生成API（docs/specs/survey-v2.md §12）。
  *
- * **検証専用。DBには一切書き込まない**（本番の /api/rating-flow/responses とは別物）。
- * 生成の記録も残さないので、`ai_draft_logs` にも入らない。
+ * **検証専用。DBには一切書き込まない。ai_draft_logs にも入れない。**
  *
- * **文字を少しずつ返す**（ストリーミング）。器のタイピング演出を「本物」にするため。
- * ここが偽物のアニメーションだと、待ち時間がただの遅延になる。
+ * | mode | モデル | 何をするか |
+ * |---|---|---|
+ * | refine | Haiku | 章の事実を、前の文章につながる続きとして整文（JSON） |
+ * | final | Sonnet | 全事実から下書き全体を整文（JSON） |
+ * | choices | Haiku | 品名から感想の選択肢を作る（肯定・中立・否定をバランス） |
+ * | followup | Haiku | 足りない情報をひとつだけ聞く質問を作る |
  *
- * モデルは Sonnet（`DRAFT_MODEL`）。本番の下書きは Haiku だが、
- * **Haiku は定型的な言い回しに寄りやすく、それが「AIが書いた感想文」に見える一因**
- * だった（2026-08-28、FROMAでステマと書かれた件の分析）。ここでは品質を優先する。
+ * **★（総合評価）はどのmodeにも渡さない。** 文の検証（sourceSignalIds・禁止語・メタ発言）は
+ * クライアント側の validateSentences が行う。通らなければクライアントは直前の文章を維持する。
  */
 
 export const runtime = "nodejs";
@@ -46,39 +46,36 @@ function extractJson(text: string): unknown {
   return JSON.parse(text.slice(start, end + 1));
 }
 
+type Body = {
+  mode?: "refine" | "final" | "choices" | "followup";
+  signals?: SignalInput[];
+  previousText?: string;
+  tone?: "normal" | "casual";
+  seed?: number;
+  itemLabel?: string;
+  categoryLabel?: string;
+  reason?: FollowupReason;
+};
+
 export async function POST(req: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
-    return new Response("ANTHROPIC_API_KEY が設定されていません", { status: 503 });
+    return Response.json({ error: "unavailable" }, { status: 503 });
   }
+  const body = (await req.json().catch(() => null)) as Body | null;
+  if (!body || !body.mode) return Response.json({ error: "invalid body" }, { status: 400 });
 
-  const body = (await req.json().catch(() => null)) as
-    | (DraftInput & {
-        seed?: number;
-        mode?: "live" | "final" | "followup" | "choices";
-        written_so_far?: string;
-        reason?: FollowupReason;
-        itemLabel?: string;
-        categoryLabel?: string;
-      })
-    | null;
-  if (!body || !Array.isArray(body.picked)) {
-    return new Response("invalid request body", { status: 400 });
-  }
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  // 品の感想の選択肢を作る（品名に合った事実型だけ。サラダに「ふわふわ」を出さない）
   if (body.mode === "choices") {
-    const anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     try {
-      const message = await anthropicClient.messages.create(
+      const message = await anthropic.messages.create(
         {
           model: CHOICES_MODEL,
           max_tokens: CHOICES_MAX_TOKENS,
           system: CHOICES_SYSTEM_PROMPT,
-          messages: [
-            { role: "user", content: buildChoicesUserPrompt(body.itemLabel ?? "", body.categoryLabel ?? "") },
-          ],
+          messages: [{ role: "user", content: buildChoicesUserPrompt(body.itemLabel ?? "", body.categoryLabel ?? "") }],
         },
-        { timeout: 6000, maxRetries: 0 }
+        { timeout: 8000, maxRetries: 0 }
       );
       const block = message.content.find((b) => b.type === "text");
       const parsed = extractJson(block && "text" in block ? block.text : "") as { choices?: unknown };
@@ -86,85 +83,82 @@ export async function POST(req: Request) {
         return Response.json({ choices: parsed.choices.slice(0, 8) });
       }
       throw new Error("unexpected shape");
-    } catch {
-      return Response.json({ choices: null }); // クライアント側がカテゴリ別の固定リストに退避する
+    } catch (error) {
+      console.error("[demo] 選択肢の生成に失敗", error);
+      return Response.json({ choices: null }); // クライアントがカテゴリ別の固定リストに退避する
     }
   }
 
-  // AI追質問（docs/specs/survey-v2.md 追記参照）。ストリーミング不要なのでJSONで返す
   if (body.mode === "followup") {
     const reason = body.reason ?? "vague-item";
-    const anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     try {
-      const message = await anthropicClient.messages.create(
+      const message = await anthropic.messages.create(
         {
           model: FOLLOWUP_MODEL,
           max_tokens: FOLLOWUP_MAX_TOKENS,
           system: FOLLOWUP_SYSTEM_PROMPT,
-          messages: [{ role: "user", content: buildFollowupUserPrompt(body.picked, reason) }],
+          messages: [{ role: "user", content: buildFollowupUserPrompt(body.signals ?? [], reason) }],
         },
         { timeout: 6000, maxRetries: 0 }
       );
       const block = message.content.find((b) => b.type === "text");
-      const parsed = extractJson(block && "text" in block ? block.text : "") as {
-        question?: unknown;
-        choices?: unknown;
-      };
-      if (
-        typeof parsed.question === "string" &&
-        Array.isArray(parsed.choices) &&
-        parsed.choices.every((c) => typeof c === "string")
-      ) {
+      const parsed = extractJson(block && "text" in block ? block.text : "") as { question?: unknown; choices?: unknown };
+      if (typeof parsed.question === "string" && Array.isArray(parsed.choices) && parsed.choices.every((c) => typeof c === "string")) {
         return Response.json({ question: parsed.question, choices: parsed.choices });
       }
       throw new Error("unexpected shape");
-    } catch {
-      // AIが落ちても質問は出す（固定の文面に退避）
+    } catch (error) {
+      console.error("[demo] 追質問の生成に失敗", error);
       return Response.json(FOLLOWUP_FALLBACK[reason]);
     }
   }
 
-  // live = 質問中の書き足し（速い Haiku）／ final = 最後の仕上げ（Sonnet）
-  const live = body.mode === "live";
-
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const encoder = new TextEncoder();
-
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      try {
-        const message = anthropic.messages.stream({
-          model: live ? LIVE_MODEL : DRAFT_MODEL,
-          max_tokens: live ? LIVE_MAX_TOKENS : DRAFT_MAX_TOKENS,
-          temperature: 1,
-          system: live ? LIVE_SYSTEM_PROMPT : DRAFT_SYSTEM_PROMPT,
-          messages: [
-            {
-              role: "user",
-              content: live
-                ? buildLiveUserPrompt(body.written_so_far ?? "", body.picked, body.written, body.tone, body.rating)
-                : buildDraftUserPrompt(body, body.seed ?? 1),
-            },
-          ],
-        });
-        for await (const event of message) {
-          if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-            controller.enqueue(encoder.encode(event.delta.text));
-          }
-        }
-      } catch (error) {
-        console.error("[demo] 下書きの生成に失敗", error);
-        controller.enqueue(encoder.encode("（下書きを作れませんでした。もう一度お試しください）"));
-      } finally {
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-store",
-    },
-  });
+  // refine / final
+  const signals = body.signals ?? [];
+  if (signals.length === 0) {
+    // 新しい事実が無ければ呼ばれない設計だが、来ても生成しない（P0: 空の追加生成をしない）
+    return Response.json({ sentences: [] });
+  }
+  const isFinal = body.mode === "final";
+  try {
+    const message = await anthropic.messages.create(
+      {
+        model: isFinal ? FINAL_MODEL : REFINE_MODEL,
+        max_tokens: isFinal ? FINAL_MAX_TOKENS : REFINE_MAX_TOKENS,
+        temperature: 1,
+        system: REFINE_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: buildRefineUserPrompt({
+              signals,
+              previousText: body.previousText ?? "",
+              tone: body.tone ?? "normal",
+              seed: body.seed ?? 1,
+              mode: isFinal ? "final" : "refine",
+            }),
+          },
+        ],
+      },
+      { timeout: 15000, maxRetries: 0 }
+    );
+    const block = message.content.find((b) => b.type === "text");
+    const parsed = extractJson(block && "text" in block ? block.text : "") as { sentences?: unknown };
+    if (
+      Array.isArray(parsed.sentences) &&
+      parsed.sentences.every(
+        (s) =>
+          typeof s === "object" && s !== null &&
+          typeof (s as { text?: unknown }).text === "string" &&
+          Array.isArray((s as { sourceSignalIds?: unknown }).sourceSignalIds)
+      )
+    ) {
+      return Response.json({ sentences: parsed.sentences });
+    }
+    throw new Error("unexpected shape");
+  } catch (error) {
+    // 技術的な詳細はログだけ。画面には出さない（クライアントは直前の文章を維持する）
+    console.error("[demo] 整文に失敗", error);
+    return Response.json({ sentences: null });
+  }
 }

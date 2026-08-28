@@ -7,7 +7,7 @@ import {
   CONCERN_CHOICES,
   EAT_NOTHING_ID,
   MENU,
-  POSITIVE_CHOICES,
+  GOOD_CHOICES,
   RATING_CHOICES,
   SERVICE_CHOICES,
   STORE_NAME,
@@ -21,6 +21,7 @@ import {
   type Tone,
 } from "@/lib/demo/survey-data";
 import type { FollowupReason } from "@/lib/demo/draft-prompt-types";
+import { applyEmoji, joinSentences, validateSentences, type Sentence, type Signal } from "@/lib/demo/fact-model";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { AiSparkleIcon, CheckCircleOutlineIcon, RefreshIcon } from "@/components/rating-flow/icons";
 import { DraftCanvas, useTypewriter } from "./DraftCanvas";
@@ -49,7 +50,7 @@ function tick() {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.(8);
 }
 
-type Followup = { reason: FollowupReason; question: string; choices: string[] };
+type Followup = { reason: FollowupReason; chapter: number; question: string; choices: string[] };
 
 export function DemoSurvey() {
   /* ── 回答 ─────────────────────────────── */
@@ -62,45 +63,64 @@ export function DemoSurvey() {
   const [attrNote, setAttrNote] = useState("");
   const [service, setService] = useState<string[]>([]);
   const [atmosphere, setAtmosphere] = useState<string[]>([]);
+  const [good, setGood] = useState<string[]>([]);
   const [concern, setConcern] = useState<string[]>([]);
-  const [positive, setPositive] = useState<string[]>([]);
   const [concernNote, setConcernNote] = useState("");
   const [freeText, setFreeText] = useState("");
-  const [followupQA, setFollowupQA] = useState<{ question: string; answer: string }[]>([]);
+  const [followupQA, setFollowupQA] = useState<{ question: string; answer: string; chapter: number }[]>([]);
 
   /* ── 進行 ─────────────────────────────── */
   const [chapterIndex, setChapterIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>("chapters");
   const [expanded, setExpanded] = useState(false);
   const [followup, setFollowup] = useState<Followup | null>(null);
-  const [followupCount, setFollowupCount] = useState(0);
   const [destination, setDestination] = useState<Destination | null>(null);
+  const askedReasonsRef = useRef<Set<string>>(new Set());
 
   /* ── 生成 ─────────────────────────────── */
   const [tone, setTone] = useState<Tone>("normal");
   const [emoji, setEmoji] = useState(false);
   const [seed, setSeed] = useState(1);
-  const [aiDraft, setAiDraft] = useState("");
+  /** 章ごとの文。provisional（ルールベース）→ refined（AI整文）に置き換わる */
+  const [chapterDrafts, setChapterDrafts] = useState<Record<number, { sentences: Sentence[]; refined: boolean }>>({});
+  /** 最終画面の文章（Sonnetの整文。検証を通ったものだけが入る） */
+  const [finalText, setFinalText] = useState("");
   const [edited, setEdited] = useState<string | null>(null);
-  const [streaming, setStreaming] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-  const usedRef = useRef<Set<string>>(new Set());
-  const aiDraftRef = useRef("");
-  useEffect(() => {
-    aiDraftRef.current = aiDraft;
-  }, [aiDraft]);
+  const [generating, setGenerating] = useState(false);
 
-  const ratingNum = Number(rating ?? 0);
-
-  /**
-   * 品の感想の選択肢。**品名からAIが作る**（落ちたらカテゴリ別の退避リスト）。
-   * 選択肢の id はラベルそのもの（AI生成のため固定 id が無い）。
-   */
-  const [attrChoices, setAttrChoices] = useState<Choice[] | null>(null);
-  const attrCacheRef = useRef<Map<string, string[]>>(new Map());
   const ateNothing = categories.includes(EAT_NOTHING_ID);
   const effectiveFocus = items.length === 1 ? items[0] : focusItem;
   const focusLabel = effectiveFocus ? findItem(effectiveFocus)?.label ?? "" : "";
+
+  /* ── 品の感想の選択肢（AI生成。カテゴリ選択時点で先読みする） ── */
+  const [attrChoices, setAttrChoices] = useState<Choice[] | null>(null);
+  const attrCacheRef = useRef<Map<string, string[]>>(new Map());
+
+  const fetchChoicesFor = useCallback(async (itemId: string): Promise<string[]> => {
+    const cached = attrCacheRef.current.get(itemId);
+    if (cached) return cached;
+    const itemLabel = findItem(itemId)?.label ?? "";
+    const categoryLabel = categoryOf(itemId)?.label ?? "";
+    let labels: string[];
+    try {
+      const res = await fetch("/api/demo/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "choices", itemLabel, categoryLabel }),
+      });
+      const data = (await res.json()) as { choices: string[] | null };
+      labels = data.choices ?? fallbackAttrsFor(itemId);
+    } catch {
+      labels = fallbackAttrsFor(itemId);
+    }
+    attrCacheRef.current.set(itemId, labels);
+    return labels;
+  }, []);
+
+  // 品を選んだ時点で先読み（対象を決める頃には表示できるように）
+  useEffect(() => {
+    items.forEach((id) => void fetchChoicesFor(id));
+  }, [items, fetchChoicesFor]);
 
   useEffect(() => {
     if (!effectiveFocus) {
@@ -108,194 +128,208 @@ export function DemoSurvey() {
       return;
     }
     setAttrs([]);
-    const cached = attrCacheRef.current.get(effectiveFocus);
-    if (cached) {
-      setAttrChoices(cached.map((label) => ({ id: label, label })));
-      return;
-    }
-    setAttrChoices(null); // 取得中はローディング表示
-    const itemLabel = findItem(effectiveFocus)?.label ?? "";
-    const categoryLabel = categoryOf(effectiveFocus)?.label ?? "";
+    setAttrChoices(null);
     let cancelled = false;
-    (async () => {
-      let labels: string[];
+    void fetchChoicesFor(effectiveFocus).then((labels) => {
+      if (!cancelled) setAttrChoices(labels.map((label) => ({ id: label, label })));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveFocus, fetchChoicesFor]);
+
+  /* ── canonical fact model：章ごとの Signal を導出 ─────── */
+
+  const chapterSignalsList: Signal[][] = [
+    // 章1 今日のこと（★は Signal にしない＝集計専用）
+    visit
+      ? [{ id: `visit:${visit}`, label: labelsOf(VISIT_CHOICES, [visit])[0] ?? "", provisional: VISIT_CHOICES.find((c) => c.id === visit)?.provisional ?? "" }]
+      : [],
+    // 章2 料理・サービス
+    [
+      ...items.map((id) => ({
+        id: `item:${id}`,
+        label: findItem(id)?.label ?? "",
+        provisional: "",
+        itemLabel: findItem(id)?.label ?? "",
+      })),
+      ...attrs
+        .filter((a) => a !== "その他")
+        .map((label) => ({
+          id: `attr:${effectiveFocus}:${label}`,
+          label,
+          provisional: `「${focusLabel}」は、${label}`,
+          itemLabel: focusLabel,
+        })),
+      ...(attrNote.trim() ? [{ id: "free:attr", label: attrNote.trim(), provisional: attrNote.trim(), isFree: true }] : []),
+      ...service
+        .filter((id) => id !== "none")
+        .map((id) => {
+          const c = SERVICE_CHOICES.find((x) => x.id === id);
+          return { id: `service:${id}`, label: c?.label ?? "", provisional: c?.provisional ?? "" };
+        }),
+      ...followupQA.filter((qa) => qa.chapter === 1).map((qa, i) => ({
+        id: `followup:1:${i}`,
+        label: `${qa.question} → ${qa.answer}`,
+        provisional: qa.answer,
+        isFree: true,
+      })),
+    ],
+    // 章3 印象に残ったこと（全員共通の2問）
+    [
+      ...atmosphere
+        .filter((id) => id !== "none")
+        .map((id) => {
+          const c = ATMOSPHERE_CHOICES.find((x) => x.id === id);
+          return { id: `atmosphere:${id}`, label: c?.label ?? "", provisional: c?.provisional ?? "" };
+        }),
+      ...good
+        .filter((id) => id !== "none")
+        .map((id) => {
+          const c = GOOD_CHOICES.find((x) => x.id === id);
+          return { id: `good:${id}`, label: c?.label ?? "", provisional: c?.provisional ?? "" };
+        }),
+      ...concern
+        .filter((id) => id !== "none")
+        .map((id) => {
+          const c = CONCERN_CHOICES.find((x) => x.id === id);
+          return { id: `concern:${id}`, label: c?.label ?? "", provisional: c?.provisional ?? "" };
+        }),
+      ...(concernNote.trim() ? [{ id: "free:concern", label: concernNote.trim(), provisional: concernNote.trim(), isFree: true }] : []),
+      ...followupQA.filter((qa) => qa.chapter === 2).map((qa, i) => ({
+        id: `followup:2:${i}`,
+        label: `${qa.question} → ${qa.answer}`,
+        provisional: qa.answer,
+        isFree: true,
+      })),
+    ],
+    // 章4 伝えたいこと
+    freeText.trim() ? [{ id: "free:message", label: freeText.trim(), provisional: freeText.trim(), isFree: true }] : [],
+  ];
+
+  /** 章の仮文（ルールベース・即時。品は1文にまとめる） */
+  function provisionalFor(chapter: number): Sentence[] {
+    const signals = chapterSignalsList[chapter];
+    const out: Sentence[] = [];
+    if (chapter === 1) {
+      const itemSignals = signals.filter((s) => s.id.startsWith("item:"));
+      if (itemSignals.length > 0) {
+        out.push({
+          text: `${itemSignals.map((s) => s.label).join("と")}をいただきました`,
+          sourceSignalIds: itemSignals.map((s) => s.id),
+        });
+      }
+    }
+    for (const s of signals) {
+      if (s.id.startsWith("item:")) continue;
+      if (s.provisional) out.push({ text: s.provisional, sourceSignalIds: [s.id] });
+    }
+    return out;
+  }
+
+  /**
+   * 選択が変わった瞬間に、その章の文を仮文で組み直す（Living Draft の即時反映）。
+   * 追加は末尾に足されるのでタイピング演出になり、解除は演出なしで消える。
+   * **他の章の文（refined 含む）には触れない。**
+   */
+  const signalIdsKey = chapterSignalsList.map((sig) => sig.map((x) => x.id).join(",")).join("|");
+  const prevIdsRef = useRef<string[]>(["", "", "", ""]);
+  useEffect(() => {
+    const idsByChapter = chapterSignalsList.map((sig) => sig.map((x) => x.id).join(","));
+    idsByChapter.forEach((ids, chapter) => {
+      if (prevIdsRef.current[chapter] === ids) return;
+      prevIdsRef.current[chapter] = ids;
+      setChapterDrafts((prev) => ({ ...prev, [chapter]: { sentences: provisionalFor(chapter), refined: false } }));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signalIdsKey]);
+
+  /** 章1〜nまでの本文（表示用） */
+  function textUpTo(chapter: number): string {
+    const all: Sentence[] = [];
+    for (let i = 0; i <= chapter; i++) all.push(...(chapterDrafts[i]?.sentences ?? []));
+    return joinSentences(all);
+  }
+  const liveText = textUpTo(3);
+
+  /* ── 章の終わりにAIが整文する（非同期。失敗したら仮文のまま） ── */
+  const refineChapter = useCallback(
+    async (chapter: number) => {
+      const signals = chapterSignalsList[chapter];
+      if (signals.length === 0) return; // 事実が無ければ呼ばない（P0）
+      const idsAtRequest = signals.map((s) => s.id).join(",");
       try {
         const res = await fetch("/api/demo/draft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "choices", itemLabel, categoryLabel, picked: [], written: [], rating: null, tone: "normal", emoji: false }),
+          body: JSON.stringify({
+            mode: "refine",
+            signals: signals.map(({ id, label, itemLabel, isFree }) => ({ id, label, itemLabel, isFree })),
+            previousText: textUpTo(chapter - 1),
+            tone,
+            seed,
+          }),
         });
-        const data = (await res.json()) as { choices: string[] | null };
-        labels = data.choices ?? fallbackAttrsFor(effectiveFocus);
-      } catch {
-        labels = fallbackAttrsFor(effectiveFocus);
+        const data = (await res.json()) as { sentences: Sentence[] | null };
+        if (!data.sentences) return;
+        const verdict = validateSentences(data.sentences, signals);
+        if (!verdict.ok) {
+          console.error("[demo] 整文を破棄:", verdict.reason);
+          return; // 仮文を維持（エラーは画面に出さない）
+        }
+        // リクエスト後に回答が変わっていたら捨てる（古い整文で上書きしない）
+        if (chapterSignalsList[chapter].map((s) => s.id).join(",") !== idsAtRequest) return;
+        setChapterDrafts((prev) => ({ ...prev, [chapter]: { sentences: verdict.sentences, refined: true } }));
+      } catch (error) {
+        console.error("[demo] 整文に失敗", error);
       }
-      if (cancelled) return;
-      attrCacheRef.current.set(effectiveFocus, labels);
-      setAttrChoices(labels.map((label) => ({ id: label, label })));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [effectiveFocus]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [signalIdsKey, tone, seed, chapterDrafts]
+  );
 
-  /** いまの全材料。appendLive が usedRef で「まだ送っていないものだけ」を送る */
-  const collectMaterials = useCallback(() => {
-    const picked: { question: string; values: string[] }[] = [];
-    if (visit) picked.push({ question: "来店回数", values: labelsOf(VISIT_CHOICES, [visit]) });
-    if (items.length > 0)
-      picked.push({ question: "召し上がったもの", values: items.map((id) => findItem(id)?.label ?? "").filter(Boolean) });
-    if (effectiveFocus && attrs.length > 0)
-      picked.push({ question: `「${focusLabel}」の感想`, values: attrs.filter((a) => a !== "その他") });
-    if (service.length > 0) picked.push({ question: "接客", values: labelsOf(SERVICE_CHOICES, service) });
-    if (atmosphere.length > 0) picked.push({ question: "お店の様子", values: labelsOf(ATMOSPHERE_CHOICES, atmosphere) });
-    if (concern.length > 0) picked.push({ question: "気になったこと", values: labelsOf(CONCERN_CHOICES, concern) });
-    if (positive.length > 0) picked.push({ question: "良かったところ", values: labelsOf(POSITIVE_CHOICES, positive) });
-    for (const qa of followupQA) picked.push({ question: `質問「${qa.question}」への答え`, values: [qa.answer] });
-    const written = [attrNote, concernNote, freeText].map((t) => t.trim()).filter((t) => t !== "");
-    return { picked, written };
-  }, [visit, items, effectiveFocus, focusLabel, attrs, service, atmosphere, concern, positive, followupQA, attrNote, concernNote, freeText]);
+  /* ── AI追質問（★に依存しない引き金だけ。最大2問） ── */
+  function detectFollowupReason(justFinished: number): FollowupReason | null {
+    if (followupQA.length >= 2) return null;
+    if (justFinished === 1 && effectiveFocus && (attrs.includes("その他") || (attrs.length === 0 && attrNote.trim() === "")) && !askedReasonsRef.current.has("vague-item"))
+      return "vague-item";
+    if (justFinished === 2 && concern.includes("wait") && !askedReasonsRef.current.has("wait-detail"))
+      return "wait-detail";
+    return null;
+  }
 
-  /** 章を終えるたびに、続きの1〜2文だけを書き足させる（Haiku・ストリーミング） */
-  const appendLive = useCallback(async () => {
-    const { picked, written } = collectMaterials();
-    const fresh = picked.filter((g) => !usedRef.current.has(g.question));
-    const freshText = written.filter((w) => !usedRef.current.has(`text:${w}`));
-    if (fresh.length === 0 && freshText.length === 0) return;
-    fresh.forEach((g) => usedRef.current.add(g.question));
-    freshText.forEach((w) => usedRef.current.add(`text:${w}`));
-
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
-    setStreaming(true);
-    const base = aiDraftRef.current;
+  async function maybeAskFollowup(justFinished: number): Promise<boolean> {
+    const reason = detectFollowupReason(justFinished);
+    if (!reason) return false;
+    askedReasonsRef.current.add(reason);
     try {
       const res = await fetch("/api/demo/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mode: "live",
-          written_so_far: base,
-          picked: fresh,
-          written: freshText,
-          rating: Number(rating ?? 0) || null,
-          tone,
-          emoji: false,
+          mode: "followup",
+          reason,
+          signals: chapterSignalsList.flat().map(({ id, label, itemLabel }) => ({ id, label, itemLabel })),
         }),
-        signal: ac.signal,
-      });
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("no stream");
-      const decoder = new TextDecoder();
-      let acc = "";
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        acc += decoder.decode(value, { stream: true });
-        setAiDraft(base + acc.trimStart());
-      }
-    } catch {
-      // 失敗しても回答は失われない。最後の仕上げ（final）が全材料から書き直す
-    } finally {
-      setStreaming(false);
-    }
-  }, [collectMaterials, tone, rating]);
-
-  /** 最後の仕上げ（Sonnet・全体を書き直す）。空欄から始める */
-  const generateFinal = useCallback(
-    async (opts: { tone: Tone; emoji: boolean; seed: number }) => {
-      abortRef.current?.abort();
-      const ac = new AbortController();
-      abortRef.current = ac;
-      setEdited(null);
-      setAiDraft("");
-      setStreaming(true);
-      try {
-        const { picked, written } = collectMaterials();
-        const res = await fetch("/api/demo/draft", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "final", picked, written, rating: Number(rating ?? 0) || null, ...opts }),
-          signal: ac.signal,
-        });
-        const reader = res.body?.getReader();
-        if (!reader) throw new Error("no stream");
-        const decoder = new TextDecoder();
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          setAiDraft((prev) => prev + decoder.decode(value, { stream: true }));
-        }
-      } catch {
-        /* 画面は止めない */
-      } finally {
-        setStreaming(false);
-      }
-    },
-    [collectMaterials, rating]
-  );
-
-  useEffect(() => {
-    if (phase !== "draft") return;
-    void generateFinal({ tone, emoji, seed });
-    // 文体切替は各ボタンから。ここで tone を依存に入れると二重に走る
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
-
-  /* ── 章の完了判定 ───────────────────────── */
-  const attrsDone = attrs.length > 0 || attrNote.trim() !== "";
-  const chapterComplete: boolean[] = [
-    rating !== null && visit !== null,
-    ateNothing || (items.length > 0 && (items.length === 1 || focusItem !== null) && attrsDone && service.length > 0),
-    atmosphere.length > 0 && (ratingNum >= 4 ? concern.length > 0 : positive.length > 0),
-    true, // 伝えたいことは任意
-  ];
-
-  /** AI追質問の引き金（情報が足りないときだけ。最大2問） */
-  function detectFollowupReason(): FollowupReason | null {
-    if (followupCount >= 2) return null;
-    const asked = new Set(followupQA.map((qa) => qa.question));
-    if (effectiveFocus && (attrs.includes("その他") || (attrs.length === 0 && attrNote.trim() === "")) && !asked.has("item"))
-      return "vague-item";
-    if (ratingNum >= 4 && concern.includes("wait")) return "wait-detail";
-    if (ratingNum > 0 && ratingNum <= 3 && labelsOf(POSITIVE_CHOICES, positive).length === 0 && concernNote.trim() === "")
-      return "low-rating-unclear";
-    return null;
-  }
-
-  const askedReasonsRef = useRef<Set<string>>(new Set());
-
-  async function maybeAskFollowup(): Promise<boolean> {
-    const reason = detectFollowupReason();
-    if (!reason || askedReasonsRef.current.has(reason)) return false;
-    askedReasonsRef.current.add(reason);
-    setFollowupCount((c) => c + 1);
-    const { picked } = collectMaterials();
-    try {
-      const res = await fetch("/api/demo/draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "followup", reason, picked, written: [], rating: null, tone, emoji: false }),
       });
       const data = (await res.json()) as { question: string; choices: string[] };
-      setFollowup({ reason, ...data });
+      setFollowup({ reason, chapter: justFinished, ...data });
+      return true;
     } catch {
-      setFollowup(null);
       return false;
     }
-    return true;
   }
 
-  /** 章を終える。生成は後ろで進み、次の章が下に現れる */
+  /** 章を終える。質問は次の画面へ進み、整文は後ろで進む */
   async function completeChapter() {
     tick();
-    void appendLive();
-    if (chapterIndex === 2) {
-      // 印象に残ったことの後だけ、足りなければAIが1問だけ聞く
-      const asked = await maybeAskFollowup();
-      if (asked) return; // 追質問に答えてから次へ
-    }
+    void refineChapter(chapterIndex);
+    const asked = await maybeAskFollowup(chapterIndex);
+    if (asked) return;
+    advance();
+  }
+
+  function advance() {
     if (chapterIndex + 1 >= CHAPTERS.length) {
       setPhase("draft");
       return;
@@ -306,43 +340,93 @@ export function DemoSurvey() {
   function answerFollowup(answer: string) {
     tick();
     if (!followup) return;
-    setFollowupQA([...followupQA, { question: followup.question, answer }]);
+    setFollowupQA([...followupQA, { question: followup.question, answer, chapter: followup.chapter }]);
+    const target = followup.chapter;
     setFollowup(null);
-    // 答えも器に流し込む（次のレンダー後に材料が揃う）
-    setTimeout(() => void appendLive(), 0);
-    setChapterIndex(3);
+    setTimeout(() => void refineChapter(target), 0);
+    advance();
   }
 
   function skipFollowup() {
     setFollowup(null);
-    setChapterIndex(3);
+    advance();
   }
 
-  /** 終えた章を直す。下書きは白紙に戻し、次の「次へ」で全部を書き直す */
+  /** 終えた章を直す。**文章は消さない**（その章の回答を変えた時だけ、その章の文が組み直る） */
   function reopenChapter(i: number) {
     tick();
-    abortRef.current?.abort();
-    usedRef.current.clear();
-    askedReasonsRef.current.clear();
-    setAiDraft("");
-    setEdited(null);
-    setFollowup(null);
-    setFollowupQA([]);
-    setFollowupCount(0);
     setChapterIndex(i);
   }
 
-  /* ── 表示 ─────────────────────────────── */
-  const remainingChapters = CHAPTERS.length - chapterIndex - 1;
-  const remainingSeconds = CHAPTERS.slice(chapterIndex + 1).reduce((a, c) => a + c.seconds, 0);
-  const draft = edited ?? aiDraft;
+  /* ── 最終の仕上げ（Sonnet・全事実から） ── */
+  const generateFinal = useCallback(
+    async (opts: { tone: Tone; seed: number }) => {
+      const signals = chapterSignalsList.flat();
+      if (signals.length === 0) {
+        setFinalText(liveText);
+        return;
+      }
+      setGenerating(true);
+      try {
+        const res = await fetch("/api/demo/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "final",
+            signals: signals.map(({ id, label, itemLabel, isFree }) => ({ id, label, itemLabel, isFree })),
+            tone: opts.tone,
+            seed: opts.seed,
+          }),
+        });
+        const data = (await res.json()) as { sentences: Sentence[] | null };
+        if (data.sentences) {
+          const verdict = validateSentences(data.sentences, signals);
+          if (verdict.ok) {
+            setFinalText("");
+            // 一拍おいてから流し込む（空→全文でタイピング演出になる）
+            setTimeout(() => setFinalText(joinSentences(verdict.sentences)), 50);
+            return;
+          }
+          console.error("[demo] 最終整文を破棄:", verdict.reason);
+        }
+        // 失敗時：直前の正常な文章（章ごとの文）を維持。エラー文は出さない
+        setFinalText((prev) => prev || liveText);
+      } catch (error) {
+        console.error("[demo] 最終整文に失敗", error);
+        setFinalText((prev) => prev || liveText);
+      } finally {
+        setGenerating(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [signalIdsKey, liveText]
+  );
 
-  /** 終えた章の要約テキスト */
+  useEffect(() => {
+    if (phase !== "draft") return;
+    void generateFinal({ tone, seed });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  /* ── 表示 ─────────────────────────────── */
+  // 絵文字は決定論で付け外しする（AIを呼ばない。OFFで一字一句元に戻る）
+  const baseDraft = edited ?? finalText;
+  const draft = emoji && !edited ? applyEmoji(baseDraft) : baseDraft;
+  const isEdited = edited !== null;
+
+  const attrsDone = attrs.length > 0 || attrNote.trim() !== "";
+  const chapterComplete: boolean[] = [
+    rating !== null && visit !== null,
+    ateNothing || (items.length > 0 && (items.length === 1 || focusItem !== null) && attrsDone && service.length > 0),
+    atmosphere.length > 0 && good.length > 0 && concern.length > 0,
+    true,
+  ];
+
+  const remainingChapters = CHAPTERS.length - chapterIndex - 1;
+
   function chapterSummary(i: number): string {
     if (i === 0)
-      return [labelsOf(RATING_CHOICES, rating ? [rating] : []), labelsOf(VISIT_CHOICES, visit ? [visit] : [])]
-        .flat()
-        .join("・");
+      return [labelsOf(RATING_CHOICES, rating ? [rating] : []), labelsOf(VISIT_CHOICES, visit ? [visit] : [])].flat().join("・");
     if (i === 1)
       return ateNothing
         ? "お食事なし"
@@ -351,13 +435,10 @@ export function DemoSurvey() {
             .filter(Boolean)
             .join("・");
     if (i === 2)
-      return [
-        labelsOf(ATMOSPHERE_CHOICES, atmosphere),
-        labelsOf(CONCERN_CHOICES, concern),
-        labelsOf(POSITIVE_CHOICES, positive),
-      ]
-        .flat()
-        .join("・") || "特になし";
+      return (
+        [labelsOf(ATMOSPHERE_CHOICES, atmosphere), labelsOf(GOOD_CHOICES, good), labelsOf(CONCERN_CHOICES, concern)].flat().join("・") ||
+        "特になし"
+      );
     return "";
   }
 
@@ -397,17 +478,16 @@ export function DemoSurvey() {
                 {CHAPTERS[chapterIndex].title}
               </p>
               <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-                {remainingChapters > 0 ? `あと${remainingChapters}章・約${remainingSeconds}秒` : "最後の章です"}
+                {remainingChapters > 0 ? `あと${remainingChapters}章` : "最後の章です"}
               </p>
             </div>
           </div>
         ) : null}
       </div>
 
-      <div className={phase === "chapters" ? "flex w-full flex-1 flex-col pb-[168px]" : "flex w-full flex-1 flex-col"}>
+      <div className={phase === "chapters" ? "flex w-full flex-1 flex-col pb-[132px]" : "flex w-full flex-1 flex-col"}>
         {phase === "chapters" ? (
           <div className="flex w-full flex-col gap-[var(--product-space-16)] px-[var(--product-space-20)]">
-            {/* 終えた章の要約（戻る導線。自動前進で答えを直せなくしない） */}
             {CHAPTERS.slice(0, chapterIndex).map((c, i) => (
               <button
                 key={c.id}
@@ -430,7 +510,6 @@ export function DemoSurvey() {
               </button>
             ))}
 
-            {/* AI追質問（あれば、いまの章の下に出る） */}
             {followup ? (
               <FollowupCard followup={followup} onAnswer={answerFollowup} onSkip={skipFollowup} />
             ) : (
@@ -440,10 +519,10 @@ export function DemoSurvey() {
                     <FieldTitle title="本日の体験はいかがでしたか？" />
                     <CardList choices={RATING_CHOICES} selected={rating ? [rating] : []} onSelect={(id) => { tick(); setRating(id); }} />
                     {rating ? (
-                      <div className="review-rise flex w-full flex-col gap-[var(--product-space-12)]">
+                      <RevealBlock>
                         <FieldTitle title="今日で何回目のご来店ですか？" />
                         <Segmented choices={VISIT_CHOICES} selected={visit} onSelect={(id) => { tick(); setVisit(id); }} />
-                      </div>
+                      </RevealBlock>
                     ) : null}
                   </>
                 ) : null}
@@ -463,7 +542,7 @@ export function DemoSurvey() {
                             : id === EAT_NOTHING_ID
                               ? [EAT_NOTHING_ID]
                               : [...prev.filter((x) => x !== EAT_NOTHING_ID), id];
-                          // カテゴリを外したら、その中の品も外す（矛盾回答を残さない）
+                          // カテゴリを外したら、その中の品だけを外す（無関係の下流回答は消さない）
                           const allowed = new Set(MENU.filter((c) => next.includes(c.id)).flatMap((c) => c.items.map((i) => i.id)));
                           setItems((cur) => cur.filter((x) => allowed.has(x)));
                           return next;
@@ -472,7 +551,7 @@ export function DemoSurvey() {
                     />
                     {!ateNothing &&
                       MENU.filter((c) => categories.includes(c.id)).map((c) => (
-                        <div key={c.id} className="review-rise flex w-full flex-col gap-[var(--product-space-12)]">
+                        <RevealBlock key={c.id}>
                           <FieldTitle title={`${c.label}、どれを？`} note="いくつでも" />
                           <ChipGrid
                             choices={c.items}
@@ -486,20 +565,20 @@ export function DemoSurvey() {
                               });
                             }}
                           />
-                        </div>
+                        </RevealBlock>
                       ))}
                     {items.length > 1 ? (
-                      <div className="review-rise flex w-full flex-col gap-[var(--product-space-12)]">
+                      <RevealBlock>
                         <FieldTitle title="特に印象に残った1品は？" />
                         <ChipGrid
                           choices={items.map((id) => findItem(id)).filter((i): i is Choice => Boolean(i))}
                           selected={focusItem ? [focusItem] : []}
                           onToggle={(id) => { tick(); setFocusItem(id); }}
                         />
-                      </div>
+                      </RevealBlock>
                     ) : null}
                     {effectiveFocus ? (
-                      <div className="review-rise flex w-full flex-col gap-[var(--product-space-12)]">
+                      <RevealBlock>
                         <FieldTitle title={`「${focusLabel}」はどうでした？`} note="いくつでも" />
                         {attrChoices ? (
                           <ChipGrid
@@ -511,7 +590,7 @@ export function DemoSurvey() {
                           <div className="flex h-11 items-center gap-[var(--product-space-8)]">
                             <AiSparkleIcon className="size-[15px] shrink-0" />
                             <span className="text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-                              この品に合わせた選択肢を用意しています
+                              この品に合わせた選択肢を準備しています
                             </span>
                             <span className="flex items-center gap-[3px]" aria-hidden>
                               {[0, 1, 2].map((i) => (
@@ -525,10 +604,10 @@ export function DemoSurvey() {
                           </div>
                         )}
                         <FreeTextField value={attrNote} onChange={setAttrNote} />
-                      </div>
+                      </RevealBlock>
                     ) : null}
                     {ateNothing || attrsDone ? (
-                      <div className="review-rise flex w-full flex-col gap-[var(--product-space-12)]">
+                      <RevealBlock>
                         <FieldTitle title="スタッフの様子はどうでした？" note="いくつでも" />
                         <ChipGrid
                           choices={SERVICE_CHOICES}
@@ -536,18 +615,17 @@ export function DemoSurvey() {
                           exclusiveId="none"
                           onToggle={(id) => {
                             tick();
-                            setService((p) =>
-                              p.includes(id) ? p.filter((x) => x !== id) : id === "none" ? ["none"] : [...p.filter((x) => x !== "none"), id]
-                            );
+                            setService((p) => (p.includes(id) ? p.filter((x) => x !== id) : id === "none" ? ["none"] : [...p.filter((x) => x !== "none"), id]));
                           }}
                         />
-                      </div>
+                      </RevealBlock>
                     ) : null}
                   </>
                 ) : null}
 
                 {chapterIndex === 2 ? (
                   <>
+                    {/* 全員に同じ順番・同じ文言・同じ選択肢（評価による出し分けはしない） */}
                     <FieldTitle title="お店の中はどうでした？" note="いくつでも" />
                     <ChipGrid
                       choices={ATMOSPHERE_CHOICES}
@@ -555,31 +633,37 @@ export function DemoSurvey() {
                       exclusiveId="none"
                       onToggle={(id) => {
                         tick();
-                        setAtmosphere((p) =>
-                          p.includes(id) ? p.filter((x) => x !== id) : id === "none" ? ["none"] : [...p.filter((x) => x !== "none"), id]
-                        );
+                        setAtmosphere((p) => (p.includes(id) ? p.filter((x) => x !== id) : id === "none" ? ["none"] : [...p.filter((x) => x !== "none"), id]));
                       }}
                     />
                     {atmosphere.length > 0 ? (
-                      <div className="review-rise flex w-full flex-col gap-[var(--product-space-12)]">
-                        <FieldTitle
-                          title={ratingNum >= 4 ? "少し気になったことはありますか？" : "良かったところもあれば教えてください"}
-                          note="無ければ「特になし」で"
-                        />
+                      <RevealBlock>
+                        <FieldTitle title="良かったところがあれば教えてください" note="無ければ「特になし」で" />
                         <ChipGrid
-                          choices={ratingNum >= 4 ? CONCERN_CHOICES : POSITIVE_CHOICES}
-                          selected={ratingNum >= 4 ? concern : positive}
+                          choices={GOOD_CHOICES}
+                          selected={good}
                           exclusiveId="none"
                           onToggle={(id) => {
                             tick();
-                            const setter = ratingNum >= 4 ? setConcern : setPositive;
-                            setter((p) =>
-                              p.includes(id) ? p.filter((x) => x !== id) : id === "none" ? ["none"] : [...p.filter((x) => x !== "none"), id]
-                            );
+                            setGood((p) => (p.includes(id) ? p.filter((x) => x !== id) : id === "none" ? ["none"] : [...p.filter((x) => x !== "none"), id]));
+                          }}
+                        />
+                      </RevealBlock>
+                    ) : null}
+                    {good.length > 0 ? (
+                      <RevealBlock>
+                        <FieldTitle title="気になったところがあれば教えてください" note="無ければ「特になし」で" />
+                        <ChipGrid
+                          choices={CONCERN_CHOICES}
+                          selected={concern}
+                          exclusiveId="none"
+                          onToggle={(id) => {
+                            tick();
+                            setConcern((p) => (p.includes(id) ? p.filter((x) => x !== id) : id === "none" ? ["none"] : [...p.filter((x) => x !== "none"), id]));
                           }}
                         />
                         <FreeTextField value={concernNote} onChange={setConcernNote} />
-                      </div>
+                      </RevealBlock>
                     ) : null}
                   </>
                 ) : null}
@@ -592,18 +676,13 @@ export function DemoSurvey() {
                 ) : null}
 
                 <div className="flex w-full flex-col items-center gap-[var(--product-space-4)] pb-[var(--product-space-8)] pt-[var(--product-space-8)]">
-                  <ReviewButton
-                    variant="primary"
-                    size="lg"
-                    disabled={!chapterComplete[chapterIndex]}
-                    onClick={() => void completeChapter()}
-                  >
+                  <ReviewButton variant="primary" size="lg" disabled={!chapterComplete[chapterIndex]} onClick={() => void completeChapter()}>
                     {chapterIndex === CHAPTERS.length - 1 ? "下書きを見る" : "次へ"}
                   </ReviewButton>
                   {chapterIndex > 0 && chapterIndex < CHAPTERS.length - 1 ? (
                     <button
                       type="button"
-                      onClick={() => void completeChapter()}
+                      onClick={() => { tick(); advance(); }}
                       className="flex h-11 items-center justify-center px-[var(--product-space-16)] text-[13px] font-medium"
                       style={{ color: "var(--product-color-text-muted)" }}
                     >
@@ -620,12 +699,14 @@ export function DemoSurvey() {
           <DraftTools
             tone={tone}
             emoji={emoji}
-            onTone={(t) => { tick(); setTone(t); void generateFinal({ tone: t, emoji, seed }); }}
-            onEmoji={() => { tick(); const next = !emoji; setEmoji(next); void generateFinal({ tone, emoji: next, seed }); }}
-            onRegenerate={() => { tick(); const next = seed + 1; setSeed(next); void generateFinal({ tone, emoji, seed: next }); }}
+            locked={isEdited}
+            onTone={(t) => { tick(); setTone(t); void generateFinal({ tone: t, seed }); }}
+            onEmoji={() => { tick(); setEmoji(!emoji); }}
+            onRegenerate={() => { tick(); const next = seed + 1; setSeed(next); void generateFinal({ tone, seed: next }); }}
+            onRestore={() => { tick(); setEdited(null); }}
             onNext={() => setPhase("destination")}
             onBack={() => { setPhase("chapters"); setChapterIndex(CHAPTERS.length - 1); }}
-            canvas={<EditableCanvas value={draft} onChange={setEdited} streaming={streaming} />}
+            canvas={<EditableCanvas value={draft} onChange={setEdited} streaming={generating} />}
           />
         ) : null}
 
@@ -639,13 +720,29 @@ export function DemoSurvey() {
       {phase === "chapters" ? (
         <div className="sticky bottom-0 z-10 mx-auto w-full max-w-[390px]">
           <DraftCanvas
-            text={draft}
+            text={liveText}
             expanded={expanded}
             onToggle={() => setExpanded(!expanded)}
             emptyHint="選ぶと、ここに感想が組み上がっていきます"
           />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** 新しく現れた質問ブロック。見出しが見える位置まで穏やかにスクロールする */
+function RevealBlock({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "nearest" });
+  }, []);
+  return (
+    <div ref={ref} className="review-rise flex w-full flex-col gap-[var(--product-space-12)]">
+      {children}
     </div>
   );
 }
@@ -907,18 +1004,23 @@ function FollowupCard({
 function DraftTools({
   tone,
   emoji,
+  locked,
   onTone,
   onEmoji,
   onRegenerate,
+  onRestore,
   onNext,
   onBack,
   canvas,
 }: {
   tone: Tone;
   emoji: boolean;
+  /** 本人が手で直した後は true。編集内容を守るため、生成系の操作を止める（2026-08-28 承認） */
+  locked: boolean;
   onTone: (t: Tone) => void;
   onEmoji: () => void;
   onRegenerate: () => void;
+  onRestore: () => void;
   onNext: () => void;
   onBack: () => void;
   canvas: React.ReactNode;
@@ -948,7 +1050,23 @@ function DraftTools({
 
       {canvas}
 
-      <div className="flex w-full items-center gap-[var(--product-space-8)]">
+      {locked ? (
+        <div className="flex w-full items-center justify-between">
+          <p className="text-[12px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            編集した内容を守るため、言い方の変更は止めています
+          </p>
+          <button
+            type="button"
+            onClick={onRestore}
+            className="flex h-11 shrink-0 items-center px-[var(--product-space-8)] text-[12px] font-bold"
+            style={{ color: "var(--review-accent-primary)" }}
+          >
+            AIの文に戻す
+          </button>
+        </div>
+      ) : null}
+
+      <div className="flex w-full items-center gap-[var(--product-space-8)]" style={locked ? { opacity: 0.4, pointerEvents: "none" } : undefined}>
         {/* 文体：排他の切替（segmented） */}
         <div
           className="flex h-11 flex-1 rounded-[var(--product-radius-full)] border-[1.5px] border-solid p-[3px]"
@@ -993,9 +1111,11 @@ function DraftTools({
       {/* 別の言い方：やり直しのアクション */}
       <button
         type="button"
+        disabled={locked}
         onClick={onRegenerate}
         className="flex h-11 w-full items-center justify-center gap-[var(--product-space-8)] rounded-[var(--product-radius-sm)] border-[1.5px] border-solid"
         style={{
+          opacity: locked ? 0.4 : 1,
           borderColor: "var(--product-color-border-default)",
           backgroundColor: "var(--product-color-surface-white)",
           color: "var(--product-color-text-secondary)",
@@ -1091,15 +1211,17 @@ function AutoGrowTextarea({ value, onChange }: { value: string; onChange: (v: st
 function DestinationStep({ draft, onChoose }: { draft: string; onChoose: (d: Destination) => void }) {
   const cards: { id: Destination; title: string; note: string }[] = [
     { id: "google", title: "Googleにも投稿する", note: "Googleマップに公開されます" },
-    { id: "store", title: "お店にだけ届ける", note: "代表が直接読みます" },
+    // 「代表が直接読みます」は多店舗展開に合わないため変更（2026-08-28）
+    { id: "store", title: "お店にだけ届ける", note: "お店の担当者が確認します" },
   ];
   return (
     <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-32)] pt-[var(--product-space-24)]">
       <h1 className="text-xl font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
         この感想を、どうしますか？
       </h1>
+      {/* 全文を見せる（3行で切らない。自分の言葉を確かめてから宛先を選べるように） */}
       <p
-        className="line-clamp-3 rounded-[var(--product-radius-md)] p-[var(--product-space-12)] text-[13px] leading-[1.8]"
+        className="rounded-[var(--product-radius-md)] p-[var(--product-space-12)] text-[13px] leading-[1.8]"
         style={{ backgroundColor: "var(--review-accent-wash)", color: "var(--product-color-text-secondary)" }}
       >
         {draft}
