@@ -114,6 +114,8 @@ export function DemoSurvey() {
   const [flights, setFlights] = useState<{ key: number; label: string; x: number; y: number; dx: number; dy: number }[]>([]);
   const flightKeyRef = useRef(0);
   const canvasRef = useRef<HTMLDivElement>(null);
+  /** 器の中で chip が並ぶ場所。ここへ吸い込む */
+  const chipZoneRef = useRef<HTMLDivElement>(null);
   /** 直近に器へ届いた語句（一瞬だけ光る） */
   const [freshChips, setFreshChips] = useState<string[]>([]);
 
@@ -123,9 +125,11 @@ export function DemoSurvey() {
 
     if (typeof window === "undefined") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const target = canvasRef.current?.getBoundingClientRect();
+    // 実際に chip が並ぶ場所（器の中の末尾）へ向かわせる。
+    // 器の左上へ飛ばすと「左下に移動したのに右下に文章が現れる」不自然さが出るため。
+    const landing = chipZoneRef.current?.getBoundingClientRect();
+    const target = landing ?? canvasRef.current?.getBoundingClientRect();
     if (!target) return;
-    // 器が画面外なら飛ばさない（見えないところへ派手に飛ばさない）
     if (target.top > window.innerHeight || target.bottom < 0) return;
     const from = el.getBoundingClientRect();
     const key = ++flightKeyRef.current;
@@ -136,11 +140,12 @@ export function DemoSurvey() {
         label,
         x: from.left,
         y: from.top,
-        dx: target.left + 24 - from.left,
-        dy: target.top + 40 - from.top,
+        // chip 列の末尾（＝次に増える位置）を狙う
+        dx: Math.min(target.right - 40, target.left + 12) - from.left,
+        dy: target.top + Math.min(target.height / 2, 20) - from.top,
       },
     ]);
-    window.setTimeout(() => setFlights((prev) => prev.filter((f) => f.key !== key)), 460);
+    window.setTimeout(() => setFlights((prev) => prev.filter((f) => f.key !== key)), 700);
   }, []);
 
   const [doneSteps, setDoneSteps] = useState<string[]>([]);
@@ -218,6 +223,20 @@ export function DemoSurvey() {
       : [],
     // 章2 料理・サービス
     [
+      ...categories
+        .filter((c) => c !== EAT_NOTHING_ID)
+        .map((c) => {
+          const category = MENU.find((m) => m.id === c);
+          const hasItem = items.some((i) => category?.items.some((x) => x.id === i));
+          return {
+            id: `cat:${c}`,
+            label: category?.label ?? "",
+            provisional: category?.label ?? "",
+            // 品まで選ばれていれば、文章の材料は品名の方を使う（重複を避ける）
+            includeInDraft: !hasItem,
+          };
+        }),
+      ...(ateNothing ? [{ id: "cat:nothing", label: "食べていない", provisional: "食べていない", includeInDraft: false }] : []),
       ...items.map((id) => ({
         id: `item:${id}`,
         label: findItem(id)?.label ?? "",
@@ -330,7 +349,7 @@ export function DemoSurvey() {
       if (!el) return;
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
-    }, 120);
+    }, 40);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doneSteps]);
@@ -351,7 +370,9 @@ export function DemoSurvey() {
     async (chapter: number) => {
       const signals = draftableSignals(chapterSignalsList[chapter] ?? []);
       const meaningful = signals.filter((s) => s.label !== "特になし");
-      if (meaningful.length < 2) return; // 意味のあるsignalが2つ未満なら呼ばない
+      // 品名だけでは文章にならない。「どうだったか」に当たる材料が1つ以上要る
+      const descriptive = meaningful.filter((s) => !s.id.startsWith("item:") && !s.id.startsWith("cat:"));
+      if (meaningful.length < 2 || descriptive.length < 1) return;
       const key = meaningful.map((s) => s.id).join(",");
       if (refinedKeyRef.current[chapter] === key) return; // signal setが変わっていない
       if ((callCountRef.current[chapter] ?? 0) >= 3) return; // 章あたり最大3回
@@ -405,7 +426,7 @@ export function DemoSurvey() {
       for (const chapter of [1, 2, 3]) {
         void refineChapter(chapter);
       }
-    }, 700);
+    }, 600);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signalIdsKey, phase]);
@@ -583,7 +604,7 @@ export function DemoSurvey() {
                   tick();
                   setRating(id);
                   // single は短い間を置いて次へ
-                  window.setTimeout(() => finishStep("rating"), 520);
+                  window.setTimeout(() => finishStep("rating"), 260);
                 }}
               />
             </Step>
@@ -604,7 +625,7 @@ export function DemoSurvey() {
                   onSelect={(id) => {
                     tick();
                     setVisit(id);
-                    window.setTimeout(() => finishStep("visit"), 520);
+                    window.setTimeout(() => finishStep("visit"), 260);
                   }}
                 />
               </Step>
@@ -686,7 +707,7 @@ export function DemoSurvey() {
                   onToggle={(id) => {
                     tick();
                     setFocusItem(id);
-                    window.setTimeout(() => finishStep("focus"), 520);
+                    window.setTimeout(() => finishStep("focus"), 260);
                   }}
                 />
               </Step>
@@ -886,6 +907,7 @@ export function DemoSurvey() {
             busy={refining}
             freshText={freshText}
             freshChips={freshChips}
+            chipZoneRef={chipZoneRef}
             expanded={expanded}
             onToggle={() => setExpanded(!expanded)}
             emptyHint="選ぶと、ここに感想が組み上がっていきます"
@@ -943,7 +965,8 @@ function Step({
         ref={(el) => {
           refs.current[id] = el;
         }}
-        className="flex w-full scroll-mt-[92px] items-center justify-between gap-[var(--product-space-12)]"
+        className="flex w-full scroll-mt-[92px] items-center justify-between gap-[var(--product-space-12)] rounded-[var(--product-radius-md)] border-[1.5px] border-solid px-[var(--product-space-16)] py-[var(--product-space-8)]"
+        style={{ backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--product-color-border-default)" }}
       >
         <span className="flex min-w-0 flex-col">
           <span className="text-[12px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
@@ -970,8 +993,8 @@ function Step({
       ref={(el) => {
         refs.current[id] = el;
       }}
-      className="review-rise flex w-full scroll-mt-[92px] flex-col gap-[var(--product-space-12)]"
-      style={{ scrollMarginBottom: 240 }}
+      className="review-rise flex w-full scroll-mt-[92px] flex-col gap-[var(--product-space-12)] rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-16)]"
+      style={{ scrollMarginBottom: 240, backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--review-accent-light)" }}
     >
       <FieldTitle title={title} note={note} />
       {children}

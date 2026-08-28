@@ -140,16 +140,18 @@ export type MaterialChip = { id: string; label: string; lead?: boolean };
  *
  * **不自然な完成文を見せない。** 「『フレンチトースト プレーン』は、中がふわふわだった。」
  * のような仮文の代わりに、品名を見出しにして特徴を「＋ 〜」で並べる。
+ *
+ * ⚠ **chip は「選んだ履歴」なので、`includeInDraft` に関わらず全部出す**
+ * （2026-08-28 天真の指摘：飛ぶアニメーションは出るのに器に入らないのは矛盾）。
+ * `includeInDraft` は**文章の材料にするか**だけのフラグで、表示の可否ではない。
  */
 export function materialChips(signals: Signal[]): MaterialChip[] {
   const chips: MaterialChip[] = [];
   for (const s of signals) {
-    if (s.includeInDraft === false) continue;
-    if (s.id.startsWith("item:")) chips.push({ id: s.id, label: s.label, lead: true });
+    if (s.id.startsWith("item:") || s.id.startsWith("cat:")) chips.push({ id: s.id, label: s.label, lead: true });
   }
   for (const s of signals) {
-    if (s.includeInDraft === false) continue;
-    if (s.id.startsWith("item:")) continue;
+    if (s.id.startsWith("item:") || s.id.startsWith("cat:")) continue;
     chips.push({ id: s.id, label: s.provisional || s.label });
   }
   return chips;

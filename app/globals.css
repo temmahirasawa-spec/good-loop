@@ -180,20 +180,26 @@ body {
 @keyframes review-fly {
   0% {
     transform: translate(0, 0) scale(1);
-    opacity: 0.95;
+    opacity: 1;
   }
-  30% {
-    transform: translate(calc(var(--fly-dx) * 0.28), calc(var(--fly-dy) * 0.2 - 14px)) scale(0.94);
-    opacity: 0.95;
+  18% {
+    /* いちど浮き上がってから、器へ向かう */
+    transform: translate(calc(var(--fly-dx) * 0.12), calc(var(--fly-dy) * 0.06 - 20px)) scale(1.04);
+    opacity: 1;
+  }
+  72% {
+    transform: translate(calc(var(--fly-dx) * 0.92), calc(var(--fly-dy) * 0.94)) scale(0.92);
+    opacity: 1;
   }
   100% {
-    transform: translate(var(--fly-dx), var(--fly-dy)) scale(0.78);
+    /* 最後に器の中へ吸い込まれる */
+    transform: translate(var(--fly-dx), var(--fly-dy)) scale(0.6);
     opacity: 0;
   }
 }
 
 .review-fly {
-  animation: review-fly 420ms cubic-bezier(0.32, 0, 0.2, 1) forwards;
+  animation: review-fly 640ms cubic-bezier(0.34, 0, 0.16, 1) forwards;
 }
 
 /* 到着した語句が一瞬だけ光る（700msで透明へ） */

@@ -33,6 +33,7 @@ export function DraftCanvas({
   busy,
   freshText,
   freshChips,
+  chipZoneRef,
   expanded,
   onToggle,
   emptyHint,
@@ -47,6 +48,8 @@ export function DraftCanvas({
   freshText: string;
   /** 直近に届いた語句（到着した瞬間だけ淡く光る） */
   freshChips: string[];
+  /** chip が並ぶ場所。ここへ選択肢を吸い込む（親が座標を取るための ref） */
+  chipZoneRef: React.RefObject<HTMLDivElement>;
   expanded: boolean;
   onToggle: () => void;
   emptyHint: string;
@@ -80,15 +83,26 @@ export function DraftCanvas({
 
   return (
     <div
-      className="pointer-events-auto flex w-full flex-col rounded-t-[var(--product-radius-lg)] border-t-[1.5px] border-solid px-[var(--product-space-20)] pb-[var(--product-space-12)] pt-[var(--product-space-4)] transition-[min-height,max-height] duration-300"
+      className="pointer-events-auto relative flex w-full flex-col rounded-t-[var(--product-radius-lg)] border-t-[1.5px] border-solid px-[var(--product-space-20)] pb-[var(--product-space-12)] pt-[var(--product-space-4)] transition-[min-height,max-height] duration-300"
       style={{
         minHeight,
         maxHeight,
-        backgroundColor: "var(--product-color-surface-white)",
-        borderColor: "var(--review-accent-primary)",
-        boxShadow: "0 -8px 24px rgb(0 0 0 / 0.06)",
+        // すりガラス。色はトークンから作る（生の色コードは書かない）
+        backgroundColor: "color-mix(in srgb, var(--product-color-surface-white) 72%, transparent)",
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        borderColor: "color-mix(in srgb, var(--review-accent-primary) 55%, transparent)",
+        boxShadow: "0 -10px 30px color-mix(in srgb, var(--product-color-text-primary) 8%, transparent)",
       }}
     >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, color-mix(in srgb, var(--review-accent-primary) 70%, transparent), transparent)",
+        }}
+      />
       <button
         type="button"
         onClick={onToggle}
@@ -130,7 +144,7 @@ export function DraftCanvas({
 
         {/* まだ文章になっていない断片。整文中も消さない */}
         {chips.length > 0 ? (
-          <div className="flex w-full flex-wrap items-center gap-[var(--product-space-4)]">
+          <div ref={chipZoneRef} className="flex w-full flex-wrap items-center gap-[var(--product-space-4)]">
             {chips.map((chip) => (
               <span
                 key={chip.id}
@@ -154,7 +168,7 @@ export function DraftCanvas({
         ) : null}
 
         {!hasContent ? (
-          <p className="text-[15px] leading-[1.9]" style={{ color: "var(--product-color-text-muted)" }}>
+          <p ref={chipZoneRef as unknown as React.RefObject<HTMLParagraphElement>} className="text-[15px] leading-[1.9]" style={{ color: "var(--product-color-text-muted)" }}>
             {emptyHint}
           </p>
         ) : null}
