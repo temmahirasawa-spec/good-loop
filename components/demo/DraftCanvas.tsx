@@ -17,7 +17,20 @@ import { AiSparkleIcon } from "@/components/rating-flow/icons";
  */
 
 const THINKING_MS = 280;
-const TYPE_INTERVAL_MS = 18;
+
+/**
+ * 表示の速度（ms/字）。**受信の速さに合わせて可変にする。**
+ *
+ * ストリーミングは塊で届くため、受け取った端から描くと**カクつく**（2026-08-28 天真の指摘）。
+ * 受信（不均一）と表示（等速）を切り離し、**溜まっているぶんが多いほど速く**吐き出すことで、
+ * 遅れずに、かつなめらかに見せる。
+ */
+function delayFor(remaining: number): number {
+  if (remaining > 120) return 4;
+  if (remaining > 60) return 8;
+  if (remaining > 24) return 14;
+  return 22;
+}
 
 export function DraftCanvas({
   text,
@@ -101,15 +114,25 @@ export function DraftCanvas({
  * 文字を1つずつ出す。**足されたときだけ**演出し、消えたときは即座に反映する。
  * `text` だけを依存にし、途中経過は ref で持つ（state を依存に入れると自分で自分を起こしてしまう）。
  */
-export function useTypewriter(text: string) {
+export function useTypewriter(text: string, options?: { instant?: boolean }) {
   const [shown, setShown] = useState("");
   const [busy, setBusy] = useState(false);
   const shownRef = useRef("");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
-    if (text === shownRef.current) return;
+    if (options?.instant) {
+      shownRef.current = text;
+      setShown(text);
+      setBusy(false);
+      return;
+    }
+    if (text === shownRef.current) {
+      setBusy(false);
+      return;
+    }
 
-    // 減った・入れ替わった → 演出しない
+    // 減った・入れ替わった → 演出しない（待たせる意味がない）
     if (!text.startsWith(shownRef.current)) {
       shownRef.current = text;
       setShown(text);
@@ -118,25 +141,27 @@ export function useTypewriter(text: string) {
     }
 
     setBusy(true);
-    let typer: ReturnType<typeof setInterval> | undefined;
-    // まず少し「考える」。ここがあるだけでAIが働いて見える
-    const starter = setTimeout(() => {
-      typer = setInterval(() => {
-        const next = text.slice(0, shownRef.current.length + 1);
-        shownRef.current = next;
-        setShown(next);
-        if (next.length >= text.length) {
-          if (typer) clearInterval(typer);
-          setBusy(false);
-        }
-      }, TYPE_INTERVAL_MS);
-    }, THINKING_MS);
+
+    /** 1字進めて、残量に応じた間隔で次を予約する（setInterval では速度を変えられない） */
+    const step = () => {
+      const next = text.slice(0, shownRef.current.length + 1);
+      shownRef.current = next;
+      setShown(next);
+      if (next.length >= text.length) {
+        setBusy(false);
+        return;
+      }
+      timerRef.current = setTimeout(step, delayFor(text.length - next.length));
+    };
+
+    // 書き始めに少しだけ間を置く。ここがあるだけでAIが考えて見える
+    const wait = shownRef.current.length === 0 ? THINKING_MS : delayFor(text.length - shownRef.current.length);
+    timerRef.current = setTimeout(step, wait);
 
     return () => {
-      clearTimeout(starter);
-      if (typer) clearInterval(typer);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [text]);
+  }, [text, options?.instant]);
 
   return { shown, busy };
 }

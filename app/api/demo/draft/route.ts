@@ -3,7 +3,11 @@ import {
   DRAFT_MAX_TOKENS,
   DRAFT_MODEL,
   DRAFT_SYSTEM_PROMPT,
+  LIVE_MAX_TOKENS,
+  LIVE_MODEL,
+  LIVE_SYSTEM_PROMPT,
   buildDraftUserPrompt,
+  buildLiveUserPrompt,
   type DraftInput,
 } from "@/lib/demo/draft-prompt";
 
@@ -29,10 +33,15 @@ export async function POST(req: Request) {
     return new Response("ANTHROPIC_API_KEY が設定されていません", { status: 503 });
   }
 
-  const body = (await req.json().catch(() => null)) as (DraftInput & { seed?: number }) | null;
+  const body = (await req.json().catch(() => null)) as
+    | (DraftInput & { seed?: number; mode?: "live" | "final"; written_so_far?: string })
+    | null;
   if (!body || !Array.isArray(body.picked)) {
     return new Response("invalid request body", { status: 400 });
   }
+
+  // live = 質問中の書き足し（速い Haiku）／ final = 最後の仕上げ（Sonnet）
+  const live = body.mode === "live";
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const encoder = new TextEncoder();
@@ -41,11 +50,18 @@ export async function POST(req: Request) {
     async start(controller) {
       try {
         const message = anthropic.messages.stream({
-          model: DRAFT_MODEL,
-          max_tokens: DRAFT_MAX_TOKENS,
+          model: live ? LIVE_MODEL : DRAFT_MODEL,
+          max_tokens: live ? LIVE_MAX_TOKENS : DRAFT_MAX_TOKENS,
           temperature: 1,
-          system: DRAFT_SYSTEM_PROMPT,
-          messages: [{ role: "user", content: buildDraftUserPrompt(body, body.seed ?? 1) }],
+          system: live ? LIVE_SYSTEM_PROMPT : DRAFT_SYSTEM_PROMPT,
+          messages: [
+            {
+              role: "user",
+              content: live
+                ? buildLiveUserPrompt(body.written_so_far ?? "", body.picked, body.written, body.tone)
+                : buildDraftUserPrompt(body, body.seed ?? 1),
+            },
+          ],
         });
         for await (const event of message) {
           if (event.type === "content_block_delta" && event.delta.type === "text_delta") {

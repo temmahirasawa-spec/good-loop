@@ -32,8 +32,33 @@ export type DraftInput = {
   emoji: boolean;
 };
 
+/**
+ * モデルの使い分け（2026-08-28、天真「タップしている最中も文章の繋がりが自然になっていくギミック」）。
+ *
+ * ・**live** … 質問が切り替わるたびに、続きの1〜2文を書き足す。**速さが命**なので Haiku
+ * ・**final** … 全部答え終わったあとの仕上げ。**質は落とせない**ので Sonnet
+ *
+ * こうすると「書き足されていくのが見える」体験と「最後にきれいな文章になる」体験が両立する。
+ * 途中は前の文を直せないぶん粗さが残るが、それは final で整う。
+ */
+export const LIVE_MODEL = "claude-haiku-4-5-20251001";
 export const DRAFT_MODEL = "claude-sonnet-5";
 export const DRAFT_MAX_TOKENS = 500;
+export const LIVE_MAX_TOKENS = 200;
+
+/** 続きを書き足すときのシステムプロンプト（本文は共通の制約を引き継ぐ） */
+export const LIVE_SYSTEM_PROMPT = `あなたは、お客様がアンケートで選んだ内容をもとに、その人が自分で書いたように見えるクチコミの下書きを、少しずつ書き進めています。
+
+いま渡されるのは「ここまで書いた文章」と「新しく選ばれた内容」です。
+
+絶対に守ること:
+- **すでに書いた文章は繰り返さない。続きの文だけを出力する**
+- 新しく選ばれた内容だけを使う。**材料に無いことは一切書かない**
+- 場面や状況を勝手に作らない（「ゆっくり過ごしながら」「友人と」など）
+- 選ばれていない感情・評価・再訪意向を書かない（「大満足」「また来たい」など）
+- **1〜2文だけ**。長く書かない
+- 前の文と自然につながるようにする（接続詞を使ってよい）
+- 前置き・説明・カギ括弧を付けない。続きの文そのものだけを出力する`;
 
 export const DRAFT_SYSTEM_PROMPT = `あなたは、お客様がアンケートで選んだ内容をもとに、その人が自分で書いたように見えるクチコミの下書きを作ります。
 
@@ -107,5 +132,30 @@ export function buildDraftUserPrompt(input: DraftInput, seed: number): string {
   lines.push("");
   lines.push("上記をもとに、クチコミの下書きを1つ書いてください。");
 
+  return lines.join("\n");
+}
+
+/** 続きを書き足させるときの指示 */
+export function buildLiveUserPrompt(
+  written: string,
+  newValues: { question: string; values: string[] }[],
+  freeText: string[],
+  tone: "normal" | "casual"
+): string {
+  const lines: string[] = [];
+  lines.push(written ? `ここまで書いた文章:\n${written}` : "ここまで書いた文章: （まだありません）");
+  lines.push("");
+  lines.push("新しく選ばれた内容:");
+  for (const group of newValues) {
+    if (group.values.length > 0) lines.push(`- ${group.question}: ${group.values.join("、")}`);
+  }
+  if (freeText.length > 0) lines.push(`- お客様が自分で書いた言葉: ${freeText.join(" / ")}`);
+  lines.push("");
+  lines.push(
+    tone === "casual"
+      ? "文体: 友人に話すような、ですます調ではない砕けた書き方。"
+      : "文体: ですます調の、ふつうの丁寧さ。"
+  );
+  lines.push("続きの文だけを書いてください。");
   return lines.join("\n");
 }

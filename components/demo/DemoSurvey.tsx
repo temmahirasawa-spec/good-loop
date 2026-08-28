@@ -68,6 +68,13 @@ export function DemoSurvey() {
   const [aiDraft, setAiDraft] = useState("");
   const [streaming, setStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  /** すでに文章にした質問。ここに無いものだけをAIに渡して「続き」を書かせる */
+  const usedRef = useRef<Set<string>>(new Set());
+
+  const aiDraftRef = useRef("");
+  useEffect(() => {
+    aiDraftRef.current = aiDraft;
+  }, [aiDraft]);
 
   const questions = visibleQuestions(answers);
   const current: Question | undefined = questions[index];
@@ -79,8 +86,67 @@ export function DemoSurvey() {
     () => composeSentences(answers, texts, { tone, emoji, seed }).join(""),
     [answers, texts, tone, emoji, seed]
   );
-  // 下書き画面はAIが書き直したもの。羅列を文章にするのはAIの仕事（2026-08-28 天真の指摘）
-  const draft = edited ?? (phase === "questions" ? composed : aiDraft || composed);
+  // 質問中も下書き画面も、出しているのはAIが書いた文章。
+  // 質問中は Haiku が「続きを書き足す」、最後に Sonnet が全体を整える（2026-08-28 天真の要望）
+  const draft = edited ?? (aiDraft || (phase === "questions" ? "" : composed));
+
+  /**
+   * 質問が切り替わるたびに、**続きの1〜2文だけ**を書き足させる。
+   *
+   * 前の文章をそのまま残して後ろに足すので、器のタイピング演出が途切れない
+   * （全体を書き直すと、毎回まるごと差し替わって「書き足されている」ように見えない）。
+   */
+  const appendLive = useCallback(
+    async (nextAnswers: Answers, nextTexts: Texts, currentTone: Tone) => {
+      const { picked, written } = collectPicked(nextAnswers, nextTexts);
+      const fresh = picked.filter((g) => !usedRef.current.has(g.question));
+      const freshText = written.filter((w) => !usedRef.current.has(`text:${w}`));
+      if (fresh.length === 0 && freshText.length === 0) return;
+
+      fresh.forEach((g) => usedRef.current.add(g.question));
+      freshText.forEach((w) => usedRef.current.add(`text:${w}`));
+
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+      setStreaming(true);
+      const base = aiDraftRef.current;
+      try {
+        const res = await fetch("/api/demo/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "live",
+            written_so_far: base,
+            picked: fresh,
+            written: freshText,
+            rating: null,
+            tone: currentTone,
+            emoji: false,
+          }),
+          signal: ac.signal,
+        });
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("no stream");
+        const decoder = new TextDecoder();
+        let acc = "";
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          acc += decoder.decode(value, { stream: true });
+          setAiDraft(base + acc.trimStart());
+        }
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          // 失敗しても止めない。素材をそのまま足す
+          setAiDraft(composeSentences(nextAnswers, nextTexts, { tone: currentTone, emoji: false, seed: 1 }).join(""));
+        }
+      } finally {
+        setStreaming(false);
+      }
+    },
+    []
+  );
 
   /**
    * AIに書き直させる。**文字を受け取りながら器に流し込む**ので、
@@ -130,6 +196,8 @@ export function DemoSurvey() {
   }, [phase]);
 
   function goNext(next: Answers) {
+    // 画面を進めるのと同時に、いま答えたぶんを書き足させる
+    void appendLive(next, texts, tone);
     const list = visibleQuestions(next);
     if (index + 1 >= list.length) {
       setPhase("draft");
