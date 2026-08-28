@@ -18,18 +18,20 @@ import { AiSparkleIcon } from "@/components/rating-flow/icons";
 
 const THINKING_MS = 280;
 
+/** 1行ぶんの高さ（15px × 行送り1.9）。器の高さはこれを基準に決める */
+const LINE_HEIGHT = 28.5;
+
 /**
- * 表示の速度（ms/字）。**受信の速さに合わせて可変にする。**
+ * 表示の速さ（**文字/ミリ秒**）。溜まっているぶんが多いほど速くする。
  *
- * ストリーミングは塊で届くため、受け取った端から描くと**カクつく**（2026-08-28 天真の指摘）。
- * 受信（不均一）と表示（等速）を切り離し、**溜まっているぶんが多いほど速く**吐き出すことで、
- * 遅れずに、かつなめらかに見せる。
+ * ストリーミングは塊で届くので、受け取った端から描くとカクつく。
+ * 受信（不均一）と表示（等速）を切り離し、**画面の更新に合わせて**吐き出す。
  */
-function delayFor(remaining: number): number {
-  if (remaining > 120) return 4;
-  if (remaining > 60) return 8;
-  if (remaining > 24) return 14;
-  return 22;
+function speedFor(remaining: number): number {
+  if (remaining > 160) return 0.35;
+  if (remaining > 80) return 0.16;
+  if (remaining > 30) return 0.09;
+  return 0.055;
 }
 
 export function DraftCanvas({
@@ -93,7 +95,8 @@ export function DraftCanvas({
         ref={bodyRef}
         className="w-full overflow-y-auto text-[15px] leading-[1.9] transition-[max-height] duration-300"
         style={{
-          maxHeight: expanded ? 260 : 60,
+          // 空のうちは1行ぶん。書き始めたら4行ぶんまで広げる（2026-08-28 天真）
+          maxHeight: expanded ? 260 : shown ? LINE_HEIGHT * 4 : LINE_HEIGHT,
           color: shown ? "var(--product-color-text-primary)" : "var(--product-color-text-muted)",
         }}
       >
@@ -118,7 +121,6 @@ export function useTypewriter(text: string, options?: { instant?: boolean }) {
   const [shown, setShown] = useState("");
   const [busy, setBusy] = useState(false);
   const shownRef = useRef("");
-  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     if (options?.instant) {
@@ -142,25 +144,47 @@ export function useTypewriter(text: string, options?: { instant?: boolean }) {
 
     setBusy(true);
 
-    /** 1字進めて、残量に応じた間隔で次を予約する（setInterval では速度を変えられない） */
-    const step = () => {
-      const next = text.slice(0, shownRef.current.length + 1);
+    /**
+     * **画面の更新に合わせて進める**（2026-08-28、天真「まだカクつく」への対応）。
+     *
+     * setTimeout は指定より遅れて発火し、間隔がばらつく（4ms 指定でも実際は 5〜15ms）。
+     * その揺れがそのまま文字の出方のムラになっていた。
+     * requestAnimationFrame なら**描画のタイミングそのもの**で呼ばれるので、
+     * 1フレーム＝1回だけ更新すればよく、進める文字数を経過時間から決められる。
+     */
+    let raf = 0;
+    let startedAt = 0;
+    let last = 0;
+
+    const frame = (now: number) => {
+      if (startedAt === 0) {
+        startedAt = now;
+        last = now;
+      }
+      // 書き始めだけ、少し間を置く（AIが考えているように見せる）
+      if (shownRef.current.length === 0 && now - startedAt < THINKING_MS) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+
+      const elapsed = now - last;
+      last = now;
+      const remaining = text.length - shownRef.current.length;
+      // 1フレームで進める文字数。最低1字は進める（止まって見えないように）
+      const advance = Math.max(1, Math.round(elapsed * speedFor(remaining)));
+      const next = text.slice(0, Math.min(text.length, shownRef.current.length + advance));
       shownRef.current = next;
       setShown(next);
+
       if (next.length >= text.length) {
         setBusy(false);
         return;
       }
-      timerRef.current = setTimeout(step, delayFor(text.length - next.length));
+      raf = requestAnimationFrame(frame);
     };
 
-    // 書き始めに少しだけ間を置く。ここがあるだけでAIが考えて見える
-    const wait = shownRef.current.length === 0 ? THINKING_MS : delayFor(text.length - shownRef.current.length);
-    timerRef.current = setTimeout(step, wait);
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
   }, [text, options?.instant]);
 
   return { shown, busy };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BLOCKS,
   STORE_NAME,
@@ -17,7 +17,7 @@ import {
 } from "@/lib/demo/survey-data";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { CheckCircleOutlineIcon } from "@/components/rating-flow/icons";
-import { DraftCanvas } from "./DraftCanvas";
+import { DraftCanvas, useTypewriter } from "./DraftCanvas";
 import { BackIcon, CheckMarkIcon, MicIcon, StopIcon } from "./icons";
 
 /**
@@ -74,14 +74,11 @@ export function DemoSurvey() {
   const canProceed = block ? isBlockComplete(block, answers) : false;
   const total = BLOCKS.length;
 
-  // 質問中の器はこちら（即時・APIを呼ばない）。素材が集まっていく様子を見せる担当
-  const composed = useMemo(
-    () => composeSentences(answers, texts, { tone, emoji, seed }).join(""),
-    [answers, texts, tone, emoji, seed]
-  );
   // 質問中も下書き画面も、出しているのはAIが書いた文章。
-  // 質問中は Haiku が「続きを書き足す」、最後に Sonnet が全体を整える（2026-08-28 天真の要望）
-  const draft = edited ?? (aiDraft || (phase === "questions" ? "" : composed));
+  // 質問中は Haiku が「続きを書き足す」、最後に Sonnet が全体を整える（2026-08-28 天真の要望）。
+  // **ルールベースの文章にフォールバックしない。** 生成前に文字が埋まっていると、
+  // そこから書き直される様子が「置き換わった」ように見えてしまう（2026-08-28 天真の指摘）
+  const draft = edited ?? aiDraft;
 
   /**
    * 質問が切り替わるたびに、**続きの1〜2文だけ**を書き足させる。
@@ -657,6 +654,7 @@ function EditableCanvas({
   onChange: (v: string) => void;
   streaming: boolean;
 }) {
+  const { shown } = useTypewriter(value, { instant: !streaming });
   return (
     <div
       className="w-full rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-16)]"
@@ -682,14 +680,25 @@ function EditableCanvas({
           </span>
         ) : null}
       </p>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={6}
-        readOnly={streaming}
-        className="w-full resize-none border-none bg-transparent p-0 text-[15px] leading-[1.9] outline-none"
-        style={{ color: "var(--product-color-text-primary)" }}
-      />
+      {streaming ? (
+        // 生成中は文字が流れていくのを見せる（textarea に直接入れると受信の塊がそのまま出てカクつく）
+        <p className="min-h-[168px] w-full whitespace-pre-wrap text-[15px] leading-[1.9]" style={{ color: "var(--product-color-text-primary)" }}>
+          {shown}
+          <span
+            className="review-caret ml-px inline-block h-[1.1em] w-[2px] translate-y-[2px]"
+            style={{ backgroundColor: "var(--review-accent-primary)" }}
+            aria-hidden
+          />
+        </p>
+      ) : (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={6}
+          className="w-full resize-none border-none bg-transparent p-0 text-[15px] leading-[1.9] outline-none"
+          style={{ color: "var(--product-color-text-primary)" }}
+        />
+      )}
     </div>
   );
 }
