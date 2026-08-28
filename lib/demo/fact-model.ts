@@ -12,13 +12,28 @@ export type Signal = {
   id: string;
   /** 選択肢のラベル、または本人が書いた文そのもの */
   label: string;
-  /** ルールベースの仮文（即時表示用。AIを待たない） */
+  /** 器に出す短い断片（material chip の文言。**文章にはしない**） */
   provisional: string;
   /** 品に紐づく感想の場合の品名 */
   itemLabel?: string;
   /** 本人の自由入力か（検証の許可語彙と、「そのまま残す」指示に使う） */
   isFree?: boolean;
+  /**
+   * 文章に**必ず**含める事実か（2026-08-28 修正仕様）。
+   * 自由入力・音声・明確な不満や改善要望・「特に印象に残った1品」・本人が入れると指定したもの。
+   */
+  required?: boolean;
+  /**
+   * 文章の材料として渡すか。false ならプロンプトに渡さない（＝構造的に本文へ入らない）。
+   * 来店回数の既定値。毎回「初めて伺いました」から始まる口コミを防ぐため。
+   */
+  includeInDraft?: boolean;
 };
+
+/** 文章の材料として渡す signal だけを返す */
+export function draftableSignals(signals: Signal[]): Signal[] {
+  return signals.filter((s) => s.includeInDraft !== false);
+}
 
 export type Sentence = {
   text: string;
@@ -53,7 +68,10 @@ export type ValidationResult =
  * 1. 各文に sourceSignalIds があり、全て既知の Signal を指しているか
  * 2. 禁止語が、根拠となる Signal のラベル・自由入力に無いのに出ていないか
  * 3. 謝罪・メタ発言が無いか
- * 4. すべての Signal がどれかの文で使われているか（事実をひとつも落とさない）
+ * 4. **必須の Signal**（required）が使われているか。
+ *    任意の signal（来店回数・全商品・一般的な店内評価など）は使わなくてよい
+ *    ＝ `usedSignalIds ⊆ availableSignalIds` が守るべき条件（2026-08-28 修正仕様）。
+ *    全部入れる縛りは「全回答を順番に読み上げる」口コミの原因だったため撤廃した。
  */
 export function validateSentences(sentences: Sentence[], signals: Signal[]): ValidationResult {
   if (sentences.length === 0) return { ok: false, reason: "empty" };
@@ -78,7 +96,7 @@ export function validateSentences(sentences: Sentence[], signals: Signal[]): Val
 
   const used = new Set(sentences.flatMap((s) => s.sourceSignalIds));
   for (const signal of signals) {
-    if (!used.has(signal.id)) return { ok: false, reason: `dropped-signal: ${signal.id}` };
+    if (signal.required && !used.has(signal.id)) return { ok: false, reason: `dropped-required: ${signal.id}` };
   }
   return { ok: true, sentences };
 }
@@ -111,4 +129,28 @@ export function applyEmoji(text: string): string {
 /** 文の配列を表示用の本文にする */
 export function joinSentences(sentences: Sentence[]): string {
   return sentences.map((s) => (/[。！？]$/.test(s.text) ? s.text : `${s.text}。`)).join("");
+}
+
+/* ── material chip（AI整文前に器へ出す断片） ───────────── */
+
+export type MaterialChip = { id: string; label: string; lead?: boolean };
+
+/**
+ * 整文前の器に出す断片（2026-08-28 修正仕様）。
+ *
+ * **不自然な完成文を見せない。** 「『フレンチトースト プレーン』は、中がふわふわだった。」
+ * のような仮文の代わりに、品名を見出しにして特徴を「＋ 〜」で並べる。
+ */
+export function materialChips(signals: Signal[]): MaterialChip[] {
+  const chips: MaterialChip[] = [];
+  for (const s of signals) {
+    if (s.includeInDraft === false) continue;
+    if (s.id.startsWith("item:")) chips.push({ id: s.id, label: s.label, lead: true });
+  }
+  for (const s of signals) {
+    if (s.includeInDraft === false) continue;
+    if (s.id.startsWith("item:")) continue;
+    chips.push({ id: s.id, label: s.provisional || s.label });
+  }
+  return chips;
 }

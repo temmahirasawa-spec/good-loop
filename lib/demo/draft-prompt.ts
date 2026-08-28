@@ -30,7 +30,8 @@ export const REFINE_SYSTEM_PROMPT = `あなたは、お客様がアンケート�
 
 絶対に守ること:
 - 事実の一覧にあることだけを書く。一覧に無い事実・感情・評価・頻度・因果関係を足さない
-- 事実をひとつも落とさない
+- **[必須] と書かれた事実は必ず使う。それ以外は、自然な口コミになるよう取捨してよい**
+  （全部を並べると、回答を順番に読み上げただけの文章になる。2〜4個の具体的な事実を中心にする）
 - 意味を拡張しない（「厚みがあった」を「食べ応えがあった」にしない。「落ち着いて過ごせた」を「ゆっくり食事を楽しめた」にしない。「びっくり」「毎回」など、事実に無い強調も足さない）
 - お客様が自分で書いた言葉（isFree）は、語彙と言い回しをできるだけそのまま残す
 - 関係のある事実はまとめて1文にしてよい。箇条書きのような羅列にしない
@@ -43,16 +44,26 @@ export const REFINE_SYSTEM_PROMPT = `あなたは、お客様がアンケート�
 
 文体の指定があるとき、変えてよいのは語尾・敬語のレベル・接続表現・文の長さだけ。事実・感情・評価・頻度・因果関係・商品の特徴は変えない。`;
 
-export type SignalInput = { id: string; label: string; itemLabel?: string; isFree?: boolean };
+export type SignalInput = {
+  id: string;
+  label: string;
+  itemLabel?: string;
+  isFree?: boolean;
+  required?: boolean;
+};
 
-/** 書き方のばらつき（語順・長さ・語り口のみ。**話題を指定しない**＝捏造の原因になるため） */
-const WRITING_HINTS = [
-  // 語順の操作は「最後の事実から書き始める」で不自然な並びが出たため、自然な順を基本にする
-  "事実を、体験の自然な流れの順に書いてください。",
-  "2〜3文で短くまとめてください。",
-  "少しゆとりのある文の長さにしてください。",
-  "短い文を重ねる書き方にしてください。",
-  "一文をやや長めにして、つなげて書いてください。",
+/**
+ * 文章の構成（2026-08-28 修正仕様）。**事実は変えず、順番と長さだけを変える。**
+ * variant は回答から決めて固定し、「別の言い方にする」でだけ切り替える
+ * （同じ操作中に勝手に順序が変わらないようにするため）。
+ */
+export const DRAFT_VARIANTS = [
+  "商品のことから書き始めてください。",
+  "店内の印象から書き始めてください。",
+  "いちばん印象に残った点から書き始めてください。",
+  "気になった点から書き始め、良かった点を続けてください。",
+  "1〜2文の短い口コミにしてください。",
+  "3〜4文の、少し詳しい口コミにしてください。",
 ];
 
 export function buildRefineUserPrompt(input: {
@@ -67,7 +78,8 @@ export function buildRefineUserPrompt(input: {
   for (const s of input.signals) {
     const item = s.itemLabel ? `（品名: ${s.itemLabel}）` : "";
     const free = s.isFree ? "（お客様が自分で書いた言葉。そのまま残す）" : "";
-    lines.push(`- [${s.id}] ${s.label}${item}${free}`);
+    const must = s.required ? " [必須]" : "";
+    lines.push(`- [${s.id}] ${s.label}${item}${free}${must}`);
   }
   lines.push("");
   if (input.mode === "refine" && input.previousText) {
@@ -79,12 +91,12 @@ export function buildRefineUserPrompt(input: {
       ? "文体: 友人に話すような、ですます調ではない砕けた書き方。"
       : "文体: ですます調の、ふつうの丁寧さ。"
   );
-  lines.push(WRITING_HINTS[Math.abs(input.seed) % WRITING_HINTS.length]);
+  lines.push(DRAFT_VARIANTS[Math.abs(input.seed) % DRAFT_VARIANTS.length]);
   lines.push("");
   lines.push(
     input.mode === "final"
       ? "上の事実だけを使って、クチコミの下書き全体をJSONで出力してください。"
-      : "上の事実だけを使って、続きの文をJSONで出力してください。"
+      : "上の事実だけを使って、この部分の文をJSONで出力してください。"
   );
   return lines.join("\n");
 }

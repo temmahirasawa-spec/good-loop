@@ -140,3 +140,34 @@ body {
     animation: none;
   }
 }
+
+/*
+ * 「今この言葉になった」を示す下線（2026-08-28）。
+ * イエローの帯は意味が伝わらなかったため廃止し、左から右へ走る下線に変えた。
+ * 状態を残すためではなく、一時的な変化だけを示す（1.1秒で消える）。
+ */
+@keyframes review-underline-run {
+  from {
+    background-size: 0% 0.35em;
+  }
+  to {
+    background-size: 100% 0.35em;
+  }
+}
+
+.review-underline {
+  background-image: linear-gradient(
+    var(--product-color-status-warning-wash),
+    var(--product-color-status-warning-wash)
+  );
+  background-repeat: no-repeat;
+  background-position: 0 88%;
+  animation: review-underline-run 620ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-underline {
+    animation: none;
+    background-size: 100% 0.35em;
+  }
+}
