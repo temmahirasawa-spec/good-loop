@@ -159,3 +159,62 @@ export function buildLiveUserPrompt(
   lines.push("続きの文だけを書いてください。");
   return lines.join("\n");
 }
+
+/**
+ * AI追質問（2026-08-28 天真の方針）。
+ *
+ * **AI作文を主役にせず、本人の感想を発見・具体化するためにAIを使う。**
+ * 毎回は聞かない。情報が足りないとき（具体性不足・矛盾・「その他」）だけ、**最大2問**。
+ * 目的は**本人の体験を特定すること**。MEOワードを口コミに入れさせることではない
+ * （この線を越えると「AIっぽい感想文」「ステマ」の印象に戻る）。
+ */
+export const FOLLOWUP_MODEL = LIVE_MODEL;
+export const FOLLOWUP_MAX_TOKENS = 300;
+
+export const FOLLOWUP_SYSTEM_PROMPT = `あなたは、お店に来たお客様の体験を具体化するインタビュアーです。
+アンケートの回答を見て、足りない情報をひとつだけ質問します。
+
+絶対に守ること:
+- 質問はひとつだけ。短く、答えやすく
+- 目的はお客様の体験を特定すること。お店の宣伝になる言葉を言わせようとしない
+- 特定の答えへ誘導しない。良い方向にも悪い方向にも寄せない
+- 選択肢は事実を答えるためのもの。感情や評価の言葉を押しつけない
+
+出力は次のJSONだけ（前置き・説明・コードブロック記号は付けない）:
+{"question": "質問文", "choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"]}
+選択肢は3〜5個。最後の選択肢は「その他」にする。`;
+
+import type { FollowupReason } from "./draft-prompt-types";
+export type { FollowupReason };
+
+/** AIが落ちたとき・変な形で返したときに使う固定の質問 */
+export const FOLLOWUP_FALLBACK: Record<FollowupReason, { question: string; choices: string[] }> = {
+  "vague-item": {
+    question: "その料理のどんなところが印象に残りましたか？",
+    choices: ["味", "食感", "見た目", "量", "その他"],
+  },
+  "wait-detail": {
+    question: "待ち時間は、どの場面で気になりましたか？",
+    choices: ["入店まで", "注文まで", "料理が届くまで", "会計", "その他"],
+  },
+  "low-rating-unclear": {
+    question: "いちばん残念だったのは、どのあたりでしたか？",
+    choices: ["料理", "接客", "待ち時間", "店内の環境", "その他"],
+  },
+};
+
+export function buildFollowupUserPrompt(
+  picked: { question: string; values: string[] }[],
+  reason: FollowupReason
+): string {
+  const context = picked
+    .filter((g) => g.values.length > 0)
+    .map((g) => `${g.question}: ${g.values.join("、")}`)
+    .join("\n");
+  const why: Record<FollowupReason, string> = {
+    "vague-item": "選んだ料理について、具体的な感想がまだ無い",
+    "wait-detail": "評価は高いのに「待ち時間」が気になった点として選ばれている。どの場面の待ち時間かが分からない",
+    "low-rating-unclear": "評価が低いのに、何が悪かったのかが選ばれていない",
+  };
+  return `ここまでの回答:\n${context}\n\n足りない情報: ${why[reason]}\n\nこの情報を補うための質問をひとつ、JSONで出力してください。`;
+}

@@ -47,12 +47,47 @@ export function DraftCanvas({
 }) {
   const { shown, busy } = useTypewriter(text);
   const bodyRef = useRef<HTMLParagraphElement>(null);
+  /** 直前の目標文字列の長さ。ここから先が「新しく言葉になった部分」 */
+  const stableRef = useRef(0);
+  const prevTargetRef = useRef("");
+  const [highlightUntil, setHighlightUntil] = useState(0);
 
-  // 書き足されるたびに最後を見せる
+  useEffect(() => {
+    if (text === prevTargetRef.current) return;
+    // 目標が伸びた＝新しい句が来た。それまでの長さを「確定済み」として覚える
+    stableRef.current = text.startsWith(prevTargetRef.current) ? prevTargetRef.current.length : 0;
+    prevTargetRef.current = text;
+    setHighlightUntil(Date.now() + 60_000); // 書き終わりで改めて短くする
+  }, [text]);
+
+  useEffect(() => {
+    if (busy) return;
+    // 書き終わったら、ハイライトを少し見せてから消す
+    const timer = setTimeout(() => setHighlightUntil(0), 1200);
+    return () => clearTimeout(timer);
+  }, [busy]);
+
   useEffect(() => {
     const el = bodyRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [shown]);
+
+  /**
+   * 器の4状態（チャッピー資料 §08、2026-08-28 採用）:
+   *   empty（1行・誘い文だけ）→ writing（4行に展開）→ resting（2行に縮んで質問へ場所を返す）
+   *   → expanded（タップで全文）
+   */
+  const maxHeight = expanded
+    ? 260
+    : busy
+      ? LINE_HEIGHT * 4
+      : shown
+        ? LINE_HEIGHT * 2
+        : LINE_HEIGHT;
+
+  const stable = Math.min(stableRef.current, shown.length);
+  const highlighted = highlightUntil > 0 ? shown.slice(stable) : "";
+  const plain = highlightUntil > 0 ? shown.slice(0, stable) : shown;
 
   return (
     <div
@@ -72,7 +107,7 @@ export function DraftCanvas({
         <span className="flex items-center gap-[var(--product-space-8)]">
           <AiSparkleIcon className="size-[15px] shrink-0" />
           <span className="text-[13px] font-bold" style={{ color: "var(--review-accent-primary)" }}>
-            {busy ? "書いています" : "あなたの感想"}
+            {busy ? "言葉にしています" : "あなたの感想"}
           </span>
           {busy ? (
             <span className="flex items-center gap-[3px]" aria-hidden>
@@ -86,21 +121,28 @@ export function DraftCanvas({
             </span>
           ) : null}
         </span>
-        <span className="text-[12px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-          {expanded ? "閉じる" : "全文を見る"}
-        </span>
+        {shown ? (
+          <span className="text-[12px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            {expanded ? "閉じる" : "全文を見る"}
+          </span>
+        ) : null}
       </button>
 
       <p
         ref={bodyRef}
         className="w-full overflow-y-auto text-[15px] leading-[1.9] transition-[max-height] duration-300"
         style={{
-          // 空のうちは1行ぶん。書き始めたら4行ぶんまで広げる（2026-08-28 天真）
-          maxHeight: expanded ? 260 : shown ? LINE_HEIGHT * 4 : LINE_HEIGHT,
+          maxHeight,
           color: shown ? "var(--product-color-text-primary)" : "var(--product-color-text-muted)",
         }}
       >
-        {shown || emptyHint}
+        {plain || (shown ? "" : emptyHint)}
+        {highlighted ? (
+          // 新しく言葉になった部分だけを示す（書き終わって1.2秒で外す）。
+          // 黄色のwashはトークン未整備のため warning-wash を仮借用（警告の意味ではない。
+          // 本採用時は Figma に「新しい句」の色を足してから正式なトークンにする）
+          <mark style={{ backgroundColor: "var(--product-color-status-warning-wash)", color: "inherit" }}>{highlighted}</mark>
+        ) : null}
         {busy ? (
           <span
             className="review-caret ml-px inline-block h-[1.1em] w-[2px] translate-y-[2px]"
