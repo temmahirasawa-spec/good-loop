@@ -278,9 +278,35 @@ export function composeSentences(answers: Answers, texts: Texts, opts: DraftOpti
   const withPeriod = all.map((sentence) => (/[。！？♪]$/.test(sentence) ? sentence : `${sentence}。`));
   if (!opts.emoji || withPeriod.length === 0) return withPeriod;
 
-  // 絵文字は文末に少しだけ。全文に付けると不自然になる
-  const marks = ["😊", "✨", "🙌"];
+  // 絵文字は**句点の代わりに**置く。「〜でした。😊」は機械が付けた印に見える
+  // （2026-08-28 天真の指摘。AIに渡すプロンプトにも同じ指示を入れてある）
+  const marks = ["😊", "✨"];
   return withPeriod.map((sentence, i) =>
-    i % 2 === 0 && i < marks.length * 2 ? `${sentence}${marks[i / 2]}` : sentence
+    i % 3 === 1 && i < marks.length * 3 ? `${sentence.replace(/。$/, "")}${marks[Math.floor(i / 3)]}` : sentence
   );
+}
+
+/**
+ * AIに渡す材料を集める（選んだ内容と、本人が書いた言葉）。
+ *
+ * **分岐のためだけの質問は材料に含めない**（2026-08-28）。
+ * 「特に印象に残ったのは？」は次に出す質問を決めるための問いなので、
+ * これを材料に渡すと「料理と接客が印象に残りました」というメタな文が生まれてしまう。
+ */
+const ROUTING_ONLY = new Set(["topics"]);
+
+export function collectPicked(answers: Answers, texts: Texts) {
+  const picked = QUESTIONS.filter((q) => !ROUTING_ONLY.has(q.id)).map((q) => ({
+    question: q.title.replace(/[？?]$/, ""),
+    values: (answers[q.id] ?? [])
+      .map((cid) => q.choices.find((c) => c.id === cid)?.label ?? "")
+      .filter((v) => v !== "" && v !== "特になし"),
+  })).filter((g) => g.values.length > 0);
+
+  const written = Object.values(texts)
+    .map((v) => v.trim())
+    .filter((v) => v !== "");
+
+  const rating = Number((answers.rating ?? [])[0] ?? 0) || null;
+  return { rating, picked, written };
 }

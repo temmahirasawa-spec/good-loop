@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   STORE_NAME,
   TONES,
+  collectPicked,
   composeSentences,
   visibleQuestions,
   type Answers,
@@ -64,17 +65,69 @@ export function DemoSurvey() {
   const [seed, setSeed] = useState(1);
   const [edited, setEdited] = useState<string | null>(null);
   const [destination, setDestination] = useState<Destination | null>(null);
+  const [aiDraft, setAiDraft] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const questions = visibleQuestions(answers);
   const current: Question | undefined = questions[index];
   const isLastQuestion = index + 1 >= questions.length;
   const total = isLastQuestion ? index + 1 : Math.max(PLANNED_QUESTIONS, questions.length);
 
+  // 質問中の器はこちら（即時・APIを呼ばない）。素材が集まっていく様子を見せる担当
   const composed = useMemo(
     () => composeSentences(answers, texts, { tone, emoji, seed }).join(""),
     [answers, texts, tone, emoji, seed]
   );
-  const draft = edited ?? composed;
+  // 下書き画面はAIが書き直したもの。羅列を文章にするのはAIの仕事（2026-08-28 天真の指摘）
+  const draft = edited ?? (phase === "questions" ? composed : aiDraft || composed);
+
+  /**
+   * AIに書き直させる。**文字を受け取りながら器に流し込む**ので、
+   * タイピングの演出が本物になる（偽のアニメーションで待たせない）。
+   */
+  const generate = useCallback(
+    async (opts: { tone: Tone; emoji: boolean; seed: number }) => {
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+      setEdited(null);
+      setAiDraft("");
+      setStreaming(true);
+      try {
+        const res = await fetch("/api/demo/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...collectPicked(answers, texts), ...opts }),
+          signal: ac.signal,
+        });
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("no stream");
+        const decoder = new TextDecoder();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          setAiDraft((prev) => prev + decoder.decode(value, { stream: true }));
+        }
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          // 失敗しても画面は止めない。素材をそのまま出す
+          setAiDraft(composeSentences(answers, texts, opts).join(""));
+        }
+      } finally {
+        setStreaming(false);
+      }
+    },
+    [answers, texts]
+  );
+
+  // 下書き画面に入ったら1回だけ書かせる
+  useEffect(() => {
+    if (phase !== "draft") return;
+    void generate({ tone, emoji, seed });
+    // 文体の切り替えは各ボタンから呼ぶ。ここで tone を依存に入れると二重に走る
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   function goNext(next: Answers) {
     const list = visibleQuestions(next);
@@ -196,21 +249,23 @@ export function DemoSurvey() {
             emoji={emoji}
             onTone={(t) => {
               tick();
-              setEdited(null);
               setTone(t);
+              void generate({ tone: t, emoji, seed });
             }}
             onEmoji={() => {
               tick();
-              setEdited(null);
-              setEmoji(!emoji);
+              const next = !emoji;
+              setEmoji(next);
+              void generate({ tone, emoji: next, seed });
             }}
             onRegenerate={() => {
               tick();
-              setEdited(null);
-              setSeed(seed + 1);
+              const next = seed + 1;
+              setSeed(next);
+              void generate({ tone, emoji, seed: next });
             }}
             onNext={() => setPhase("destination")}
-            canvas={<EditableCanvas value={draft} onChange={setEdited} />}
+            canvas={<EditableCanvas value={draft} onChange={setEdited} streaming={streaming} />}
           />
         ) : null}
 
@@ -473,7 +528,15 @@ function DraftTools({
 }
 
 /** 下書き画面での器。ここでは本人が直接編集できる */
-function EditableCanvas({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function EditableCanvas({
+  value,
+  onChange,
+  streaming,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  streaming: boolean;
+}) {
   return (
     <div
       className="w-full rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-16)]"
@@ -482,13 +545,28 @@ function EditableCanvas({ value, onChange }: { value: string; onChange: (v: stri
         borderColor: "var(--review-accent-primary)",
       }}
     >
-      <p className="pb-[var(--product-space-8)] text-[13px] font-bold" style={{ color: "var(--review-accent-primary)" }}>
-        あなたの感想（タップして直せます）
+      <p
+        className="flex items-center gap-[var(--product-space-8)] pb-[var(--product-space-8)] text-[13px] font-bold"
+        style={{ color: "var(--review-accent-primary)" }}
+      >
+        {streaming ? "AIが文章にしています" : "あなたの感想（タップして直せます）"}
+        {streaming ? (
+          <span className="flex items-center gap-[3px]" aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="review-pulse size-[5px] rounded-[var(--product-radius-full)]"
+                style={{ backgroundColor: "var(--review-accent-primary)", animationDelay: `${i * 160}ms` }}
+              />
+            ))}
+          </span>
+        ) : null}
       </p>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={6}
+        readOnly={streaming}
         className="w-full resize-none border-none bg-transparent p-0 text-[15px] leading-[1.9] outline-none"
         style={{ color: "var(--product-color-text-primary)" }}
       />
