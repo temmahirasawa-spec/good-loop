@@ -79,7 +79,13 @@ export async function POST(req: Request) {
       );
       const block = message.content.find((b) => b.type === "text");
       const parsed = extractJson(block && "text" in block ? block.text : "") as { choices?: unknown };
-      if (Array.isArray(parsed.choices) && parsed.choices.every((c) => typeof c === "string") && parsed.choices.length >= 3) {
+      if (
+        Array.isArray(parsed.choices) &&
+        parsed.choices.length >= 3 &&
+        parsed.choices.every(
+          (c) => typeof c === "object" && c !== null && typeof (c as { label?: unknown }).label === "string"
+        )
+      ) {
         return Response.json({ choices: parsed.choices.slice(0, 8) });
       }
       throw new Error("unexpected shape");

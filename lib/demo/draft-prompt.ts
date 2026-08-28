@@ -19,10 +19,11 @@ export type { FollowupReason };
 
 /** 章の途中の整文（速さ優先） */
 export const REFINE_MODEL = "claude-haiku-4-5-20251001";
-export const REFINE_MAX_TOKENS = 600;
+export const REFINE_MAX_TOKENS = 900;
 /** 最後の仕上げ（質優先） */
 export const FINAL_MODEL = "claude-sonnet-5";
-export const FINAL_MAX_TOKENS = 800;
+// 事実が多いと sourceSignalIds を含むJSONが長くなる。足りないと途中で切れて生成が丸ごと落ちる
+export const FINAL_MAX_TOKENS = 1600;
 
 export const REFINE_SYSTEM_PROMPT = `あなたは、お客様がアンケートで選んだ内容を、その人が書いたような自然な文章に整えます。
 
@@ -30,8 +31,10 @@ export const REFINE_SYSTEM_PROMPT = `あなたは、お客様がアンケート�
 
 絶対に守ること:
 - 事実の一覧にあることだけを書く。一覧に無い事実・感情・評価・頻度・因果関係を足さない
-- **[必須] と書かれた事実は必ず使う。それ以外は、自然な口コミになるよう取捨してよい**
-  （全部を並べると、回答を順番に読み上げただけの文章になる。2〜4個の具体的な事実を中心にする）
+- **渡された事実は、不自然にならない範囲ですべて使う**
+  （お客様がわざわざ選んだ内容なので、落とすと「選んだのに反映されない」と感じられる）
+- ただし**箇条書きのように並べない**。関係のある事実はまとめて1文にし、読める文章にする
+- **[必須] と書かれた事実は、どんな場合でも必ず使う**
 - 意味を拡張しない（「厚みがあった」を「食べ応えがあった」にしない。「落ち着いて過ごせた」を「ゆっくり食事を楽しめた」にしない。「びっくり」「毎回」など、事実に無い強調も足さない）
 - お客様が自分で書いた言葉（isFree）は、語彙と言い回しをできるだけそのまま残す
 - 関係のある事実はまとめて1文にしてよい。箇条書きのような羅列にしない
@@ -119,7 +122,9 @@ export const CHOICES_SYSTEM_PROMPT = `あなたは、飲食店のアンケート
 - 各選択肢は12文字以内
 
 出力は次のJSONだけ（前置き・説明・コードブロック記号なし）:
-{"choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4", "選択肢5", "選択肢6", "選択肢7", "選択肢8"]}`;
+{"choices": [{"label": "選択肢", "polarity": "positive"}, {"label": "選択肢", "polarity": "negative"}]}
+- polarity は positive（良かったこと）か negative（気になったこと）のどちらか
+- 8個作り、positive と negative の数を偏らせない`;
 
 export function buildChoicesUserPrompt(itemLabel: string, categoryLabel: string): string {
   return `品名: ${itemLabel}（カテゴリ: ${categoryLabel}）\n\nこの品の感想の選択肢を8個、JSONで出力してください。`;

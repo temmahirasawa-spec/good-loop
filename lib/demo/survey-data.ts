@@ -156,19 +156,24 @@ export const VISIT_CHOICES: Choice[] = [
  * ここにあるのは**AIが落ちたときのカテゴリ別の退避リスト**。
  * 固定リスト1本だと「グリーンサラダボウルに『ふわふわだった』」が出る（2026-08-28 天真の指摘）。
  */
-export const ATTR_FALLBACK: Record<string, string[]> = {
-  pancake: ["ふわふわだった", "口の中で溶けた", "見た目がきれい", "量がちょうどよい", "甘さがちょうどよい", "できたてで温かい"],
-  frenchtoast: ["しっとりしていた", "甘さがちょうどよい", "見た目がきれい", "量がちょうどよい", "できたてで温かい"],
-  toast: ["パンが香ばしい", "具がたっぷり", "見た目がきれい", "量がちょうどよい"],
-  benedict: ["ソースがおいしい", "卵がとろとろ", "見た目がきれい", "量がちょうどよい"],
-  burger: ["ボリュームがある", "バンズがおいしい", "素材の味がいい", "見た目がきれい"],
-  "pizza-pasta": ["味付けがよい", "生地・麺の食感がよい", "素材の味がいい", "量がちょうどよい", "できたてで温かい"],
-  rice: ["味付けがよい", "ボリュームがある", "見た目がきれい", "できたてで温かい"],
-  "salad-bowl": ["野菜が新鮮", "彩りがきれい", "量がちょうどよい", "ドレッシングがおいしい", "さっぱりしている"],
-  drink: ["香りがよい", "温度がちょうどよい", "甘さがちょうどよい", "見た目がきれい"],
+export type AttrChoice = { label: string; polarity: "positive" | "negative" };
+
+const P = (label: string): AttrChoice => ({ label, polarity: "positive" });
+const N = (label: string): AttrChoice => ({ label, polarity: "negative" });
+
+export const ATTR_FALLBACK: Record<string, AttrChoice[]> = {
+  pancake: [P("ふわふわだった"), P("口の中で溶けた"), P("見た目がきれい"), P("甘さがちょうどよい"), N("甘すぎた"), N("量が少なかった")],
+  frenchtoast: [P("しっとりしていた"), P("甘さがちょうどよい"), P("見た目がきれい"), N("甘すぎた"), N("冷めていた")],
+  toast: [P("パンが香ばしい"), P("具がたっぷり"), P("見た目がきれい"), N("パサついていた"), N("量が少なかった")],
+  benedict: [P("ソースがおいしい"), P("卵がとろとろ"), P("見た目がきれい"), N("味が濃かった"), N("量が少なかった")],
+  burger: [P("ボリュームがある"), P("バンズがおいしい"), P("素材の味がいい"), N("食べにくかった"), N("味が濃かった")],
+  "pizza-pasta": [P("味付けがよい"), P("生地・麺の食感がよい"), P("できたてで温かい"), N("味が薄かった"), N("量が少なかった")],
+  rice: [P("味付けがよい"), P("ボリュームがある"), P("できたてで温かい"), N("味が濃かった"), N("ぬるかった")],
+  "salad-bowl": [P("野菜が新鮮"), P("彩りがきれい"), P("さっぱりしている"), N("量が少なかった"), N("ドレッシングが濃かった")],
+  drink: [P("香りがよい"), P("温度がちょうどよい"), P("甘さがちょうどよい"), N("薄かった"), N("ぬるかった")],
 };
 
-export function fallbackAttrsFor(itemId: string): string[] {
+export function fallbackAttrsFor(itemId: string): AttrChoice[] {
   for (const category of MENU) {
     if (category.items.some((i) => i.id === itemId)) return ATTR_FALLBACK[category.id] ?? ATTR_FALLBACK.pancake;
   }

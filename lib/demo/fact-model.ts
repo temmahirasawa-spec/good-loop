@@ -26,8 +26,12 @@ export type Signal = {
   /**
    * 文章の材料として渡すか。false ならプロンプトに渡さない（＝構造的に本文へ入らない）。
    * 来店回数の既定値。毎回「初めて伺いました」から始まる口コミを防ぐため。
+   *
+   * ⚠ **器への表示は制御しない。** 選んだ履歴は全部 chip に出る。
    */
   includeInDraft?: boolean;
+  /** 良かったこと／気になったこと（器で分けて並べ、色を変える。2026-08-28） */
+  polarity?: "positive" | "negative";
 };
 
 /** 文章の材料として渡す signal だけを返す */
@@ -133,7 +137,7 @@ export function joinSentences(sentences: Sentence[]): string {
 
 /* ── material chip（AI整文前に器へ出す断片） ───────────── */
 
-export type MaterialChip = { id: string; label: string; lead?: boolean };
+export type MaterialChip = { id: string; label: string; lead?: boolean; polarity?: "positive" | "negative" };
 
 /**
  * 整文前の器に出す断片（2026-08-28 修正仕様）。
@@ -146,13 +150,18 @@ export type MaterialChip = { id: string; label: string; lead?: boolean };
  * `includeInDraft` は**文章の材料にするか**だけのフラグで、表示の可否ではない。
  */
 export function materialChips(signals: Signal[]): MaterialChip[] {
-  const chips: MaterialChip[] = [];
+  const lead: MaterialChip[] = [];
+  const positive: MaterialChip[] = [];
+  const negative: MaterialChip[] = [];
   for (const s of signals) {
-    if (s.id.startsWith("item:") || s.id.startsWith("cat:")) chips.push({ id: s.id, label: s.label, lead: true });
+    if (s.id.startsWith("item:") || s.id.startsWith("cat:")) {
+      lead.push({ id: s.id, label: s.label, lead: true });
+      continue;
+    }
+    const chip = { id: s.id, label: s.provisional || s.label, polarity: s.polarity };
+    if (s.polarity === "negative") negative.push(chip);
+    else positive.push(chip);
   }
-  for (const s of signals) {
-    if (s.id.startsWith("item:") || s.id.startsWith("cat:")) continue;
-    chips.push({ id: s.id, label: s.provisional || s.label });
-  }
-  return chips;
+  // 良かったことでまとめ、気になったことでまとめる（交互に混ざらないように）
+  return [...lead, ...positive, ...negative];
 }

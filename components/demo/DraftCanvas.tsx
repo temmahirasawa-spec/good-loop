@@ -135,7 +135,16 @@ export function DraftCanvas({
 
       <div ref={bodyRef} className="flex w-full flex-1 flex-col gap-[var(--product-space-8)] overflow-y-auto">
         {shown ? (
-          <p className="w-full text-[15px] leading-[1.9]" style={{ color: "var(--product-color-text-primary)" }}>
+          <p
+            className="w-full overflow-hidden text-[15px] leading-[1.9]"
+            style={{
+              color: "var(--product-color-text-primary)",
+              // 文章は最大4行（続きは「全文を見る」で）
+              display: expanded ? "block" : "-webkit-box",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp: expanded ? "unset" : 4,
+            }}
+          >
             {before}
             {fresh ? <span className="review-underline">{fresh}</span> : null}
             {after}
@@ -144,8 +153,13 @@ export function DraftCanvas({
 
         {/* まだ文章になっていない断片。整文中も消さない */}
         {chips.length > 0 ? (
-          <div ref={chipZoneRef} className="flex w-full flex-wrap items-center gap-[var(--product-space-4)]">
-            {chips.map((chip) => (
+          <div
+            ref={chipZoneRef}
+            className="flex w-full flex-wrap items-center gap-[var(--product-space-4)] overflow-hidden"
+            // タグは最大2行（新しいものが左上に来る）
+            style={{ maxHeight: expanded ? undefined : 56 }}
+          >
+            {[...chips].reverse().map((chip) => (
               <span
                 key={chip.id}
                 className={`review-rise flex items-center rounded-[var(--product-radius-full)] px-[var(--product-space-8)] py-[2px] text-[13px] font-bold ${
@@ -156,8 +170,14 @@ export function DraftCanvas({
                     ? undefined
                     : chip.lead
                       ? "var(--review-accent-wash)"
-                      : "var(--product-color-bg-tertiary)",
-                  color: chip.lead ? "var(--review-accent-primary)" : "var(--product-color-text-secondary)",
+                      : chip.polarity === "negative"
+                        ? "var(--product-color-status-warning-wash)"
+                        : "var(--product-color-bg-tertiary)",
+                  color: chip.lead
+                    ? "var(--review-accent-primary)"
+                    : chip.polarity === "negative"
+                      ? "var(--product-color-status-warning)"
+                      : "var(--product-color-text-secondary)",
                 }}
               >
                 {chip.lead ? "" : "＋ "}

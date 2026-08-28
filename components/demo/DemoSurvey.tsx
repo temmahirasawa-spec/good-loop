@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import {
   ATMOSPHERE_CHOICES,
+  type AttrChoice,
   CHAPTERS,
   CONCERN_CHOICES,
   EAT_NOTHING_ID,
@@ -118,6 +119,8 @@ export function DemoSurvey() {
   const chipZoneRef = useRef<HTMLDivElement>(null);
   /** 直近に器へ届いた語句（一瞬だけ光る） */
   const [freshChips, setFreshChips] = useState<string[]>([]);
+  /** 仕上げ画面で「含めない」に外した事実（既定は全部ON。2026-08-28 天真の指示） */
+  const [excluded, setExcluded] = useState<string[]>([]);
 
   const flyToDraft = useCallback((el: HTMLElement, label: string) => {
     setFreshChips((prev) => (prev.includes(label) ? prev : [...prev, label]));
@@ -163,28 +166,32 @@ export function DemoSurvey() {
   }
 
   /* ── 品の感想の選択肢（AI生成・品選択時に先読み） ── */
-  const [attrChoices, setAttrChoices] = useState<Choice[] | null>(null);
-  const attrCacheRef = useRef<Map<string, string[]>>(new Map());
+  const [attrChoices, setAttrChoices] = useState<AttrChoice[] | null>(null);
+  const attrCacheRef = useRef<Map<string, AttrChoice[]>>(new Map());
 
-  const fetchChoicesFor = useCallback(async (itemId: string): Promise<string[]> => {
+  const fetchChoicesFor = useCallback(async (itemId: string): Promise<AttrChoice[]> => {
     const cached = attrCacheRef.current.get(itemId);
     if (cached) return cached;
     const itemLabel = findItem(itemId)?.label ?? "";
     const categoryLabel = categoryOf(itemId)?.label ?? "";
-    let labels: string[];
+    let choices: AttrChoice[];
     try {
       const res = await fetch("/api/demo/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "choices", itemLabel, categoryLabel }),
       });
-      const data = (await res.json()) as { choices: string[] | null };
-      labels = data.choices ?? fallbackAttrsFor(itemId);
+      const data = (await res.json()) as { choices: AttrChoice[] | null };
+      choices =
+        data.choices?.filter((c) => c && typeof c.label === "string").map((c) => ({
+          label: c.label,
+          polarity: c.polarity === "negative" ? ("negative" as const) : ("positive" as const),
+        })) ?? fallbackAttrsFor(itemId);
     } catch {
-      labels = fallbackAttrsFor(itemId);
+      choices = fallbackAttrsFor(itemId);
     }
-    attrCacheRef.current.set(itemId, labels);
-    return labels;
+    attrCacheRef.current.set(itemId, choices);
+    return choices;
   }, []);
 
   useEffect(() => {
@@ -199,8 +206,8 @@ export function DemoSurvey() {
     setAttrs([]);
     setAttrChoices(null);
     let cancelled = false;
-    void fetchChoicesFor(effectiveFocus).then((labels) => {
-      if (!cancelled) setAttrChoices(labels.map((label) => ({ id: label, label })));
+    void fetchChoicesFor(effectiveFocus).then((choices) => {
+      if (!cancelled) setAttrChoices(choices);
     });
     return () => {
       cancelled = true;
@@ -254,13 +261,14 @@ export function DemoSurvey() {
           provisional: label,
           itemLabel: focusLabel,
           required: true,
+          polarity: (attrChoices?.find((c) => c.label === label)?.polarity ?? "positive") as "positive" | "negative",
         })),
       ...(attrNote.trim() ? [{ id: "free:attr", label: attrNote.trim(), provisional: attrNote.trim(), isFree: true, required: true }] : []),
       ...service
         .filter((id) => id !== "none")
         .map((id) => {
           const c = SERVICE_CHOICES.find((x) => x.id === id);
-          return { id: `service:${id}`, label: c?.label ?? "", provisional: c?.label ?? "" };
+          return { id: `service:${id}`, label: c?.label ?? "", provisional: c?.label ?? "", polarity: "positive" as const };
         }),
       ...followupQA.filter((qa) => qa.chapter === 1).map((qa, i) => ({
         id: `followup:1:${i}`,
@@ -276,20 +284,20 @@ export function DemoSurvey() {
         .filter((id) => id !== "none")
         .map((id) => {
           const c = ATMOSPHERE_CHOICES.find((x) => x.id === id);
-          return { id: `atmosphere:${id}`, label: c?.label ?? "", provisional: c?.label ?? "" };
+          return { id: `atmosphere:${id}`, label: c?.label ?? "", provisional: c?.label ?? "", polarity: "positive" as const };
         }),
       ...good
         .filter((id) => id !== "none")
         .map((id) => {
           const c = GOOD_CHOICES.find((x) => x.id === id);
-          return { id: `good:${id}`, label: c?.label ?? "", provisional: c?.label ?? "" };
+          return { id: `good:${id}`, label: c?.label ?? "", provisional: c?.label ?? "", polarity: "positive" as const };
         }),
       // 気になった点は必須（不満・改善要望は落とさない）
       ...concern
         .filter((id) => id !== "none")
         .map((id) => {
           const c = CONCERN_CHOICES.find((x) => x.id === id);
-          return { id: `concern:${id}`, label: c?.label ?? "", provisional: `${c?.label ?? ""}が気になった`, required: true };
+          return { id: `concern:${id}`, label: c?.label ?? "", provisional: `${c?.label ?? ""}が気になった`, required: true, polarity: "negative" as const };
         }),
       ...(concernNote.trim() ? [{ id: "free:concern", label: concernNote.trim(), provisional: concernNote.trim(), isFree: true, required: true }] : []),
       ...followupQA.filter((qa) => qa.chapter === 2).map((qa, i) => ({
@@ -464,7 +472,9 @@ export function DemoSurvey() {
   /* ── 仕上げ（Sonnet） ── */
   const generateFinal = useCallback(
     async (opts: { tone: Tone; seed: number }) => {
-      const signals = draftableSignals(allSignals).filter((s) => s.label !== "特になし");
+      const signals = draftableSignals(allSignals)
+        .filter((s) => s.label !== "特になし")
+        .filter((s) => !excluded.includes(s.id));
       if (signals.length === 0) {
         setFinalText(refinedText);
         return;
@@ -502,7 +512,48 @@ export function DemoSurvey() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [signalIdsKey, refinedText]
+    [signalIdsKey, refinedText, excluded]
+  );
+
+  /** 除外リストを明示して仕上げる（トグル直後に古い state を使わないため） */
+  const generateFinalWith = useCallback(
+    async (nextExcluded: string[]) => {
+      const signals = draftableSignals(allSignals)
+        .filter((sig) => sig.label !== "特になし")
+        .filter((sig) => !nextExcluded.includes(sig.id));
+      if (signals.length === 0) return;
+      setGenerating(true);
+      const myVersion = ++versionRef.current;
+      try {
+        const res = await fetch("/api/demo/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "final",
+            signals: signals.map(({ id, label, itemLabel, isFree, required }) => ({ id, label, itemLabel, isFree, required })),
+            tone,
+            seed,
+          }),
+        });
+        const data = (await res.json()) as { sentences: Sentence[] | null };
+        if (myVersion !== versionRef.current) return;
+        if (data.sentences) {
+          const verdict = validateSentences(data.sentences, signals);
+          if (verdict.ok) {
+            setFinalText("");
+            setTimeout(() => setFinalText(joinSentences(verdict.sentences)), 50);
+            return;
+          }
+          console.error("[demo] 最終整文を破棄:", verdict.reason);
+        }
+      } catch (error) {
+        console.error("[demo] 最終整文に失敗", error);
+      } finally {
+        setGenerating(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [signalIdsKey, tone, seed]
   );
 
   useEffect(() => {
@@ -729,7 +780,12 @@ export function DemoSurvey() {
               >
                 {attrChoices ? (
                   <ChipGrid
-                    choices={[...attrChoices, { id: "その他", label: "その他" }]}
+                    choices={[
+                      // 良かったこと → 気になったことの順に並べる（交互に混ざらないように）
+                      ...attrChoices.filter((c) => c.polarity !== "negative").map((c) => ({ id: c.label, label: c.label })),
+                      ...attrChoices.filter((c) => c.polarity === "negative").map((c) => ({ id: c.label, label: c.label, negative: true })),
+                      { id: "その他", label: "その他" },
+                    ]}
                     selected={attrs}
                     onToggle={(id) => { tick(); setAttrs((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])); }}
                   />
@@ -886,6 +942,15 @@ export function DemoSurvey() {
             onEmoji={() => { tick(); setEmoji(!emoji); }}
             onRegenerate={() => { tick(); const next = seed + 1; setSeed(next); void generateFinal({ tone, seed: next }); }}
             onRestore={() => { tick(); setEdited(null); }}
+            includable={draftableSignals(allSignals).filter((sig) => sig.label !== "特になし")}
+            excluded={excluded}
+            onToggleInclude={(id) => {
+              tick();
+              const next = excluded.includes(id) ? excluded.filter((x) => x !== id) : [...excluded, id];
+              setExcluded(next);
+              setEdited(null);
+              void generateFinalWith(next);
+            }}
             onNext={() => setPhase("destination")}
             onBack={() => setPhase("chapters")}
             canvas={<EditableCanvas value={draft} onChange={setEdited} streaming={generating} />}
@@ -1124,7 +1189,7 @@ function ChipGrid({
   onToggle,
   exclusiveId,
 }: {
-  choices: Choice[];
+  choices: (Choice & { negative?: boolean })[];
   selected: string[];
   onToggle: (id: string) => void;
   exclusiveId?: string;
@@ -1148,17 +1213,33 @@ function ChipGrid({
             className="review-rise flex items-center gap-[var(--product-space-8)] rounded-[var(--product-radius-full)] border-solid px-[var(--product-space-16)] py-[var(--product-space-8)] transition-transform duration-100 active:scale-95"
             style={{
               minHeight: "var(--product-touch-min)",
-              backgroundColor: isSelected ? "var(--review-accent-wash)" : "var(--product-color-surface-white)",
+              // 気になったこと（ネガ）はオレンジで区別する
+              backgroundColor: isSelected
+                ? choice.negative
+                  ? "var(--product-color-status-warning-wash)"
+                  : "var(--review-accent-wash)"
+                : "var(--product-color-surface-white)",
               borderWidth: isSelected ? 2 : 1.5,
-              borderColor: isSelected ? "var(--review-accent-primary)" : "var(--product-color-border-default)",
+              borderColor: isSelected
+                ? choice.negative
+                  ? "var(--product-color-status-warning)"
+                  : "var(--review-accent-primary)"
+                : "var(--product-color-border-default)",
             }}
           >
-            {isSelected ? <CheckMarkIcon className="review-pop size-3.5" style={{ color: "var(--review-accent-primary)" }} /> : null}
+            {isSelected ? (
+              <CheckMarkIcon
+                className="review-pop size-3.5"
+                style={{ color: choice.negative ? "var(--product-color-status-warning)" : "var(--review-accent-primary)" }}
+              />
+            ) : null}
             <span
               className="text-sm font-bold"
               style={{
                 color: isSelected
-                  ? "var(--review-accent-primary)"
+                  ? choice.negative
+                    ? "var(--product-color-status-warning)"
+                    : "var(--review-accent-primary)"
                   : quiet
                     ? "var(--product-color-text-secondary)"
                     : "var(--product-color-text-primary)",
@@ -1308,6 +1389,9 @@ function DraftTools({
   onEmoji,
   onRegenerate,
   onRestore,
+  includable,
+  excluded,
+  onToggleInclude,
   onNext,
   onBack,
   canvas,
@@ -1320,6 +1404,10 @@ function DraftTools({
   onEmoji: () => void;
   onRegenerate: () => void;
   onRestore: () => void;
+  /** 文章に含められる事実（既定は全部ON） */
+  includable: Signal[];
+  excluded: string[];
+  onToggleInclude: (id: string) => void;
   onNext: () => void;
   onBack: () => void;
   canvas: React.ReactNode;
@@ -1348,6 +1436,57 @@ function DraftTools({
       </div>
 
       {canvas}
+
+      {/* 含める内容。**選んだものは既定で全部ON**。外すとその事実を抜いて作り直す */}
+      {includable.length > 0 && !locked ? (
+        <div className="flex w-full flex-col gap-[var(--product-space-8)]">
+          <p className="text-[13px] font-bold" style={{ color: "var(--product-color-text-secondary)" }}>
+            文章に含める内容
+          </p>
+          <div className="flex w-full flex-wrap gap-[var(--product-space-8)]">
+            {includable.map((sig) => {
+              const on = !excluded.includes(sig.id);
+              const negative = sig.polarity === "negative";
+              return (
+                <button
+                  key={sig.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => onToggleInclude(sig.id)}
+                  className="flex items-center gap-[var(--product-space-4)] rounded-[var(--product-radius-full)] border-solid px-[var(--product-space-12)] py-[var(--product-space-4)]"
+                  style={{
+                    minHeight: "var(--product-touch-min)",
+                    borderWidth: on ? 2 : 1.5,
+                    borderColor: on
+                      ? negative
+                        ? "var(--product-color-status-warning)"
+                        : "var(--review-accent-primary)"
+                      : "var(--product-color-border-default)",
+                    backgroundColor: on
+                      ? negative
+                        ? "var(--product-color-status-warning-wash)"
+                        : "var(--review-accent-wash)"
+                      : "var(--product-color-surface-white)",
+                    color: on
+                      ? negative
+                        ? "var(--product-color-status-warning)"
+                        : "var(--review-accent-primary)"
+                      : "var(--product-color-text-muted)",
+                  }}
+                >
+                  {on ? (
+                    <CheckMarkIcon
+                      className="size-3.5"
+                      style={{ color: negative ? "var(--product-color-status-warning)" : "var(--review-accent-primary)" }}
+                    />
+                  ) : null}
+                  <span className="text-[13px] font-bold">{sig.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       {locked ? (
         <div className="flex w-full items-center justify-between">
