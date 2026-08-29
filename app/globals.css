@@ -47,3 +47,180 @@ body {
     background: #fff; /* design-qa-allow: 印刷は必ず白地。テーマ変数を紙に持ち込まない */
   }
 }
+
+/*
+ * アンケート v2 プロトタイプの演出（docs/specs/survey-v2.md 段1、案C＋A）。
+ * 「選んでいるうちに自分の感想になっていく」を画面上の事実にするための動き。
+ * すべて `prefers-reduced-motion` で無効化する（design-rules アクセシビリティ）。
+ */
+@keyframes review-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes review-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes review-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.035);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes review-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.review-rise {
+  animation: review-rise 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.review-slide-in {
+  animation: review-slide-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.review-pop {
+  animation: review-pop 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.review-pulse {
+  animation: review-pulse 900ms ease-in-out infinite;
+}
+
+/* カーソル（AIが書いている最中だけ点滅させる） */
+@keyframes review-caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.review-caret {
+  animation: review-caret 900ms step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-rise,
+  .review-slide-in,
+  .review-pop,
+  .review-pulse,
+  .review-caret {
+    animation: none;
+  }
+}
+
+/*
+ * 「今この言葉になった」を示す下線（2026-08-28）。
+ * イエローの帯は意味が伝わらなかったため廃止し、左から右へ走る下線に変えた。
+ * 状態を残すためではなく、一時的な変化だけを示す（1.1秒で消える）。
+ */
+@keyframes review-underline-run {
+  from {
+    background-size: 0% 0.35em;
+  }
+  to {
+    background-size: 100% 0.35em;
+  }
+}
+
+.review-underline {
+  background-image: linear-gradient(
+    var(--product-color-status-warning-wash),
+    var(--product-color-status-warning-wash)
+  );
+  background-repeat: no-repeat;
+  background-position: 0 88%;
+  animation: review-underline-run 620ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-underline {
+    animation: none;
+    background-size: 100% 0.35em;
+  }
+}
+
+/*
+ * 選んだ言葉が Living Draft へ飛ぶ（2026-08-28）。
+ * 「タップした事実が感想文へ変換される」ことを、説明なしで体験させるための演出。
+ * 派手にせず、控えめで速く。連続タップの邪魔をしない。
+ */
+@keyframes review-fly {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  18% {
+    /* いちど浮き上がってから、器へ向かう */
+    transform: translate(calc(var(--fly-dx) * 0.12), calc(var(--fly-dy) * 0.06 - 20px)) scale(1.04);
+    opacity: 1;
+  }
+  72% {
+    transform: translate(calc(var(--fly-dx) * 0.92), calc(var(--fly-dy) * 0.94)) scale(0.92);
+    opacity: 1;
+  }
+  100% {
+    /* 最後に器の中へ吸い込まれる */
+    transform: translate(var(--fly-dx), var(--fly-dy)) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.review-fly {
+  animation: review-fly 640ms cubic-bezier(0.34, 0, 0.16, 1) forwards;
+}
+
+/* 到着した語句が一瞬だけ光る（700msで透明へ） */
+@keyframes review-flash {
+  0% {
+    background-color: var(--product-color-status-warning-wash);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.review-flash {
+  animation: review-flash 700ms ease-out 380ms forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-fly {
+    display: none;
+  }
+  .review-flash {
+    animation-delay: 0ms;
+  }
+}
