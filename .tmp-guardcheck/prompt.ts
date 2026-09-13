@@ -1,4 +1,3 @@
-import "server-only";
 
 /**
  * v4「文にする」のプロンプト（docs/specs/survey-v4.md §6-5）。
@@ -18,13 +17,7 @@ import "server-only";
  */
 
 export const POLISH_MODEL = "claude-haiku-4-5-20251001";
-/**
- * ⚠ 2026-09-13 の訂正：60 にしていたため、**入力が45文字あたりを超えると必ず沈黙していた**
- *   （JSONが途中で切れて取り出せない。レビューで実測して再現）。
- *   出力は入力の1.4倍までなので、入力400字なら560字＝日本語で概ね560トークン。JSONの囲いを足して 700 にする。
- *   Haiku なので、これでも1回あたり1円に遠く届かない。
- */
-export const POLISH_MAX_TOKENS = 700;
+export const POLISH_MAX_TOKENS = 60;
 
 export const POLISH_SYSTEM_PROMPT = `あなたは、お客様が入力欄に書いた言葉に、助詞と句読点だけを足して、読める1文にする係です。
 文章を作る人ではありません。

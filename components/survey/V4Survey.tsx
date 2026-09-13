@@ -48,12 +48,23 @@ export function V4Survey() {
   const [beforeAdopt, setBeforeAdopt] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [suggestUses, setSuggestUses] = useState(0);
+  /**
+   * 一度でも灰色の1文を採用したか。
+   *
+   * ⚠ 採用すると本文欄の中身が**AIの出力**になる。そのまま「文にする」をもう一度押せると、
+   *   2回目の検査の基準が「本人が書いた文字列」ではなく「AIの出力」になり、
+   *   **本人の言葉だけでできているという保証が1回ぶんずつ薄まる**（2026-09-13 のレビューで再現）。
+   *   そこで**採用は1回まで**にした。試すのは3回まで、採用は1回。
+   */
+  const [adopted, setAdopted] = useState(false);
   const [asking, setAsking] = useState(false);
   const [idle, setIdle] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const idleTimer = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  /** コピー後に完了画面へ送るタイマー。「もどる」で取り消す */
+  const finishTimer = useRef<number | null>(null);
 
   // ★ hydration のずれを避けるため、乱数はマウント後に決める。
   //    S2 が出るのはタップ1回ぶん後なので、画面がちらつくことはない。
@@ -82,6 +93,7 @@ export function V4Survey() {
     idle &&
     sentenceCount < 2 &&
     suggestUses < SUGGEST_MAX_USES &&
+    !adopted &&
     !asking;
 
   const chooseRating = (id: string) => {
@@ -92,7 +104,8 @@ export function V4Survey() {
 
   const toggleTopic = (id: string) => {
     tick();
-    setSuggestion(null);
+    // ⚠ ここで候補を消さない。話題タグはAPIに渡していないので、タグの増減は候補の妥当性に影響しない。
+    //   消すと「タグを1つ押しただけで、出ていた1文が消えて回数だけ減る」ことになる（2026-09-13 のレビュー）。
     setTopics((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
   };
 
@@ -128,6 +141,7 @@ export function V4Survey() {
     setBeforeAdopt(body);
     setBody(suggestion);
     setSuggestion(null);
+    setAdopted(true);
   };
 
   const undo = () => {
@@ -139,16 +153,32 @@ export function V4Survey() {
 
   const copyAndFinish = async () => {
     tick();
+    let copiedOk = true;
     if (body.trim()) {
       try {
         await navigator.clipboard.writeText(body.trim());
       } catch {
-        // コピーできなくても先へ進める
+        // ⚠ コピーできていないのに「コピーしました」と出すと、貼り付ける段で必ず詰まる。
+        //   先へは進めるが、**嘘のトーストは出さない**（2026-09-13 のレビュー）
+        copiedOk = false;
       }
     }
-    setCopied(true);
-    window.setTimeout(() => setPhase("done"), 1600);
+    setCopied(copiedOk && body.trim() !== "");
+    finishTimer.current = window.setTimeout(() => setPhase("done"), 1600);
   };
+
+  /** 「もどる」で、完了画面へ送るタイマーを取り消す（押していないのに完了へ飛ぶのを防ぐ） */
+  const cancelFinish = useCallback(() => {
+    if (finishTimer.current) window.clearTimeout(finishTimer.current);
+    finishTimer.current = null;
+    setCopied(false);
+  }, []);
+
+  // 画面を離れるときにタイマーと通信を後片付けする
+  useEffect(() => () => {
+    if (finishTimer.current) window.clearTimeout(finishTimer.current);
+    abortRef.current?.abort();
+  }, []);
 
   return (
     <div
@@ -181,6 +211,9 @@ export function V4Survey() {
           onChangeBody={(v) => {
             setBody(v);
             setSuggestion(null);
+            // ⚠ 採用したあとに自分で書き足してから「もどす」を押すと、書き足したぶんまで消えていた
+            //   （2026-09-13 のレビューで再現）。編集した時点で「もどす」は引っ込める
+            if (beforeAdopt !== null) setBeforeAdopt(null);
           }}
           placeholder={placeholder}
           canSuggest={canSuggest}
@@ -212,7 +245,10 @@ export function V4Survey() {
           body={body}
           copied={copied}
           onChangeBody={setBody}
-          onBack={() => setPhase("destination")}
+          onBack={() => {
+            cancelFinish();
+            setPhase("destination");
+          }}
           onFinish={copyAndFinish}
         />
       ) : null}
@@ -579,7 +615,7 @@ function GoogleStep({
         </button>
         {/* コピーされた確証がないまま遷移すると、最後の1手で落ちる */}
         {copied && hasBody ? (
-          <p className="review-pop text-center text-sm font-bold" style={{ color: "var(--review-accent-primary)" }}>
+          <p role="status" className="review-pop text-center text-sm font-bold" style={{ color: "var(--review-accent-primary)" }}>
             文章をコピーしました
           </p>
         ) : null}

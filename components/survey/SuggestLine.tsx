@@ -23,7 +23,7 @@ export function SuggestLine({
   canUndo: boolean;
 }) {
   return (
-    <div className="review-rise flex w-full flex-col gap-[var(--product-space-8)]">
+    <div role="status" aria-live="polite" className="review-rise flex w-full flex-col gap-[var(--product-space-8)]">
       <button
         type="button"
         onClick={onAdopt}

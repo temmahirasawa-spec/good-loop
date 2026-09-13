@@ -36,9 +36,15 @@ const HOUR_MS = 60 * 60 * 1000;
 
 /** ⚠ プロトタイプ専用のメモリ計数。本番は Supabase へ移す */
 const hits: { at: number; ip: string }[] = [];
-/** ⚠ プロトタイプ専用。本番は同一店舗の直近20件を survey_responses から読む */
+/**
+ * 似すぎ検出の比較相手。**同一店舗の、他のお客様が実際に送った本文**がここに入る想定。
+ *
+ * ⚠ プロトタイプでは**常に空**にしてある。本番は survey_responses から直近20件を読む。
+ *   自分が今さっき出した候補を貯めると、**同じ人の2回目が必ず似すぎで落ちる**
+ *   （同じ入力から出る候補は文字の重なりが大きいのが当たり前。2026-09-13 のレビューで再現）。
+ *   比較すべきは「別のお客様の口コミ」であって「自分の直前の下書き」ではない。
+ */
 const recentBodies: string[] = [];
-const RECENT_KEEP = 20;
 
 function clientIpHash(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
@@ -96,6 +102,8 @@ export async function POST(req: Request) {
       system: POLISH_SYSTEM_PROMPT,
       messages: [{ role: "user", content: buildPolishUserPrompt(input) }],
     });
+    // 途中で切れた応答は、壊れたJSONを無理に読まずに捨てる
+    if (message.stop_reason === "max_tokens") return nothing("truncated");
     raw = message.content
       .map((block) => (block.type === "text" ? block.text : ""))
       .join("")
@@ -115,8 +123,6 @@ export async function POST(req: Request) {
   const verdict = guardPolished(input, candidate, GUARD_WORDS, recentBodies);
   if (!verdict.ok) return nothing(verdict.reason);
 
-  recentBodies.push(verdict.text);
-  while (recentBodies.length > RECENT_KEEP) recentBodies.shift();
-
+  // ⚠ ここで候補を recentBodies に貯めない（上のコメント参照）
   return Response.json({ text: verdict.text }, { status: 200 });
 }

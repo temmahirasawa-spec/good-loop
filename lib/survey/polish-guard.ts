@@ -26,8 +26,27 @@ export type GuardWords = { banned: readonly string[]; meta: readonly string[] };
 export const MAX_INPUT_CHARS = 400;
 /** 出力は入力の何倍までを許すか。**絶対値の上限は置かない**（長さが揃うと、それ自体が「似た文面」になる） */
 export const MAX_OUTPUT_RATIO = 1.4;
-/** 挿入してよいひらがなの連続数。2にすると「です」(3)「ました」(3)が構造的に通らない */
-export const MAX_INSERT_RUN = 2;
+/**
+ * 足してよい助詞の一覧（**許可制**）。
+ *
+ * ⚠ 2026-09-13、当初は「ひらがななら連続2文字まで何でも」にしていたが、
+ *   **それでは意味が反転した**（「よかった」→「よ**くな**かった」は、く・な の2文字挿入で作れる）。
+ *   レビューで実際に通ることが再現されたので、**助詞そのものを列挙する形**に変えた。
+ *
+ * 入れていないもの と その理由:
+ *   か … 断定を疑問に変える（「高い」→「高いか」）
+ *   な … 禁止になる（「する」→「するな」）
+ *   でも・ても … 逆接を足して意味を変える
+ *   ね・よ … 語尾に感情を足す
+ *   く・い・ない … 否定を作れてしまう
+ */
+export const PARTICLES = [
+  // 2文字を先に置く（長いものから当てるため）
+  "から", "まで", "ので", "のに", "のが", "のを", "には", "では", "とは", "にも",
+  "での", "への", "との", "だけ", "ほど", "より", "など", "ずつ",
+  // 1文字
+  "が", "を", "に", "へ", "と", "も", "は", "で", "の", "や",
+];
 /** 同一店舗の直近の本文と、これ以上似ていたら整形結果を返さない（v3実測の中央値0.32が「骨格が同一」だった） */
 export const SIMILARITY_THRESHOLD = 0.35;
 
@@ -48,15 +67,16 @@ function isDeletable(ch: string): boolean {
 }
 
 /**
- * 足してよい記号。**空白は入っていない。**
+ * 足してよい記号。**読点と句点だけ。**
  *
- * ⚠ 2026-09-13 の実測で、空白の挿入を許していたために
- *   「フレンチトースト **は** しっとり **で** 甘さ ちょうどいい 。」という、
- *   助詞の前後に空白が入った不自然な出力が検査を通ってしまった。
- *   日本語の文に空白を足す理由は無いので、**挿入からは外す**（削除は今までどおり許す）。
+ * ⚠ 2026-09-13 の実測で見つかった穴を2つ塞いである。
+ *   ① 空白を許していたため「フレンチトースト **は** しっとり **で** 甘さ ちょうどいい 。」が通った
+ *   ② ？！「」… を許していたため、本人が書いていない**意味**を足せた
+ *      （「接客よかった」→「接客は、よかった**…**」／「親切だった」→「**「**親切**」**だった」）。
+ *      疑問・強調・含みは、書いた本人のものでなければならない。
  */
 function isInsertable(ch: string): boolean {
-  return /[、。，．！？!?・…「」『』（）()"'`:;：；]/.test(ch);
+  return ch === "、" || ch === "。";
 }
 
 /** 記号・空白かどうか（骨格を取るときに使う） */
@@ -80,46 +100,53 @@ export type GuardResult = { ok: true; text: string } | { ok: false; reason: Guar
 /**
  * 検査1〜3：文字アライン。
  *
- * 出力が入力から「記号・空白の削除」と「ひらがな（連続2文字まで）・記号・空白の挿入」**だけ**で
+ * 出力が入力から「記号・空白の削除」と「**許可された助詞**・読点・句点の挿入」**だけ**で
  * 作れるかを判定する。両方の走査が前から後ろへしか進まないので、**語順の保存は自動的に保証される**。
  *
- * 状態は (入力のどこまで, 出力のどこまで, 直前に挿入したひらがなの連続数)。
+ * 状態は (入力のどこまで, 出力のどこまで, 直前に助詞を入れたか)。
+ * **助詞を2つ続けて入れることは許さない**（「ははが」のような積み上げを防ぐ）。
  */
 export function isDerivable(input: string, output: string): boolean {
   const a = Array.from(input);
   const b = Array.from(output);
   const n = a.length;
   const m = b.length;
-  const runs = MAX_INSERT_RUN + 1;
 
-  // reach[i * (m+1) * runs + j * runs + r]
-  const reach = new Uint8Array((n + 1) * (m + 1) * runs);
-  const idx = (i: number, j: number, r: number) => (i * (m + 1) + j) * runs + r;
+  // reach[(i * (m+1) + j) * 2 + justInserted]
+  const reach = new Uint8Array((n + 1) * (m + 1) * 2);
+  const idx = (i: number, j: number, k: number) => ((i * (m + 1) + j) * 2) + k;
 
   reach[idx(0, 0, 0)] = 1;
 
   for (let i = 0; i <= n; i++) {
     for (let j = 0; j <= m; j++) {
-      for (let r = 0; r < runs; r++) {
-        if (!reach[idx(i, j, r)]) continue;
+      for (let k = 0; k < 2; k++) {
+        if (!reach[idx(i, j, k)]) continue;
 
         // 一致：入力の文字がそのまま出力にある
         if (i < n && j < m && a[i] === b[j]) reach[idx(i + 1, j + 1, 0)] = 1;
 
         // 削除：入力側の記号・空白だけは落としてよい
-        if (i < n && isDeletable(a[i])) reach[idx(i + 1, j, r)] = 1;
+        if (i < n && isDeletable(a[i])) reach[idx(i + 1, j, k)] = 1;
 
-        // 挿入：出力側の記号（**空白は足せない**。連続数はリセット）
+        // 挿入：読点・句点（**空白も ？！「」… も足せない**）
         if (j < m && isInsertable(b[j])) reach[idx(i, j + 1, 0)] = 1;
 
-        // 挿入：出力側のひらがな（連続 MAX_INSERT_RUN 文字まで）
-        if (j < m && isHiragana(b[j]) && r + 1 <= MAX_INSERT_RUN) reach[idx(i, j + 1, r + 1)] = 1;
+        // 挿入：許可された助詞。直前に助詞を入れていたら続けて入れられない
+        if (k === 0) {
+          for (let t = 0; t < PARTICLES.length; t++) {
+            const particle = PARTICLES[t];
+            const len = particle.length;
+            if (j + len > m) continue;
+            if (b.slice(j, j + len).join("") !== particle) continue;
+            reach[idx(i, j + len, 1)] = 1;
+          }
+        }
       }
     }
   }
 
-  for (let r = 0; r < runs; r++) if (reach[idx(n, m, r)]) return true;
-  return false;
+  return reach[idx(n, m, 0)] === 1 || reach[idx(n, m, 1)] === 1;
 }
 
 /** 記号と空白を落とす */
@@ -172,13 +199,24 @@ export function ngramsContained(input: string, output: string): boolean {
 const POLITE_ENDINGS = ["です", "ます", "ました", "でした", "ません", "ましょう", "でしょう", "ございま"];
 
 export function politenessOk(input: string, output: string): boolean {
-  return POLITE_ENDINGS.every((ending) => !output.includes(ending) || input.includes(ending));
+  // ⚠ 2026-09-13 の訂正：以前は「入力に1つでもあれば出力に何個あってもよい」になっていた。
+  //   「常連です 今日も早かった」→「常連です、今日も早かった**です**」が通ってしまった（レビューで再現）。
+  //   **回数で比べる**。
+  const count = (text: string, needle: string) => text.split(needle).length - 1;
+  return POLITE_ENDINGS.every((ending) => count(output, ending) <= count(input, ending));
 }
 
-/** 検査6：形と長さ。句点は1つまで。出力は入力の 1.4 倍まで */
+/**
+ * 検査6：形と長さ。**1文であること**と、出力が入力の 1.4 倍までであること。
+ *
+ * ⚠ 2026-09-13 の訂正：以前は「。」だけを数えていたため、
+ *   「料理が早い**！**接客もよかった**！**店もきれい**！**」のように
+ *   **！や？で何文でも作れて**しまっていた（レビューで再現）。
+ *   文の終わりになる記号をまとめて数え、**入力に元からある数を超えさせない**。
+ */
 export function shapeOk(input: string, output: string): boolean {
-  const periods = (output.match(/。/g) ?? []).length;
-  if (periods > 1) return false;
+  const count = (text: string) => (text.match(/[。！？!?]/g) ?? []).length;
+  if (count(output) > Math.max(1, count(input))) return false;
   if (/[\r\n]/.test(output)) return false;
   return Array.from(output).length <= Math.ceil(Array.from(input).length * MAX_OUTPUT_RATIO);
 }
