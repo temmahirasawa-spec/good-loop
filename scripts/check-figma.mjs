@@ -45,8 +45,13 @@ const FILE_KEY = "i7z9wGL6BpFoC2kwlGA1lV";
  *   従う必要が無く、そのまま検品すると1回の資料で数百件の違反が積み上がる。
  *   台帳は返済の作業リストなので、返済する気の無いものを載せると読めなくなる。
  *   **打ち合わせ資料はこのページに置くこと**（`docs/specs/design-rules.md` 3章）。
+ *
+ * `_Archives` は**使わなくなったものの置き場**（2026-08-26 新設）。
+ *   現役でないものを画面の規約で縛っても、返済する気の無い違反が積み上がるだけ。
+ *   ここに入れたら「もう直さない」という意思表示になる。
+ *   **消す前の一時置きではなく、残しておきたいが現役ではないもの**を入れる。
  */
-const SKIP_PAGES = ["---", "MTG"];
+const SKIP_PAGES = ["---", "MTG", "_Archives"];
 
 /**
  * 検品しないセクション（2026-08-22、天真の判断）。
@@ -243,6 +248,7 @@ function checkSection(page, sec, depth = 0) {
     for (const sub of subs) {
       checkSectionColor(`${label} / ${sub.name}`, sub, SECTION_COLOR_INNER, "中枠の");
       checkFit(`${label} / ${sub.name}`, sub, true);
+      checkOverlap(`${label} / ${sub.name}`, sub);
     }
   } else if (requirePair && kids.some((c) => c.type === "FRAME" || c.type === "COMPONENT" || c.type === "COMPONENT_SET")) {
     // ── 新構成（2026-08-22、天真の指示）：セクション ＞ フレーム（PCとSPが同居） ──
@@ -254,7 +260,34 @@ function checkSection(page, sec, depth = 0) {
     if (!frames.some(isSpFrame)) H(label, "SP のフレームがありません（PC を作るときは SP も対で作る）");
   }
 
-  checkFit(label, sec, false);
+  // 99 は素材置き場だが、**並べ方の規約は同じ**。ここを野放しにすると、
+  // 部品を _Archives に移したあとに穴が空いたままになる（2026-08-26 に実際に起きた）。
+  checkFit(label, sec, /^\s*99/.test(sec.name));
+  checkOverlap(label, sec);
+}
+
+/**
+ * 画面のフレーム同士が重なっていないか。
+ *
+ * `checkFit` の間隔の検査は「同じ行のとなり合う2つ」しか見ないので、
+ * 行をまたいで食い込んでいる重なりは素通りする（2026-08-26、`04 トップ / Dashboard` で
+ * SPの行がPCの行に118px食い込んでいたのを検品が見逃した）。総当たりで見る。
+ *
+ * 対象は画面のフレームだけ。ラベルのテキストや遷移図の矢印は、
+ * **わざと重ねてある**ので数に入れない。
+ */
+const OVERLAP_TYPES = ["FRAME", "COMPONENT", "COMPONENT_SET", "INSTANCE"];
+function checkOverlap(label, node) {
+  const f = (node.children || []).filter((c) => OVERLAP_TYPES.includes(c.type)).map((c) => [c, box(c)]);
+  for (let i = 0; i < f.length; i++) {
+    for (let j = i + 1; j < f.length; j++) {
+      const [an, a] = f[i], [bn, b] = f[j];
+      const ox = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+      const oy = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+      if (ox > TOL && oy > TOL)
+        H(label, `「${an.name}」と「${bn.name}」が ${Math.round(ox)}×${Math.round(oy)}px 重なっています`);
+    }
+  }
 }
 
 /** 中身の外接矩形が、ちょうど100pxの余白で収まっているか */
@@ -275,19 +308,50 @@ function checkFit(label, node, spaceChildren) {
   if (!near(r, PAD)) H(label, `右パディングが ${Math.round(r)}px です（${PAD}px）`);
   if (!near(b2, PAD)) H(label, `下パディングが ${Math.round(b2)}px です（${PAD}px）`);
 
-  if (spaceChildren) {
-    // PCの行とSPの行が縦に並ぶ構成があるので、**縦に重なっているもの同士＝同じ行**でだけ
-    // 横の間隔を見る。行をまたいで比べると、SP行の先頭がPC行の末尾と比較されて誤検知になる。
-    const ordered = kids.slice().sort((a, b) => box(a).x - box(b).x);
-    for (let i = 1; i < ordered.length; i++) {
-      const p = box(ordered[i - 1]), c = box(ordered[i]);
-      const sameRow = c.y < p.y + p.height && p.y < c.y + c.height;
-      if (!sameRow) continue;
-      const gap = c.x - (p.x + p.width);
-      if (gap < -TOL) H(label, `「${ordered[i].name}」が前のフレームと重なっています`);
-      else if (!near(gap, PAD)) H(label, `「${ordered[i].name}」の左の間隔が ${Math.round(gap)}px です（${PAD}px）`);
-    }
+  if (spaceChildren) rows(label, kids);
+}
+
+/**
+ * 中身を**行**に分けて、行のなかと行と行のあいだの間隔を見る。
+ *
+ * 「縦に重なっているもの同士＝同じ行」。PCの行とSPの行が縦に並ぶ構成があるので、
+ * 行をまたいで横に比べると、SP行の先頭がPC行の末尾と比較されて誤検知になる。
+ *
+ * ⚠ 2026-08-26 まで、この関数は**同じ行の横の間隔しか見ていなかった**。
+ *    そのせいで「行と行が557px空いている」「同じ行なのに上端が20pxズレている」という
+ *    崩れが検品を素通りし、天真が目視で見つけることになった。行の上端と縦の間隔も見る。
+ */
+function rows(label, kids) {
+  const sorted = kids.slice().sort((a, b) => box(a).y - box(b).y || box(a).x - box(b).x);
+  const grouped = [];
+  for (const k of sorted) {
+    const kb = box(k);
+    const row = grouped.find((r) => r.some((o) => { const ob = box(o); return kb.y < ob.y + ob.height && ob.y < kb.y + kb.height; }));
+    if (row) row.push(k); else grouped.push([k]);
   }
+  grouped.forEach((row, ri) => {
+    row.sort((a, b) => box(a).x - box(b).x);
+
+    // 同じ行のものは上端がそろっている
+    const tops = [...new Set(row.map((k) => Math.round(box(k).y)))];
+    if (tops.length > 1) H(label, `${ri + 1}行目の上端がそろっていません（${tops.join(" / ")}）`);
+
+    // 横の間隔
+    for (let i = 1; i < row.length; i++) {
+      const p = box(row[i - 1]), c = box(row[i]);
+      const gap = c.x - (p.x + p.width);
+      if (gap < -TOL) H(label, `「${row[i].name}」が前のフレームと重なっています`);
+      else if (!near(gap, PAD)) H(label, `「${row[i].name}」の左の間隔が ${Math.round(gap)}px です（${PAD}px）`);
+    }
+
+    // 前の行との縦の間隔
+    if (ri > 0) {
+      const prevBottom = Math.max(...grouped[ri - 1].map((k) => box(k).y + box(k).height));
+      const gap = Math.min(...row.map((k) => box(k).y)) - prevBottom;
+      if (gap < -TOL) H(label, `${ri + 1}行目が前の行と重なっています`);
+      else if (!near(gap, PAD)) H(label, `${ri + 1}行目の上の間隔が ${Math.round(gap)}px です（${PAD}px）`);
+    }
+  });
 }
 
 // ── ノード単位 ─────────────────────────────────────────

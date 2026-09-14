@@ -16,6 +16,7 @@
     "design:figma": "node scripts/check-figma.mjs",
     "design:comments": "node scripts/figma-comments.mjs",
     "screenshot": "node scripts/screenshot.mjs",
+    "survey:guard": "node --experimental-strip-types scripts/polish-guard-fixtures.mjs",
     "tenant:create": "node --env-file=.env.local scripts/create-tenant.mjs"
   },
   "dependencies": {
