@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AiBadge } from "@/components/rating-flow/AiBadge";
 import { CheckCircleOutlineIcon } from "@/components/rating-flow/icons";
 import { BackIcon, CheckMarkIcon, MicIcon } from "@/components/demo/icons";
-import { AskChip } from "@/components/survey/AskChip";
-import { SuggestLine } from "@/components/survey/SuggestLine";
-import { useAskQuestion } from "@/components/survey/useAskQuestion";
-import { RATING_CHOICES, STORE_NAME } from "@/lib/demo/survey-data";
-import { TOPIC_TAGS, questionFor, topicTag } from "@/lib/survey/topic-questions";
+import { STORE_NAME } from "@/lib/demo/survey-data";
+import { markInsertions, withPeriod, type MarkedChar } from "@/lib/survey/insertions";
+import { DEFAULT_QUESTIONS, TOPIC_TAGS, topicTag } from "@/lib/survey/topic-questions";
 
 /**
  * アンケート v5 のプロトタイプ（docs/specs/survey-v5.md）。
@@ -15,99 +14,78 @@ import { TOPIC_TAGS, questionFor, topicTag } from "@/lib/survey/topic-questions"
  * **検証専用。DBには一切書き込まない。** 本番のお客様導線（/r/[storeSlug]）には影響しない。
  * v4（/demo/v4）はそのまま残してあるので、並べて比べられる。
  *
- * v4 からの変更（2026-09-26 天真の決定）:
- *   ・★と口コミ作成を分ける。本文欄は届け先を選んだあとの「書く画面」だけに置く
- *   ・届け先の2枚の扉は同じ形・同じ強さ。どちらの扉にも「書かずに届ける（主）」と「文章も書く」がある。
- *     ★だけの強調は Google の扉の中で行う（LP「2つの扉は同じ重さ」を守る）
- *   ・書く画面のAIは3つ：続きを聞く（問いを1つ返す）／整える（v4）／キーボードのマイクの案内
- *   ・AIの問いの頭に小さく「AI」と付ける
- *   ・続きの文をAIが出す形（予測変換）は入れない
+ * 2026-09-26 の決定（天真）と、同日の iPhone 実機での所感を反映した形:
+ *   ・評価は Google マップと同じく**★を5つ横に並べて選ぶ**（★の記憶のまま Google へ行ってもらう）
+ *   ・届け先の2枚の扉は同じ形。どちらも上が塗りの「文章も書く」、下が線の「書かずに届ける」
+ *   ・書く画面は**選んだ話題の数だけ欄を分ける**（料理について／接客について…）
+ *   ・AIの役割は**最後に「つなげる」**。各欄の言葉に助詞と句読点だけを足して1つの文章にし、
+ *     **AIが足した文字に色を付けて**見せる。中身は足さない
+ *   ・書いている途中に問いを出すAI（A1・A2）は外した（実機で「割り込まれてうっとうしい」「問いが的外れなことがある」）
  */
 
-type Phase = "rating" | "topics" | "destination" | "starOnly" | "write" | "storeConfirm" | "done";
+type Phase = "rating" | "topics" | "destination" | "starOnly" | "write" | "join" | "storeConfirm" | "done";
 type Destination = "google" | "store";
+type Level = 1 | 2 | 3 | 4 | 5;
+
+const LEVELS: Level[] = [1, 2, 3, 4, 5];
+/** 本番の評価ボタン（components/rating-flow/RatingButton.tsx）と同じ言葉 */
+const LEVEL_LABEL: Record<Level, string> = { 1: "不満", 2: "やや不満", 3: "ふつう", 4: "満足", 5: "とても満足" };
+/** 話題を1つも選ばなかったときの欄 */
+const GENERAL_FIELD = "general";
 
 /** 短い触覚。対応していない端末では何も起きない */
 function tick() {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.(8);
 }
 
-/** 「整える」が出る条件（v4 §6-2 と同じ） */
-const POLISH_MIN_CHARS = 6;
-const POLISH_IDLE_MS = 800;
-const POLISH_MAX_USES = 3;
-
-const DESTINATION_LABEL: Record<Destination, { title: string; note: string }> = {
-  google: { title: "Googleマップ", note: "だれでも読めます" },
-  store: { title: "お店だけ", note: "お店の人だけが読みます" },
-};
+/** 1つの欄を整えた結果。AIの出力が検査を通らなかった欄は、本人の言葉のまま（色なし） */
+type JoinedPart = { chars: MarkedChar[]; byAi: boolean };
 
 export function V5Survey() {
   const [phase, setPhase] = useState<Phase>("rating");
-  const [rating, setRating] = useState<string | null>(null);
+  const [rating, setRating] = useState<Level | null>(null);
   const [topics, setTopics] = useState<string[]>([]);
   const [destination, setDestination] = useState<Destination>("google");
-  const [body, setBody] = useState("");
-  const [composing, setComposing] = useState(false);
-
+  const [fragments, setFragments] = useState<Record<string, string>>({});
   /** 問いのローテーション。同じ店で同じ問いが並ばないようにする */
   const [rotation, setRotation] = useState(0);
 
-  // ── 整える（v4 と同じ。検査は /api/survey/polish のサーバー側） ──
-  const [beforeAdopt, setBeforeAdopt] = useState<string | null>(null);
-  const [suggestion, setSuggestion] = useState<string | null>(null);
-  const [polishUses, setPolishUses] = useState(0);
-  /** 採用は1回まで（v4 のレビューで決めた。2回目の検査の基準がAIの出力になるため） */
-  const [adopted, setAdopted] = useState(false);
-  const [polishing, setPolishing] = useState(false);
-  const [idle, setIdle] = useState(false);
+  // ── つなげる ──
+  const [joining, setJoining] = useState(false);
+  const [parts, setParts] = useState<JoinedPart[] | null>(null);
+  const [useAi, setUseAi] = useState(true);
+  /** 本人がつなげた文を直したら、その文が最終版になる（色は消える） */
+  const [edited, setEdited] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const idleTimer = useRef<number | null>(null);
-  const polishAbort = useRef<AbortController | null>(null);
+  const joinAbort = useRef<AbortController | null>(null);
   const finishTimer = useRef<number | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-  // ── 続きを聞く（A1・A2）。整えるの候補が出ている間は問いを引っ込める ──
-  const { question, exitHint } = useAskQuestion({
-    body,
-    composing,
-    active: phase === "write",
-    paused: suggestion !== null || polishing,
-  });
 
   // hydration のずれを避けるため、乱数はマウント後に決める
   useEffect(() => {
     setRotation(Math.floor(Math.random() * 3));
   }, []);
 
-  /** 入力が止まったら idle にする（「整える」の出現条件のひとつ） */
-  useEffect(() => {
-    setIdle(false);
-    if (idleTimer.current) window.clearTimeout(idleTimer.current);
-    idleTimer.current = window.setTimeout(() => setIdle(true), POLISH_IDLE_MS);
-    return () => {
-      if (idleTimer.current) window.clearTimeout(idleTimer.current);
-    };
-  }, [body]);
+  useEffect(
+    () => () => {
+      if (finishTimer.current) window.clearTimeout(finishTimer.current);
+      joinAbort.current?.abort();
+    },
+    [],
+  );
 
-  const ratingLabel = RATING_CHOICES.find((c) => c.id === rating)?.label ?? "";
-  const placeholder = questionFor(topics, rotation);
-  const sentenceCount = useMemo(() => (body.match(/。/g) ?? []).length, [body]);
+  /** 欄は選んだ順。1つも選んでいなければ「今日のこと」の1欄 */
+  const fieldIds = topics.length > 0 ? topics : [GENERAL_FIELD];
+  const filled = fieldIds.map((id) => (fragments[id] ?? "").trim()).filter((t) => t !== "");
+  const plainText = filled.map(withPeriod).join("");
+  const aiText = parts ? parts.map((p) => p.chars.map((c) => c.char).join("")).join("") : null;
+  const finalText = edited ?? (useAi && aiText ? aiText : plainText);
 
-  const canPolish =
-    Array.from(body.trim()).length >= POLISH_MIN_CHARS &&
-    idle &&
-    !composing &&
-    sentenceCount < 2 &&
-    polishUses < POLISH_MAX_USES &&
-    !adopted &&
-    !polishing;
-
-  const chooseRating = (id: string) => {
+  const chooseRating = (level: Level) => {
     tick();
-    setRating(id);
-    window.setTimeout(() => setPhase("topics"), 260);
+    setRating(level);
+    // ★が塗られたのを見てから進む
+    window.setTimeout(() => setPhase("topics"), 450);
   };
 
   const toggleTopic = (id: string) => {
@@ -121,73 +99,64 @@ export function V5Survey() {
     setPhase("write");
   };
 
-  const askPolish = useCallback(async () => {
+  /**
+   * 各欄を「整える」AI（v4 の /api/survey/polish）に1つずつ並列で渡し、返ってきた1文をつなげる。
+   * 渡すのは**その欄の文字列だけ**。★・話題タグ・店名は渡さない。
+   * 検査に落ちた欄・通信に失敗した欄は、本人の言葉のまま（句点だけ足す）でつなげる。
+   */
+  const startJoin = useCallback(async () => {
     tick();
-    setPolishing(true);
-    setSuggestion(null);
-    polishAbort.current?.abort();
+    const texts = filled;
+    setPhase("join");
+    setEdited(null);
+    setUseAi(true);
+    setParts(null);
+    setCopied(false);
+    setJoining(true);
+    joinAbort.current?.abort();
     const controller = new AbortController();
-    polishAbort.current = controller;
-    try {
-      const res = await fetch("/api/survey/polish", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        // ★・話題タグ・店名は渡さない。本文だけ
-        body: JSON.stringify({ body: body.trim() }),
-        signal: controller.signal,
-      });
-      const data = (await res.json()) as { text?: string | null };
-      // 検査に落ちたときは**何も出さない**。エラー文言も出さない
-      if (data.text) setSuggestion(data.text);
-    } catch {
-      // 何も出さない
-    } finally {
-      setPolishing(false);
-      setPolishUses((n) => n + 1);
-    }
-  }, [body]);
+    joinAbort.current = controller;
 
-  const adopt = () => {
-    if (!suggestion) return;
-    tick();
-    setBeforeAdopt(body);
-    setBody(suggestion);
-    setSuggestion(null);
-    setAdopted(true);
-  };
+    const results = await Promise.all(
+      texts.map(async (text): Promise<JoinedPart> => {
+        try {
+          const res = await fetch("/api/survey/polish", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ body: text }),
+            signal: controller.signal,
+          });
+          const data = (await res.json()) as { text?: string | null };
+          if (data.text) return { chars: markInsertions(text, withPeriod(data.text)), byAi: true };
+        } catch {
+          // 本人の言葉のままにする
+        }
+        return { chars: Array.from(withPeriod(text)).map((char) => ({ char, inserted: false })), byAi: false };
+      }),
+    );
+    if (controller.signal.aborted) return;
+    // 1つもAIが整えられなかったときは「AIでつなげた」とは言わない
+    setParts(results.some((p) => p.byAi) ? results : null);
+    setJoining(false);
+  }, [filled]);
 
-  const undo = () => {
-    if (beforeAdopt === null) return;
-    tick();
-    setBody(beforeAdopt);
-    setBeforeAdopt(null);
-  };
-
-  const focusInput = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.focus();
-    const end = el.value.length;
-    el.setSelectionRange(end, end);
-  };
-
-  /** 書く画面の主ボタン。Google はコピーしてから完了へ、お店はそのまま完了へ */
-  const finishWrite = async () => {
+  /** Google はコピーしてから完了へ、お店はそのまま完了へ */
+  const finish = async (text: string) => {
     tick();
     if (destination === "store") {
       setPhase("done");
       return;
     }
     let copiedOk = true;
-    if (body.trim()) {
+    if (text.trim()) {
       try {
-        await navigator.clipboard.writeText(body.trim());
+        await navigator.clipboard.writeText(text.trim());
       } catch {
         // コピーできていないのに「コピーしました」と出すと、貼り付ける段で必ず詰まる（v4 のレビュー）
         copiedOk = false;
       }
     }
-    setCopied(copiedOk && body.trim() !== "");
+    setCopied(copiedOk && text.trim() !== "");
     finishTimer.current = window.setTimeout(() => setPhase("done"), 1600);
   };
 
@@ -196,14 +165,6 @@ export function V5Survey() {
     finishTimer.current = null;
     setCopied(false);
   }, []);
-
-  useEffect(
-    () => () => {
-      if (finishTimer.current) window.clearTimeout(finishTimer.current);
-      polishAbort.current?.abort();
-    },
-    [],
-  );
 
   return (
     <div
@@ -223,7 +184,7 @@ export function V5Survey() {
 
       {phase === "topics" ? (
         <TopicsStep
-          ratingLabel={ratingLabel}
+          rating={rating}
           onChangeRating={() => {
             tick();
             setPhase("rating");
@@ -259,6 +220,7 @@ export function V5Survey() {
 
       {phase === "starOnly" ? (
         <StarOnlyStep
+          rating={rating}
           onBack={() => setPhase("destination")}
           onFinish={() => {
             tick();
@@ -270,39 +232,45 @@ export function V5Survey() {
       {phase === "write" ? (
         <WriteStep
           destination={destination}
-          body={body}
-          onChangeBody={(v) => {
-            setBody(v);
-            setSuggestion(null);
-            // 採用したあとに自分で書き足してから「もどす」を押すと、書き足したぶんまで消える（v4 のレビュー）
-            if (beforeAdopt !== null) setBeforeAdopt(null);
+          fieldIds={fieldIds}
+          fragments={fragments}
+          rotation={rotation}
+          onChange={(id, v) => setFragments((prev) => ({ ...prev, [id]: v }))}
+          hasText={filled.length > 0}
+          onBack={() => setPhase("destination")}
+          onJoin={startJoin}
+          onFinishEmpty={() => finish("")}
+        />
+      ) : null}
+
+      {phase === "join" ? (
+        <JoinStep
+          destination={destination}
+          rating={rating}
+          joining={joining}
+          parts={parts}
+          useAi={useAi}
+          onToggleAi={() => {
+            tick();
+            setUseAi((v) => !v);
           }}
-          onCompositionStart={() => setComposing(true)}
-          onCompositionEnd={() => setComposing(false)}
-          textareaRef={textareaRef}
-          placeholder={placeholder}
-          question={question}
-          exitHint={exitHint}
-          onFocusInput={focusInput}
-          canPolish={canPolish}
-          polishing={polishing}
-          suggestion={suggestion}
-          onPolish={askPolish}
-          onAdopt={adopt}
-          onUndo={undo}
-          canUndo={beforeAdopt !== null}
+          plainText={plainText}
+          edited={edited}
+          onEdit={(v) => setEdited(v)}
+          finalText={finalText}
           copied={copied}
           onBack={() => {
             cancelFinish();
-            setPhase("destination");
+            joinAbort.current?.abort();
+            setPhase("write");
           }}
-          onFinish={finishWrite}
+          onFinish={() => finish(finalText)}
         />
       ) : null}
 
       {phase === "storeConfirm" ? (
         <StoreConfirmStep
-          ratingLabel={ratingLabel}
+          rating={rating}
           topics={topics}
           onBack={() => setPhase("destination")}
           onFinish={() => {
@@ -317,12 +285,46 @@ export function V5Survey() {
   );
 }
 
-/* ── ① 評価 ─────────────────────────────────────────
-   v4 と同じ。開いた瞬間に1タップ目が押せる。選ぶと 260ms 後に自動で次へ。 */
+/* ── ★ ─────────────────────────────────────────────
+   色は本番の評価ボタン（RatingButton）と同じ：塗り＝status-warning、空き＝text-tertiary の線。 */
 
-function RatingStep({ selected, onSelect }: { selected: string | null; onSelect: (id: string) => void }) {
+function StarIcon({ filled, className }: { filled: boolean; className?: string }) {
   return (
-    <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-32)] pt-[var(--product-space-24)]">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      aria-hidden
+      style={{ color: filled ? "var(--product-color-status-warning)" : "var(--product-color-text-tertiary)" }}
+    >
+      <path
+        d="M12 2.8l2.83 5.9 6.47.78-4.76 4.46 1.22 6.4L12 17.2l-5.76 3.14 1.22-6.4-4.76-4.46 6.47-.78L12 2.8z"
+        fill={filled ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** 「今日の評価」などに添える小さな★5つ */
+function StarsInline({ level }: { level: Level }) {
+  return (
+    <span className="inline-flex items-center gap-[var(--product-space-2)] align-[-2px]" aria-label={`★${level}`}>
+      {LEVELS.map((n) => (
+        <StarIcon key={n} filled={n <= level} className="size-4" />
+      ))}
+    </span>
+  );
+}
+
+/* ── ① 評価 ─────────────────────────────────────────
+   Google マップで★を付けるときと同じ体験に寄せる（2026-09-26 天真の実機所感）。
+   ★の数の記憶のまま Google へ行ってもらうため、5つ横に並べてタップで塗る。 */
+
+function RatingStep({ selected, onSelect }: { selected: Level | null; onSelect: (level: Level) => void }) {
+  return (
+    <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-24)] px-[var(--product-space-20)] pb-[var(--product-space-32)] pt-[var(--product-space-24)]">
       <div className="flex w-full flex-col gap-[var(--product-space-8)]">
         <h1 className="text-xl font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
           今日はいかがでしたか？
@@ -331,50 +333,53 @@ function RatingStep({ selected, onSelect }: { selected: string | null; onSelect:
           タップだけで終わります。書くのは自由です。
         </p>
       </div>
-      <div className="flex w-full flex-col gap-[var(--product-space-8)]">
-        {RATING_CHOICES.map((choice, i) => {
-          const isSelected = selected === choice.id;
-          return (
-            <button
-              key={choice.id}
-              type="button"
-              aria-pressed={isSelected}
-              onClick={() => onSelect(choice.id)}
-              className="review-rise flex w-full items-center rounded-[var(--product-radius-md)] border-solid px-[var(--product-space-16)] py-[var(--product-space-12)] text-left transition-transform duration-100 active:scale-[0.975]"
-              style={{
-                animationDelay: `${i * 35}ms`,
-                minHeight: "var(--product-touch-min)",
-                backgroundColor: isSelected ? "var(--review-accent-wash)" : "var(--product-color-surface-white)",
-                borderWidth: isSelected ? 2 : 1.5,
-                borderColor: isSelected ? "var(--review-accent-primary)" : "var(--product-color-border-default)",
-              }}
-            >
-              <span
-                className="text-base font-bold"
-                style={{ color: isSelected ? "var(--review-accent-primary)" : "var(--product-color-text-primary)" }}
-              >
-                {choice.label}
-              </span>
-            </button>
-          );
-        })}
+
+      <div
+        role="radiogroup"
+        aria-label="5段階の評価"
+        className="flex w-full items-center justify-between rounded-[var(--product-radius-md)] border-[1.5px] border-solid px-[var(--product-space-8)] py-[var(--product-space-12)]"
+        style={{ backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--product-color-border-default)" }}
+      >
+        {LEVELS.map((n) => (
+          <button
+            key={n}
+            type="button"
+            role="radio"
+            aria-checked={selected === n}
+            aria-label={`★${n}（${LEVEL_LABEL[n]}）`}
+            onClick={() => onSelect(n)}
+            className="flex flex-1 items-center justify-center transition-transform duration-100 active:scale-90"
+            style={{ minHeight: 56 }}
+          >
+            <StarIcon filled={selected !== null && n <= selected} className="size-11" />
+          </button>
+        ))}
       </div>
+
+      <p
+        className="text-center text-base font-bold"
+        aria-live="polite"
+        style={{ color: selected ? "var(--product-color-text-primary)" : "var(--product-color-text-tertiary)" }}
+      >
+        {selected ? LEVEL_LABEL[selected] : "★をタップしてください"}
+      </p>
     </div>
   );
 }
 
 /* ── ② 話題 ─────────────────────────────────────────
-   v4 の S2 から本文欄を抜いたもの。★と合わせて、全員が答える設問はこの2つだけ。
-   ★が低い人も同じ画面で答えられるよう「良かった点」ではなく「当てはまるもの」と聞く。 */
+   ★と合わせて、全員が答える設問はこの2つだけ。
+   ★が低い人も同じ画面で答えられるよう「良かった点」ではなく「当てはまるもの」と聞く。
+   ここで選んだ話題の数だけ、書く画面の欄ができる。 */
 
 function TopicsStep({
-  ratingLabel,
+  rating,
   onChangeRating,
   topics,
   onToggleTopic,
   onNext,
 }: {
-  ratingLabel: string;
+  rating: Level | null;
   onChangeRating: () => void;
   topics: string[];
   onToggleTopic: (id: string) => void;
@@ -385,8 +390,9 @@ function TopicsStep({
       <div className="flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-24)] pt-[var(--product-space-8)]">
         {/* 押し間違いの救済。取り消せることが次の画面に見えていないと、誤タップが不信に変わる */}
         <div className="flex w-full items-center justify-between">
-          <p className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-            今日の評価：<span style={{ color: "var(--product-color-text-primary)" }}>{ratingLabel}</span>
+          <p className="flex items-center gap-[var(--product-space-8)] text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+            今日の評価
+            {rating ? <StarsInline level={rating} /> : null}
           </p>
           <button
             type="button"
@@ -441,27 +447,16 @@ function TopicsStep({
         </div>
       </div>
 
-      <div
-        className="sticky bottom-0 z-10 w-full px-[var(--product-space-20)] pb-[var(--product-space-20)] pt-[var(--product-space-12)]"
-        style={{ backgroundColor: "var(--product-color-bg-primary)" }}
-      >
-        <button
-          type="button"
-          onClick={onNext}
-          className="flex h-[52px] w-full items-center justify-center rounded-[var(--product-radius-sm)] transition-transform duration-100 active:scale-[0.99]"
-          style={{ backgroundColor: "var(--review-accent-primary)", color: "var(--review-accent-on-primary)" }}
-        >
-          <span className="text-base font-bold">次へ</span>
-        </button>
-      </div>
+      <StickyBar>
+        <PrimaryButton onClick={onNext}>次へ</PrimaryButton>
+      </StickyBar>
     </div>
   );
 }
 
 /* ── ③ 届け先（2枚の扉） ───────────────────────────────
    2枚は**同じ大きさ・同じ形・同じ書式**。並び順は★によらず固定（案I）。
-   どちらの扉にも「書かずに届ける（主ボタン）」と「文章も書く」を同じ言い方で置く。
-   ★だけの強調は、Google の扉の中の主ボタンで行う（2026-09-26 天真の決定）。 */
+   どちらの扉も、上が塗りの「文章も書く」、下が線の「書かずに届ける」（2026-09-26 天真の実機所感）。 */
 
 function DestinationStep({
   onStarOnly,
@@ -483,17 +478,17 @@ function DestinationStep({
         <DoorCard
           title="Googleマップに投稿"
           note="だれでも読めます"
-          primaryLabel="★だけで投稿する"
-          onPrimary={onStarOnly}
+          quietLabel="★だけで投稿する"
           onWrite={() => onWrite("google")}
+          onQuiet={onStarOnly}
           delay={0}
         />
         <DoorCard
           title="お店にだけ届ける"
           note="お店の人だけが読みます"
-          primaryLabel="このまま届ける"
-          onPrimary={onStoreAsIs}
+          quietLabel="このまま届ける"
           onWrite={() => onWrite("store")}
+          onQuiet={onStoreAsIs}
           delay={60}
         />
       </div>
@@ -515,16 +510,16 @@ function DestinationStep({
 function DoorCard({
   title,
   note,
-  primaryLabel,
-  onPrimary,
+  quietLabel,
   onWrite,
+  onQuiet,
   delay,
 }: {
   title: string;
   note: string;
-  primaryLabel: string;
-  onPrimary: () => void;
+  quietLabel: string;
   onWrite: () => void;
+  onQuiet: () => void;
   delay: number;
 }) {
   return (
@@ -544,36 +539,43 @@ function DoorCard({
           {note}
         </p>
       </div>
-      <button
-        type="button"
-        onClick={onPrimary}
-        className="flex h-[48px] w-full items-center justify-center rounded-[var(--product-radius-sm)] transition-transform duration-100 active:scale-[0.99]"
-        style={{ backgroundColor: "var(--review-accent-primary)", color: "var(--review-accent-on-primary)" }}
-      >
-        <span className="text-base font-bold">{primaryLabel}</span>
-      </button>
-      <button
-        type="button"
-        onClick={onWrite}
-        className="flex w-full items-center justify-center gap-[var(--product-space-4)] text-sm font-bold"
-        style={{ minHeight: "var(--product-touch-min)", color: "var(--review-accent-action)" }}
-      >
-        文章も書く
-        <span aria-hidden>›</span>
-      </button>
+      <div className="flex w-full flex-col gap-[var(--product-space-8)]">
+        <button
+          type="button"
+          onClick={onWrite}
+          className="flex h-[48px] w-full items-center justify-center rounded-[var(--product-radius-sm)] transition-transform duration-100 active:scale-[0.99]"
+          style={{ backgroundColor: "var(--review-accent-primary)", color: "var(--review-accent-on-primary)" }}
+        >
+          <span className="text-base font-bold">文章も書く</span>
+        </button>
+        <button
+          type="button"
+          onClick={onQuiet}
+          className="flex h-[48px] w-full items-center justify-center rounded-[var(--product-radius-sm)] border-[1.5px] border-solid transition-transform duration-100 active:scale-[0.99]"
+          style={{
+            backgroundColor: "var(--product-color-surface-white)",
+            borderColor: "var(--review-accent-primary)",
+            color: "var(--review-accent-action)",
+          }}
+        >
+          <span className="text-base font-bold">{quietLabel}</span>
+        </button>
+      </div>
     </div>
   );
 }
 
 /* ── ④a ★だけ ─────────────────────────────────────────
-   いちばん短い道。★はこちらからGoogleに引き継げない（Googleの仕様）ので、Googleで★を選ぶことを先に伝える。 */
+   ★はこちらから Google に引き継げない（Google の仕様）。選んだ★を添えて、記憶のまま Google へ行ってもらう。
+   「同じ数を選んでください」とは書かない（評価の中身に触れないため）。 */
 
-function StarOnlyStep({ onBack, onFinish }: { onBack: () => void; onFinish: () => void }) {
+function StarOnlyStep({ rating, onBack, onFinish }: { rating: Level | null; onBack: () => void; onFinish: () => void }) {
   return (
     <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-32)] pt-[var(--product-space-24)]">
       <h1 className="text-xl font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
         Googleマップを開きます
       </h1>
+      {rating ? <RatingReminder rating={rating} /> : null}
       <p className="text-[15px] font-medium leading-[1.9]" style={{ color: "var(--product-color-text-primary)" }}>
         Googleの画面で★を選んで、「投稿」を押すと完了です。
       </p>
@@ -583,169 +585,102 @@ function StarOnlyStep({ onBack, onFinish }: { onBack: () => void; onFinish: () =
         選んだものはGoogleには送られません。お店にだけ届きます。
       </p>
       <div className="flex w-full flex-col gap-[var(--product-space-12)]">
-        <button
-          type="button"
-          onClick={onFinish}
-          className="flex h-[52px] w-full items-center justify-center rounded-[var(--product-radius-sm)] transition-transform duration-100 active:scale-[0.99]"
-          style={{ backgroundColor: "var(--review-accent-primary)", color: "var(--review-accent-on-primary)" }}
-        >
-          <span className="text-base font-bold">Googleマップを開く</span>
-        </button>
-        <button
-          type="button"
-          onClick={onBack}
-          className="self-center px-[var(--product-space-16)] text-sm font-bold underline"
-          style={{ minHeight: "var(--product-touch-min)", color: "var(--product-color-text-secondary)" }}
-        >
-          もどる
-        </button>
+        <PrimaryButton onClick={onFinish}>Googleマップを開く</PrimaryButton>
+        <BackLink onClick={onBack} />
       </div>
     </div>
   );
 }
 
+function RatingReminder({ rating }: { rating: Level }) {
+  return (
+    <div
+      className="flex w-full items-center justify-between rounded-[var(--product-radius-md)] px-[var(--product-space-16)] py-[var(--product-space-12)]"
+      style={{ backgroundColor: "var(--product-color-bg-secondary)" }}
+    >
+      <p className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+        あなたの評価
+      </p>
+      <p className="flex items-center gap-[var(--product-space-8)] text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+        <StarsInline level={rating} />
+        {LEVEL_LABEL[rating]}
+      </p>
+    </div>
+  );
+}
+
 /* ── ④b 書く画面（2枚の扉で共通。届け先だけが違う） ─────────────
-   AIは3つだけ：続きを聞く（問いは本文に入らない）／整える（助詞と句読点だけ）／マイクの案内。
-   白紙のあいだは、静的な問い（プレースホルダ）だけでAIは現れない。
-   問いは入力欄のすぐ下に出す。スマホではキーボードが画面の下半分を覆うため。 */
+   選んだ話題の数だけ欄を分ける（2026-09-26 天真の案）。欄ごとの問いは v4 の静的な問いで、AIは呼ばない。
+   書いている途中にAIは一度も出てこない。AIが出るのは次の「つなげる」画面だけ。 */
 
 function WriteStep({
   destination,
-  body,
-  onChangeBody,
-  onCompositionStart,
-  onCompositionEnd,
-  textareaRef,
-  placeholder,
-  question,
-  exitHint,
-  onFocusInput,
-  canPolish,
-  polishing,
-  suggestion,
-  onPolish,
-  onAdopt,
-  onUndo,
-  canUndo,
-  copied,
+  fieldIds,
+  fragments,
+  rotation,
+  onChange,
+  hasText,
   onBack,
-  onFinish,
+  onJoin,
+  onFinishEmpty,
 }: {
   destination: Destination;
-  body: string;
-  onChangeBody: (v: string) => void;
-  onCompositionStart: () => void;
-  onCompositionEnd: () => void;
-  textareaRef: React.RefObject<HTMLTextAreaElement>;
-  placeholder: string;
-  question: string | null;
-  exitHint: boolean;
-  onFocusInput: () => void;
-  canPolish: boolean;
-  polishing: boolean;
-  suggestion: string | null;
-  onPolish: () => void;
-  onAdopt: () => void;
-  onUndo: () => void;
-  canUndo: boolean;
-  copied: boolean;
+  fieldIds: string[];
+  fragments: Record<string, string>;
+  rotation: number;
+  onChange: (id: string, value: string) => void;
+  hasText: boolean;
   onBack: () => void;
-  onFinish: () => void;
+  onJoin: () => void;
+  onFinishEmpty: () => void;
 }) {
-  const hasBody = body.trim() !== "";
-  const label = DESTINATION_LABEL[destination];
-  const finishLabel =
-    destination === "store" ? "お店にとどける" : hasBody ? "コピーしてGoogleを開く" : "Googleマップを開く";
-
+  const emptyLabel = destination === "store" ? "お店にとどける" : "Googleマップを開く";
   return (
     <div className="review-slide-in flex w-full flex-1 flex-col">
-      <div className="flex w-full flex-1 flex-col gap-[var(--product-space-12)] px-[var(--product-space-20)] pb-[var(--product-space-24)] pt-[var(--product-space-4)]">
-        <div className="flex w-full items-center justify-between">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex items-center gap-[var(--product-space-4)] pr-[var(--product-space-8)] text-sm font-bold"
-            style={{ minHeight: "var(--product-touch-min)", color: "var(--product-color-text-secondary)" }}
-          >
-            <BackIcon className="size-4" />
-            もどる
-          </button>
-          <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-            届け先：<span className="font-bold" style={{ color: "var(--product-color-text-primary)" }}>{label.title}</span>（{label.note}）
+      <div className="flex w-full flex-1 flex-col gap-[var(--product-space-16)] px-[var(--product-space-20)] pb-[var(--product-space-24)] pt-[var(--product-space-4)]">
+        <TopRow destination={destination} onBack={onBack} />
+
+        <div className="flex w-full flex-col gap-[var(--product-space-4)]">
+          <h1 className="text-lg font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
+            あなたの言葉で
+          </h1>
+          <p className="text-sm font-medium leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
+            選んだことごとに、ひとことずつ。単語だけでも大丈夫です。
           </p>
-        </div>
-
-        <h1 className="text-lg font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-          あなたの言葉で
-        </h1>
-
-        {/* プレースホルダは**例文ではなく問い**。白紙のあいだAIは呼ばない */}
-        <textarea
-          ref={textareaRef}
-          value={body}
-          onChange={(e) => onChangeBody(e.target.value)}
-          onCompositionStart={onCompositionStart}
-          onCompositionEnd={onCompositionEnd}
-          rows={4}
-          placeholder={placeholder}
-          className="w-full resize-none rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-12)] text-[15px] leading-[1.8] outline-none focus:ring-2 focus:ring-[color:var(--review-accent-primary)]"
-          style={{
-            backgroundColor: "var(--product-color-surface-white)",
-            borderColor: "var(--review-accent-primary)",
-            color: "var(--product-color-text-primary)",
-          }}
-        />
-
-        {question && !suggestion ? <AskChip question={question} onFocusInput={onFocusInput} /> : null}
-        {exitHint && !suggestion ? (
-          <p role="status" className="review-rise text-sm font-bold" style={{ color: "var(--review-accent-action)" }}>
-            ここまでで投稿できます
-          </p>
-        ) : null}
-
-        <div className="flex w-full flex-wrap items-center gap-[var(--product-space-8)]">
-          {/* 白紙のあいだはこのボタン自体が存在しない＝AIが白紙から文を作る経路が構造的に無い */}
-          {canPolish || polishing ? (
-            <button
-              type="button"
-              onClick={onPolish}
-              disabled={polishing}
-              aria-busy={polishing}
-              className="review-rise rounded-[var(--product-radius-full)] border-[1.5px] border-solid px-[var(--product-space-16)] transition-transform duration-100 active:scale-95"
-              style={{
-                minHeight: "var(--product-touch-min)",
-                opacity: polishing ? 0.5 : 1,
-                backgroundColor: "var(--product-color-surface-white)",
-                borderColor: "var(--review-accent-primary)",
-                color: "var(--review-accent-action)",
-              }}
-            >
-              <span className="text-sm font-bold">整える</span>
-            </button>
-          ) : null}
-          <p
-            className="flex items-center gap-[var(--product-space-4)] text-xs font-medium"
-            style={{ color: "var(--product-color-text-secondary)" }}
-          >
+          <p className="flex items-center gap-[var(--product-space-4)] text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             <MicIcon className="size-4 shrink-0" />
             キーボードのマイクで、話しても書けます
           </p>
         </div>
 
-        {suggestion ? <SuggestLine text={suggestion} onAdopt={onAdopt} onUndo={onUndo} canUndo={canUndo} /> : null}
-        {!suggestion && canUndo ? (
-          <button
-            type="button"
-            onClick={onUndo}
-            className="self-end px-[var(--product-space-8)] text-sm font-bold underline"
-            style={{ minHeight: "var(--product-touch-min)", color: "var(--product-color-text-secondary)" }}
-          >
-            もどす
-          </button>
-        ) : null}
+        {fieldIds.map((id) => {
+          const tag = id === GENERAL_FIELD ? null : topicTag(id);
+          const label = tag ? `${tag.label}について` : "今日のこと";
+          const questions = tag ? tag.questions : DEFAULT_QUESTIONS;
+          return (
+            <label key={id} className="flex w-full flex-col gap-[var(--product-space-8)]">
+              <span className="text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+                {label}
+              </span>
+              {/* プレースホルダは**例文ではなく問い**。欄ごとに違う問いになる */}
+              <textarea
+                value={fragments[id] ?? ""}
+                onChange={(e) => onChange(id, e.target.value)}
+                rows={2}
+                placeholder={questions[rotation % questions.length]}
+                className="w-full resize-none rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-12)] text-[15px] leading-[1.8] outline-none focus:ring-2 focus:ring-[color:var(--review-accent-primary)]"
+                style={{
+                  backgroundColor: "var(--product-color-surface-white)",
+                  borderColor: "var(--product-color-border-default)",
+                  color: "var(--product-color-text-primary)",
+                }}
+              />
+            </label>
+          );
+        })}
 
         <p className="text-xs font-medium leading-[1.9]" style={{ color: "var(--product-color-text-tertiary)" }}>
-          単語を並べるだけでも大丈夫です。話しことばのままで大丈夫です。
+          空いている欄があっても大丈夫です。
           <br />
           お名前など、個人が特定できることは書かないでください。
           {destination === "google" ? (
@@ -757,38 +692,178 @@ function WriteStep({
         </p>
       </div>
 
-      <div
-        className="sticky bottom-0 z-10 flex w-full flex-col gap-[var(--product-space-8)] px-[var(--product-space-20)] pb-[var(--product-space-20)] pt-[var(--product-space-12)]"
-        style={{ backgroundColor: "var(--product-color-bg-primary)" }}
-      >
-        {copied && hasBody ? (
+      <StickyBar>
+        {hasText ? (
+          <PrimaryButton onClick={onJoin}>AIでつなげる</PrimaryButton>
+        ) : (
+          <PrimaryButton onClick={onFinishEmpty}>{emptyLabel}</PrimaryButton>
+        )}
+      </StickyBar>
+    </div>
+  );
+}
+
+/* ── ④b' つなげる ────────────────────────────────────
+   各欄の言葉を「整える」AI（v4）に1つずつ通し、1つの文章にする。AIが足せるのは助詞と句読点だけで、
+   検査はサーバー側（polish-guard.ts）。**AIが足した文字に色を付けて**、中身を足していないことを本人に見せる。
+   すぐに「元の言葉のまま」にも戻せる。直した時点で、本人の文になる（色は消える）。 */
+
+function JoinStep({
+  destination,
+  rating,
+  joining,
+  parts,
+  useAi,
+  onToggleAi,
+  plainText,
+  edited,
+  onEdit,
+  finalText,
+  copied,
+  onBack,
+  onFinish,
+}: {
+  destination: Destination;
+  rating: Level | null;
+  joining: boolean;
+  parts: JoinedPart[] | null;
+  useAi: boolean;
+  onToggleAi: () => void;
+  plainText: string;
+  edited: string | null;
+  onEdit: (value: string) => void;
+  finalText: string;
+  copied: boolean;
+  onBack: () => void;
+  onFinish: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const showAi = !joining && parts !== null && useAi && edited === null;
+  const finishLabel = destination === "store" ? "お店にとどける" : "コピーしてGoogleを開く";
+
+  return (
+    <div className="review-slide-in flex w-full flex-1 flex-col">
+      <div className="flex w-full flex-1 flex-col gap-[var(--product-space-16)] px-[var(--product-space-20)] pb-[var(--product-space-24)] pt-[var(--product-space-4)]">
+        <TopRow destination={destination} onBack={onBack} />
+
+        <div className="flex w-full items-start justify-between gap-[var(--product-space-12)]">
+          <h1 className="text-lg font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
+            {destination === "store" ? "お店にとどく文章" : "この文章で投稿します"}
+          </h1>
+          {showAi ? <AiBadge label="AIがつなげました" /> : null}
+        </div>
+
+        {editing ? (
+          <textarea
+            value={finalText}
+            onChange={(e) => onEdit(e.target.value)}
+            rows={6}
+            className="w-full resize-none rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-12)] text-[15px] leading-[1.9] outline-none focus:ring-2 focus:ring-[color:var(--review-accent-primary)]"
+            style={{
+              backgroundColor: "var(--product-color-surface-white)",
+              borderColor: "var(--review-accent-primary)",
+              color: "var(--product-color-text-primary)",
+            }}
+          />
+        ) : (
+          <div
+            aria-busy={joining}
+            className="w-full rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-16)] text-[15px] leading-[2]"
+            style={{
+              backgroundColor: "var(--product-color-surface-white)",
+              borderColor: "var(--product-color-border-default)",
+              color: "var(--product-color-text-primary)",
+              opacity: joining ? 0.55 : 1,
+            }}
+          >
+            {showAi && parts
+              ? parts.map((part, k) => (
+                  <span key={k}>
+                    {part.chars.map((c, i) =>
+                      c.inserted ? (
+                        <span
+                          key={i}
+                          className="rounded-[3px] px-[1px] font-bold"
+                          style={{ backgroundColor: "var(--review-accent-wash)", color: "var(--review-accent-action)" }}
+                        >
+                          {c.char}
+                        </span>
+                      ) : (
+                        <span key={i}>{c.char}</span>
+                      ),
+                    )}
+                  </span>
+                ))
+              : edited ?? plainText}
+          </div>
+        )}
+
+        {showAi && !editing ? (
+          <p className="text-xs font-medium leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
+            <span
+              className="mr-[var(--product-space-4)] rounded-[3px] px-[var(--product-space-4)] font-bold"
+              style={{ backgroundColor: "var(--review-accent-wash)", color: "var(--review-accent-action)" }}
+            >
+              色の付いた文字
+            </span>
+            が、AIが足したところです。足したのは助詞と句読点だけで、中身はあなたの言葉のままです。
+          </p>
+        ) : null}
+
+        {!joining ? (
+          <div className="flex w-full flex-wrap gap-[var(--product-space-8)]">
+            {parts !== null && edited === null && !editing ? (
+              <SmallButton onClick={onToggleAi}>{useAi ? "元の言葉のまま使う" : "AIでつなげた文を使う"}</SmallButton>
+            ) : null}
+            {!editing ? (
+              <SmallButton
+                onClick={() => {
+                  tick();
+                  setEditing(true);
+                  // 直し始めた時点の文を、本人の文として持つ
+                  onEdit(finalText);
+                }}
+              >
+                直す
+              </SmallButton>
+            ) : null}
+          </div>
+        ) : null}
+
+        {destination === "google" && rating ? (
+          <div className="flex w-full flex-col gap-[var(--product-space-8)]">
+            <RatingReminder rating={rating} />
+            <p className="text-xs font-medium leading-[1.9]" style={{ color: "var(--product-color-text-tertiary)" }}>
+              Googleの画面で★を選び、文章を貼り付けて「投稿」を押すと完了です。
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      <StickyBar>
+        {copied ? (
           <p role="status" className="review-pop text-center text-sm font-bold" style={{ color: "var(--review-accent-action)" }}>
             文章をコピーしました
           </p>
         ) : null}
-        <button
-          type="button"
-          onClick={onFinish}
-          className="flex h-[52px] w-full items-center justify-center rounded-[var(--product-radius-sm)] transition-transform duration-100 active:scale-[0.99]"
-          style={{ backgroundColor: "var(--review-accent-primary)", color: "var(--review-accent-on-primary)" }}
-        >
-          <span className="text-base font-bold">{finishLabel}</span>
-        </button>
-      </div>
+        <PrimaryButton onClick={onFinish} disabled={joining}>
+          {finishLabel}
+        </PrimaryButton>
+      </StickyBar>
     </div>
   );
 }
 
 /* ── ④c お店へ（このまま届ける） ────────────────────────
-   店に何が届くのかを送信前に見せる。Google 側（★だけ）と同じ1タップで終わらせ、2つの出口の重さを揃える。 */
+   店に何が届くのかを送信前に見せる。★だけと同じ1タップで終わらせ、2つの出口の重さを揃える。 */
 
 function StoreConfirmStep({
-  ratingLabel,
+  rating,
   topics,
   onBack,
   onFinish,
 }: {
-  ratingLabel: string;
+  rating: Level | null;
   topics: string[];
   onBack: () => void;
   onFinish: () => void;
@@ -803,40 +878,20 @@ function StoreConfirmStep({
         className="flex w-full flex-col gap-[var(--product-space-16)] rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-16)]"
         style={{ backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--product-color-border-default)" }}
       >
-        <Field label="今日の評価">{ratingLabel}</Field>
+        {rating ? (
+          <Field label="今日の評価">
+            <span className="flex items-center gap-[var(--product-space-8)]">
+              <StarsInline level={rating} />
+              {LEVEL_LABEL[rating]}
+            </span>
+          </Field>
+        ) : null}
         {labels.length > 0 ? <Field label="選んだこと">{labels.join("／")}</Field> : null}
       </div>
       <div className="flex w-full flex-col gap-[var(--product-space-12)]">
-        <button
-          type="button"
-          onClick={onFinish}
-          className="flex h-[52px] w-full items-center justify-center rounded-[var(--product-radius-sm)] transition-transform duration-100 active:scale-[0.99]"
-          style={{ backgroundColor: "var(--review-accent-primary)", color: "var(--review-accent-on-primary)" }}
-        >
-          <span className="text-base font-bold">とどける</span>
-        </button>
-        <button
-          type="button"
-          onClick={onBack}
-          className="self-center px-[var(--product-space-16)] text-sm font-bold underline"
-          style={{ minHeight: "var(--product-touch-min)", color: "var(--product-color-text-secondary)" }}
-        >
-          もどる
-        </button>
+        <PrimaryButton onClick={onFinish}>とどける</PrimaryButton>
+        <BackLink onClick={onBack} />
       </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex w-full flex-col gap-[var(--product-space-4)]">
-      <p className="text-xs font-bold" style={{ color: "var(--product-color-text-tertiary)" }}>
-        {label}
-      </p>
-      <p className="text-[15px] font-medium leading-[1.8]" style={{ color: "var(--product-color-text-primary)" }}>
-        {children}
-      </p>
     </div>
   );
 }
@@ -859,6 +914,105 @@ function DoneStep({ destination }: { destination: Destination }) {
       <p className="text-center text-xs font-medium" style={{ color: "var(--product-color-text-muted)" }}>
         これは検証用のデモです。回答は保存されません
       </p>
+    </div>
+  );
+}
+
+/* ── 共通の部品 ─────────────────────────────────────── */
+
+function TopRow({ destination, onBack }: { destination: Destination; onBack: () => void }) {
+  const label = destination === "store" ? { title: "お店だけ", note: "お店の人だけが読みます" } : { title: "Googleマップ", note: "だれでも読めます" };
+  return (
+    <div className="flex w-full items-center justify-between">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-[var(--product-space-4)] pr-[var(--product-space-8)] text-sm font-bold"
+        style={{ minHeight: "var(--product-touch-min)", color: "var(--product-color-text-secondary)" }}
+      >
+        <BackIcon className="size-4" />
+        もどる
+      </button>
+      <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+        届け先：
+        <span className="font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+          {label.title}
+        </span>
+        （{label.note}）
+      </p>
+    </div>
+  );
+}
+
+function StickyBar({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="sticky bottom-0 z-10 flex w-full flex-col gap-[var(--product-space-8)] px-[var(--product-space-20)] pb-[var(--product-space-20)] pt-[var(--product-space-12)]"
+      style={{ backgroundColor: "var(--product-color-bg-primary)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function PrimaryButton({ children, onClick, disabled }: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-[52px] w-full items-center justify-center rounded-[var(--product-radius-sm)] transition-transform duration-100 active:scale-[0.99]"
+      style={{
+        backgroundColor: "var(--review-accent-primary)",
+        color: "var(--review-accent-on-primary)",
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <span className="text-base font-bold">{children}</span>
+    </button>
+  );
+}
+
+function SmallButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-[var(--product-radius-full)] border-[1.5px] border-solid px-[var(--product-space-16)] text-sm font-bold transition-transform duration-100 active:scale-95"
+      style={{
+        minHeight: "var(--product-touch-min)",
+        backgroundColor: "var(--product-color-surface-white)",
+        borderColor: "var(--product-color-border-default)",
+        color: "var(--product-color-text-secondary)",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function BackLink({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="self-center px-[var(--product-space-16)] text-sm font-bold underline"
+      style={{ minHeight: "var(--product-touch-min)", color: "var(--product-color-text-secondary)" }}
+    >
+      もどる
+    </button>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex w-full flex-col gap-[var(--product-space-4)]">
+      <p className="text-xs font-bold" style={{ color: "var(--product-color-text-tertiary)" }}>
+        {label}
+      </p>
+      <div className="text-[15px] font-medium leading-[1.8]" style={{ color: "var(--product-color-text-primary)" }}>
+        {children}
+      </div>
     </div>
   );
 }
