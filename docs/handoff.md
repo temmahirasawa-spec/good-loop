@@ -4960,3 +4960,36 @@ LP のソースは `~/Dev/Websites/UTUTU/GOOD_LOOP_Official`（**git の remote 
 リポジトリの Playwright が `chromium_headless_shell-1234` を要求するが、`~/Library/Caches/ms-playwright/` には `-1243` しか無い
 （`Executable doesn't exist` で落ちる）。今回は一時スクリプトで `executablePath` に 1243 を渡して撮った。
 直すには `npx playwright install chromium`（ブラウザのダウンロードが要るので、実行前に天真に確認すること）。
+
+## 2026-09-26（続き）— 5つの決定と、/demo/v5 の試作（PR #77）
+
+天真の回答（壁打ち資料 §8）：
+1. ★だけの強調 → **Googleの扉の中**（2枚の扉は同じ形・同じ強さ）
+2. 書く画面のAI → **A1 続きを聞く＋A2 手が止まったら問いを変える＋B1 整える＋C1 マイク案内**（標準）
+3. 例の予測変換 → **入れない**
+4. 来店客の画面で「AI」と名乗るか → **問いの頭に小さく「AI」**
+5. お店にだけの扉にも書く画面を置くか → **置く**（書く画面は1つ、届け先だけ違う）
+
+→ **`/demo/v5` を作った**（PR #77・`feat/demo-v5-ask`。本番の来店客導線・`/demo/v4`・DBには触れていない）
+
+- 仕様：`docs/specs/survey-v5.md`（承認が要る項目 **B-1 問いのプロンプト／B-2 来店客の文言／B-3 Googleを選んで書いた文もお店に保存するか**）
+- 画面ギャラリー（SP 390 / PC 1400）：**https://claude.ai/artifact/UMNsKJJHdFsr5m3LuLsrmN**
+- 実測（検品用ビルドを Playwright で実際に操作）：問いは最後の入力から約2.5〜2.8秒（待ち1.5秒＋AI約1秒）で出る／打ち始めると消える／
+  A2 は約11〜12秒で別の角度の問いに替わり、さらに約10秒で「ここまでで投稿できます」／整えるも動く
+- 作りながら直したこと：①長い書きかけで問いが30字を超えて捨てられ、2つ目の問いが出ないことがあった →
+  プロンプトを「20字くらい」、上限32字、検査落ちは**サーバー側で1回だけ頼み直す** ②「何か参考になったことはありますか？」
+  「何か行動に移しましたか？」（良い前提・実質はい／いいえ）を検査で捨てる ③問いまでの待ちを 0.8秒 → 1.5秒（変換の合間に出ては消えるのを避ける）
+- 未確認：**iPhone 実機での日本語入力**（変換の確定の順番）／問いが細かすぎる事実に向かうことがある（「その船はどのくらいの時間かけて通っていきましたか？」）／
+  Googleを開くのは未接続／回数の上限はサーバーの記憶（本番は Supabase）
+
+検品のやり方（天真の dev サーバーには触らない。2026-09-13 と同じ）：
+
+```
+npm run build:check
+NEXT_BUILD_DIR=.next-check npx next start -p 3111
+```
+
+撮影は Playwright の `executablePath` に `~/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell`
+を渡す一時スクリプトで撮った（`npm run screenshot` はブラウザの版数ずれで落ちる。上の節）。
+
+**次の一歩**：洋輔さんと天真が `/demo/v5` を iPhone で触る → B-1〜B-3 の承認 → 本番化の設計（書いた文の保存は v4 の A-4＝`supabase/0017_*` と一緒に）。
