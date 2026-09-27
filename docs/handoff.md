@@ -5044,3 +5044,29 @@ NEXT_BUILD_DIR=.next-check npx next start -p 3111
   PR #77 の最新は `https://good-review-git-feat-demo-v5-ask-temmahirasawa-1946s-projects.vercel.app/demo/v5`
 - 探し方：`vercel ls good-review -m githubCommitRef=<ブランチ名>`。プレビューはデプロイ保護が無く、ログイン不要で開ける（2026-09-27 に全URLで 200 を確認）
 - 実在のお店（`yorkys-shukugawa`）の画面では試さないこと（本番のお店にアラートメールと回答が入る）
+
+## 2026-09-28 — v5 で進めることに決定。9/28 の修正指示で作り直した（PR #77 `6dc20b9`）
+
+天真の決定：**最後に作った v5（話題ごとの欄）で進める。**「フォームが話題ごとに分かれていること自体が質問の役割を果たし、
+書き忘れを防ぐ」。Figma のデザインは最後に詰めるので、先に実装を進めてよい。
+
+反映したもの（対応表は `docs/specs/survey-v5.md` §2-3）：
+- ① YORKYS BRUNCH のロゴ（Figma `Logo / Horizontal / Black` 49:870 を SVG で `public/demo/v5/` に書き出し）、★タップの動き（黄色い輪・左から弾む）
+- ② Figma `02 / 良かった点`（1:360）の2カラム（6つ）。問いは「**印象に残ったことはありますか？**」（「良かった点」は選別に見え、「悪かった点」はわざわざ聞かない、への答え。**仮**）
+- ③ Figma `05 / 宛先を選ぶ`（732:12681／732:12686）のイラスト、「★だけで評価する」「★評価だけを届ける」、②以降は左上の「もどる」・ロゴ・4段の進み具合
+- ④ 5行の欄、見出し「**Googleに載せる感想を書く**」（仮）、「その他（自由記入）」、**欄の下に完成した文章**（AIがつなげ、足した文字に色）と
+  Figma `03 / 下書き結果・コピー`（1:382）の ①コピー ②Googleマップを開く ③貼り付けて投稿。コピーできない端末では長押しを案内して②を開放
+- 全体：**Webサイトのリブランディング版**（`~/Dev/Websites/UTUTU/GOOD_LOOP_Official_worktrees/v2-rebrand`、ブランチ `feat/v2-rebrand`）の世界観。
+  生成り #FAF6EC・墨の丸いボタン・黄の★ #FFBC11・ずらした影・見出しの縦線・罫線・LINE Seed JP。
+  **3色は Figma 変数に無いので v5 専用の変数として `app/demo/v5/v5.css` に置いた**（承認項目 B-4）
+
+ギャラリー v3：https://claude.ai/artifact/UMNsKJJHdFsr5m3LuLsrmN
+
+### 作りながら踏んだこと
+
+- **CSS のコメントに `**/demo/v5` と書くと、`**/` でコメントが閉じて next build の CSS 圧縮が「Unexpected '/'」で落ちる。**
+  エラーメッセージからは場所が分からない。`postcss([cssnano-simple])` に1ルールずつ通して特定した
+- **影を `::before`＋`z-index:-1`＋`isolation:isolate` で後ろに回すと、カード自身の白い面の上に乗って灰色に見えた。** ぼかし0の `box-shadow` にした
+- LINE Seed JP は `next/font/google`（Next 14.2）の一覧に無い。Webサイトの woff2 はLPの文字だけのサブセットで使えない（全体版は1本約2MB）。
+  試作は `page.tsx` の `<link>` で Google Fonts から読んでいる
+- 自動操作のブラウザではクリップボードが許可されておらず、①コピーが失敗して②が押せないままだった → 実機でも起きうるので、失敗時は長押しを案内して②を開放した
