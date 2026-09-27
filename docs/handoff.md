@@ -5025,3 +5025,22 @@ NEXT_BUILD_DIR=.next-check npx next start -p 3111
 分けて届けられる（本番化で保存する場合＝B-3）。お店側のAI（声の要約）と組み合わせると、AIの価値を店に見せやすい。
 
 次の一歩：天真が iPhone で `/demo/v5` を触る（欄が3つのときの縦の長さ・キーボードを開いたときの主ボタン・つなげた文の自然さ）。
+
+## 2026-09-27 — 導線 v1〜v5 を見直すためのURL一覧
+
+天真の依頼：ここまで作った来店客の導線を v1〜v5 まで見直したい。URL一覧（QRコード付き）：
+**https://claude.ai/artifact/2vSvbfMigT2tA8XXPxeLZc**
+
+| 版 | 中身 | URL（どれもログイン不要で開ける） |
+|---|---|---|
+| v1 | 本番。★で分岐、AIが下書きを全文書く（`docs/specs/rating-flow.md`） | **https://app.good-review.jp/r/onbo-kensho-cafe**（検証用の店舗。回答は本番DBに保存、★3以下で検証用の通知先に低評価メール） |
+| v2 | 1画面1問・答えるほど下書きが育つ（PR #73、`feat/survey-v2-prototype` の最終 8/28） | https://good-review-q7h010q22-temmahirasawa-1946s-projects.vercel.app/demo |
+| v3 | 「今日の感想」（PR #74。本番の `/demo` と同じ中身） | https://app.good-review.jp/demo |
+| v4 | 書かなくても終わる（PR #75、本番） | https://app.good-review.jp/demo/v4 |
+| v5 初版 | 書いている途中にAIが問いを返す（PR #77 の `1f0cdd9`） | https://good-review-lqqh3hntu-temmahirasawa-1946s-projects.vercel.app/demo/v5 |
+| v5 いま | ★5つ・話題ごとの欄・AIは最後につなげる（PR #77 の `0b71223`） | https://good-review-1e6wjpd66-temmahirasawa-1946s-projects.vercel.app/demo/v5 |
+
+- v2・v3・v5 の `*.vercel.app` は、その時点のデプロイを Vercel が保存しているURL（コードを変えても変わらない）。
+  PR #77 の最新は `https://good-review-git-feat-demo-v5-ask-temmahirasawa-1946s-projects.vercel.app/demo/v5`
+- 探し方：`vercel ls good-review -m githubCommitRef=<ブランチ名>`。プレビューはデプロイ保護が無く、ログイン不要で開ける（2026-09-27 に全URLで 200 を確認）
+- 実在のお店（`yorkys-shukugawa`）の画面では試さないこと（本番のお店にアラートメールと回答が入る）
