@@ -1,37 +1,36 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AiBadge } from "@/components/rating-flow/AiBadge";
-import { CheckCircleOutlineIcon } from "@/components/rating-flow/icons";
+import { CheckCircleOutlineIcon, CopyIcon, PinIcon } from "@/components/rating-flow/icons";
 import { BackIcon, CheckMarkIcon, MicIcon } from "@/components/demo/icons";
-import { STORE_NAME } from "@/lib/demo/survey-data";
 import { markInsertions, withPeriod, type MarkedChar } from "@/lib/survey/insertions";
-import { DEFAULT_QUESTIONS, TOPIC_TAGS, topicTag } from "@/lib/survey/topic-questions";
+import { OTHER_FIELD, V5_TOPICS, v5Topic } from "@/lib/survey/v5-topics";
 
 /**
  * アンケート v5 のプロトタイプ（docs/specs/survey-v5.md）。
  *
  * **検証専用。DBには一切書き込まない。** 本番のお客様導線（/r/[storeSlug]）には影響しない。
- * v4（/demo/v4）はそのまま残してあるので、並べて比べられる。
+ * 見た目と動きは app/demo/v5/v5.css（Webサイトのリブランディング版の世界観を借りている）。
  *
- * 2026-09-26 の決定（天真）と、同日の iPhone 実機での所感を反映した形:
- *   ・評価は Google マップと同じく**★を5つ横に並べて選ぶ**（★の記憶のまま Google へ行ってもらう）
- *   ・届け先の2枚の扉は同じ形。どちらも上が塗りの「文章も書く」、下が線の「書かずに届ける」
- *   ・書く画面は**選んだ話題の数だけ欄を分ける**（料理について／接客について…）
- *   ・AIの役割は**最後に「つなげる」**。各欄の言葉に助詞と句読点だけを足して1つの文章にし、
- *     **AIが足した文字に色を付けて**見せる。中身は足さない
- *   ・書いている途中に問いを出すAI（A1・A2）は外した（実機で「割り込まれてうっとうしい」「問いが的外れなことがある」）
+ * 流れ：① ★評価 → ② 印象に残ったこと（2カラム）→ ③ 届け先（2枚の扉）→ ④ ★だけ／書く／お店へ → 完了
+ * 書く画面は「選んだ話題の欄＋その他（自由記入）」。**AIは欄の下の「完成した文章」で、各欄の言葉をつなげるだけ**
+ * （助詞と句読点だけを足し、足した文字に色を付ける）。書いている途中にAIが話しかけることはない。
  */
 
-type Phase = "rating" | "topics" | "destination" | "starOnly" | "write" | "join" | "storeConfirm" | "done";
+type Phase = "rating" | "topics" | "destination" | "starOnly" | "write" | "storeConfirm" | "done";
 type Destination = "google" | "store";
 type Level = 1 | 2 | 3 | 4 | 5;
 
 const LEVELS: Level[] = [1, 2, 3, 4, 5];
 /** 本番の評価ボタン（components/rating-flow/RatingButton.tsx）と同じ言葉 */
 const LEVEL_LABEL: Record<Level, string> = { 1: "不満", 2: "やや不満", 3: "ふつう", 4: "満足", 5: "とても満足" };
-/** 話題を1つも選ばなかったときの欄 */
-const GENERAL_FIELD = "general";
+const TOTAL_STEPS = 4;
+const STEP_OF: Record<Phase, number> = { rating: 1, topics: 2, destination: 3, starOnly: 4, write: 4, storeConfirm: 4, done: 4 };
+/** 手が止まってから、AIにつなげてもらうまでの時間 */
+const JOIN_IDLE_MS = 1200;
+/** これより短い欄はAIに渡さない（本人の言葉のまま句点だけ足す） */
+const JOIN_MIN_CHARS = 4;
 
 /** 短い触覚。対応していない端末では何も起きない */
 function tick() {
@@ -41,51 +40,84 @@ function tick() {
 /** 1つの欄を整えた結果。AIの出力が検査を通らなかった欄は、本人の言葉のまま（色なし） */
 type JoinedPart = { chars: MarkedChar[]; byAi: boolean };
 
+function plainPart(text: string): JoinedPart {
+  return { chars: Array.from(withPeriod(text)).map((char) => ({ char, inserted: false })), byAi: false };
+}
+
 export function V5Survey() {
   const [phase, setPhase] = useState<Phase>("rating");
   const [rating, setRating] = useState<Level | null>(null);
   const [topics, setTopics] = useState<string[]>([]);
   const [destination, setDestination] = useState<Destination>("google");
   const [fragments, setFragments] = useState<Record<string, string>>({});
+  const [composing, setComposing] = useState(false);
   /** 問いのローテーション。同じ店で同じ問いが並ばないようにする */
   const [rotation, setRotation] = useState(0);
 
-  // ── つなげる ──
-  const [joining, setJoining] = useState(false);
-  const [parts, setParts] = useState<JoinedPart[] | null>(null);
+  // ── つなげる：欄の文字列ごとにAIの結果を覚えておき、変わった欄だけを頼み直す ──
+  const cache = useRef(new Map<string, JoinedPart | "pending">());
+  const [, setCacheVersion] = useState(0);
   const [useAi, setUseAi] = useState(true);
-  /** 本人がつなげた文を直したら、その文が最終版になる（色は消える） */
   const [edited, setEdited] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-
-  const joinAbort = useRef<AbortController | null>(null);
-  const finishTimer = useRef<number | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   // hydration のずれを避けるため、乱数はマウント後に決める
   useEffect(() => {
     setRotation(Math.floor(Math.random() * 3));
   }, []);
 
-  useEffect(
-    () => () => {
-      if (finishTimer.current) window.clearTimeout(finishTimer.current);
-      joinAbort.current?.abort();
-    },
-    [],
-  );
-
-  /** 欄は選んだ順。1つも選んでいなければ「今日のこと」の1欄 */
-  const fieldIds = topics.length > 0 ? topics : [GENERAL_FIELD];
+  /** 欄は「選んだ話題（選んだ順）＋その他」 */
+  const fieldIds = [...topics, OTHER_FIELD.id];
   const filled = fieldIds.map((id) => (fragments[id] ?? "").trim()).filter((t) => t !== "");
+  const filledKey = filled.join("\u0000");
+
+  useEffect(() => {
+    if (phase !== "write" || composing) return;
+    const timer = window.setTimeout(() => {
+      const todo = filledKey
+        .split("\u0000")
+        .filter((t) => t !== "" && !cache.current.has(t));
+      if (todo.length === 0) return;
+      for (const t of todo) cache.current.set(t, Array.from(t).length < JOIN_MIN_CHARS ? plainPart(t) : "pending");
+      setCacheVersion((v) => v + 1);
+      for (const text of todo) {
+        if (cache.current.get(text) !== "pending") continue;
+        // 渡すのは**その欄の文字列だけ**。★・話題・店名は渡さない（v4 の /api/survey/polish と検査をそのまま使う）
+        fetch("/api/survey/polish", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ body: text }),
+        })
+          .then((res) => res.json() as Promise<{ text?: string | null }>)
+          .then((data) => {
+            cache.current.set(
+              text,
+              data.text ? { chars: markInsertions(text, withPeriod(data.text)), byAi: true } : plainPart(text),
+            );
+          })
+          .catch(() => cache.current.set(text, plainPart(text)))
+          .finally(() => setCacheVersion((v) => v + 1));
+      }
+    }, JOIN_IDLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [phase, composing, filledKey]);
+
+  const parts = filled.map((t) => {
+    const hit = cache.current.get(t);
+    return hit && hit !== "pending" ? hit : null;
+  });
+  const joining = parts.some((p) => p === null);
+  const aiReady = !joining && parts.some((p) => p?.byAi);
   const plainText = filled.map(withPeriod).join("");
-  const aiText = parts ? parts.map((p) => p.chars.map((c) => c.char).join("")).join("") : null;
+  const aiText = aiReady ? parts.map((p) => p!.chars.map((c) => c.char).join("")).join("") : null;
   const finalText = edited ?? (useAi && aiText ? aiText : plainText);
 
   const chooseRating = (level: Level) => {
     tick();
     setRating(level);
-    // ★が塗られたのを見てから進む
-    window.setTimeout(() => setPhase("topics"), 450);
+    // ★が弾んで輪が広がるのを見てから進む
+    window.setTimeout(() => setPhase("topics"), 700);
   };
 
   const toggleTopic = (id: string) => {
@@ -93,190 +125,86 @@ export function V5Survey() {
     setTopics((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
   };
 
-  const openWrite = (d: Destination) => {
+  const go = (next: Phase) => {
     tick();
-    setDestination(d);
-    setPhase("write");
+    setPhase(next);
+    window.scrollTo({ top: 0 });
   };
 
-  /**
-   * 各欄を「整える」AI（v4 の /api/survey/polish）に1つずつ並列で渡し、返ってきた1文をつなげる。
-   * 渡すのは**その欄の文字列だけ**。★・話題タグ・店名は渡さない。
-   * 検査に落ちた欄・通信に失敗した欄は、本人の言葉のまま（句点だけ足す）でつなげる。
-   */
-  const startJoin = useCallback(async () => {
+  const copy = async () => {
     tick();
-    const texts = filled;
-    setPhase("join");
-    setEdited(null);
-    setUseAi(true);
-    setParts(null);
-    setCopied(false);
-    setJoining(true);
-    joinAbort.current?.abort();
-    const controller = new AbortController();
-    joinAbort.current = controller;
-
-    const results = await Promise.all(
-      texts.map(async (text): Promise<JoinedPart> => {
-        try {
-          const res = await fetch("/api/survey/polish", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ body: text }),
-            signal: controller.signal,
-          });
-          const data = (await res.json()) as { text?: string | null };
-          if (data.text) return { chars: markInsertions(text, withPeriod(data.text)), byAi: true };
-        } catch {
-          // 本人の言葉のままにする
-        }
-        return { chars: Array.from(withPeriod(text)).map((char) => ({ char, inserted: false })), byAi: false };
-      }),
-    );
-    if (controller.signal.aborted) return;
-    // 1つもAIが整えられなかったときは「AIでつなげた」とは言わない
-    setParts(results.some((p) => p.byAi) ? results : null);
-    setJoining(false);
-  }, [filled]);
-
-  /** Google はコピーしてから完了へ、お店はそのまま完了へ */
-  const finish = async (text: string) => {
-    tick();
-    if (destination === "store") {
-      setPhase("done");
-      return;
+    try {
+      await navigator.clipboard.writeText(finalText);
+      setCopiedText(finalText);
+      setCopyFailed(false);
+    } catch {
+      // コピーできていないのに「コピーしました」と出すと、貼り付ける段で必ず詰まる（v4 のレビュー）。
+      // ただ、アプリ内ブラウザなどコピーを許さない環境で先へ進めなくなるのはもっと悪いので、
+      // 長押しでのコピーを案内し、②のボタンは押せるようにする
+      setCopiedText(null);
+      setCopyFailed(true);
     }
-    let copiedOk = true;
-    if (text.trim()) {
-      try {
-        await navigator.clipboard.writeText(text.trim());
-      } catch {
-        // コピーできていないのに「コピーしました」と出すと、貼り付ける段で必ず詰まる（v4 のレビュー）
-        copiedOk = false;
-      }
-    }
-    setCopied(copiedOk && text.trim() !== "");
-    finishTimer.current = window.setTimeout(() => setPhase("done"), 1600);
   };
-
-  const cancelFinish = useCallback(() => {
-    if (finishTimer.current) window.clearTimeout(finishTimer.current);
-    finishTimer.current = null;
-    setCopied(false);
-  }, []);
 
   return (
-    <div
-      className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-col"
-      style={{ backgroundColor: "var(--product-color-bg-primary)" }}
-    >
-      <div
-        className="sticky top-0 z-20 w-full px-[var(--product-space-20)] pb-[var(--product-space-8)] pt-[var(--product-space-12)]"
-        style={{ backgroundColor: "var(--product-color-bg-primary)" }}
-      >
-        <p className="text-center text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-          {STORE_NAME}
-        </p>
-      </div>
-
+    <div className="v5 mx-auto flex min-h-dvh w-full max-w-[390px] flex-col">
       {phase === "rating" ? <RatingStep selected={rating} onSelect={chooseRating} /> : null}
 
+      {phase !== "rating" && phase !== "done" ? (
+        <AppBar step={STEP_OF[phase]} onBack={() => go(phase === "topics" ? "rating" : phase === "destination" ? "topics" : "destination")} />
+      ) : null}
+
       {phase === "topics" ? (
-        <TopicsStep
-          rating={rating}
-          onChangeRating={() => {
-            tick();
-            setPhase("rating");
-          }}
-          topics={topics}
-          onToggleTopic={toggleTopic}
-          onNext={() => {
-            tick();
-            setPhase("destination");
-          }}
-        />
+        <TopicsStep rating={rating} topics={topics} onToggle={toggleTopic} onNext={() => go("destination")} />
       ) : null}
 
       {phase === "destination" ? (
         <DestinationStep
+          onWrite={(d) => {
+            setDestination(d);
+            go("write");
+          }}
           onStarOnly={() => {
-            tick();
             setDestination("google");
-            setPhase("starOnly");
+            go("starOnly");
           }}
-          onStoreAsIs={() => {
-            tick();
+          onStoreRatingOnly={() => {
             setDestination("store");
-            setPhase("storeConfirm");
-          }}
-          onWrite={openWrite}
-          onBack={() => {
-            tick();
-            setPhase("topics");
+            go("storeConfirm");
           }}
         />
       ) : null}
 
-      {phase === "starOnly" ? (
-        <StarOnlyStep
-          rating={rating}
-          onBack={() => setPhase("destination")}
-          onFinish={() => {
-            tick();
-            setPhase("done");
-          }}
-        />
-      ) : null}
+      {phase === "starOnly" ? <StarOnlyStep rating={rating} onFinish={() => go("done")} /> : null}
+
+      {phase === "storeConfirm" ? <StoreConfirmStep rating={rating} topics={topics} onFinish={() => go("done")} /> : null}
 
       {phase === "write" ? (
         <WriteStep
           destination={destination}
+          rating={rating}
           fieldIds={fieldIds}
           fragments={fragments}
           rotation={rotation}
           onChange={(id, v) => setFragments((prev) => ({ ...prev, [id]: v }))}
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={() => setComposing(false)}
           hasText={filled.length > 0}
-          onBack={() => setPhase("destination")}
-          onJoin={startJoin}
-          onFinishEmpty={() => finish("")}
-        />
-      ) : null}
-
-      {phase === "join" ? (
-        <JoinStep
-          destination={destination}
-          rating={rating}
           joining={joining}
-          parts={parts}
+          aiParts={aiReady && useAi && edited === null ? (parts as JoinedPart[]) : null}
+          aiReady={aiReady}
           useAi={useAi}
           onToggleAi={() => {
             tick();
             setUseAi((v) => !v);
           }}
-          plainText={plainText}
           edited={edited}
-          onEdit={(v) => setEdited(v)}
+          onEdit={setEdited}
           finalText={finalText}
-          copied={copied}
-          onBack={() => {
-            cancelFinish();
-            joinAbort.current?.abort();
-            setPhase("write");
-          }}
-          onFinish={() => finish(finalText)}
-        />
-      ) : null}
-
-      {phase === "storeConfirm" ? (
-        <StoreConfirmStep
-          rating={rating}
-          topics={topics}
-          onBack={() => setPhase("destination")}
-          onFinish={() => {
-            tick();
-            setPhase("done");
-          }}
+          copied={copiedText !== null && copiedText === finalText}
+          copyFailed={copyFailed}
+          onCopy={copy}
+          onFinish={() => go("done")}
         />
       ) : null}
 
@@ -285,32 +213,96 @@ export function V5Survey() {
   );
 }
 
-/* ── ★ ─────────────────────────────────────────────
-   色は本番の評価ボタン（RatingButton）と同じ：塗り＝status-warning、空き＝text-tertiary の線。 */
+/* ── 共通：店のロゴ・進み具合・上のバー ─────────────────────────── */
 
-function StarIcon({ filled, className }: { filled: boolean; className?: string }) {
+/** 店舗のロゴ（Figma `Logo / Horizontal / Black` 49:870 を書き出したもの。本番では店舗ごとに差し替わる） */
+function StoreLogo({ height }: { height: number }) {
+  // eslint-disable-next-line @next/next/no-img-element -- 試作。本番では店舗ごとの画像（next/image）にする
+  return <img src="/demo/v5/yorkys-logo.svg" alt="YORKYS BRUNCH" width={Math.round((135 / 47) * height)} height={height} />;
+}
+
+/** 進み具合（Figma `Review / Progress Bar` を4段にしたもの） */
+function Progress({ step }: { step: number }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      aria-hidden
-      style={{ color: filled ? "var(--product-color-status-warning)" : "var(--product-color-text-tertiary)" }}
+    <div className="flex w-full gap-[var(--product-space-4)]" aria-label={`${TOTAL_STEPS}つのうち${step}つ目`}>
+      {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+        <div
+          key={i}
+          className="h-1 flex-1 rounded-[var(--product-radius-full)]"
+          style={{
+            backgroundColor: i < step ? "var(--review-accent-primary)" : "var(--product-color-border-default)",
+            transition: "background-color 500ms var(--v5-ease-out)",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** アプリの上のバー：左上に「もどる」、真ん中に店のロゴ、下に進み具合（2026-09-28 天真） */
+function AppBar({ step, onBack }: { step: number; onBack: () => void }) {
+  return (
+    <div
+      className="sticky top-0 z-20 flex w-full flex-col gap-[var(--product-space-8)] px-[var(--product-space-16)] pb-[var(--product-space-12)] pt-[var(--product-space-8)]"
+      style={{ backgroundColor: "var(--v5-paper)" }}
     >
+      <div className="grid w-full grid-cols-[44px_1fr_44px] items-center">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="もどる"
+          className="v5-press flex size-11 items-center justify-center rounded-[var(--product-radius-full)]"
+          style={{ color: "var(--v5-ink)" }}
+        >
+          <BackIcon className="size-5" />
+        </button>
+        <div className="flex justify-center">
+          <StoreLogo height={30} />
+        </div>
+        <span aria-hidden />
+      </div>
+      <Progress step={step} />
+    </div>
+  );
+}
+
+function RuleLabel({ children }: { children: React.ReactNode }) {
+  return <p className="v5-rule-label">{children}</p>;
+}
+
+function StickyBar({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="sticky bottom-0 z-10 flex w-full flex-col gap-[var(--product-space-8)] px-[var(--product-space-20)] pb-[var(--product-space-20)] pt-[var(--product-space-12)]"
+      style={{ backgroundColor: "var(--v5-paper)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ── ★ ───────────────────────────────────────────────
+   Webサイトの★と同じ：塗りは黄に墨の線、空きは白に薄い線。 */
+
+function StarIcon({ filled, className, style }: { filled: boolean; className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 24 24" aria-hidden>
       <path
         d="M12 2.8l2.83 5.9 6.47.78-4.76 4.46 1.22 6.4L12 17.2l-5.76 3.14 1.22-6.4-4.76-4.46 6.47-.78L12 2.8z"
-        fill={filled ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth={1.6}
+        style={{
+          fill: filled ? "var(--v5-star)" : "var(--product-color-surface-white)",
+          stroke: filled ? "var(--v5-ink)" : "var(--product-color-text-muted)",
+        }}
+        strokeWidth={1.5}
         strokeLinejoin="round"
       />
     </svg>
   );
 }
 
-/** 「今日の評価」などに添える小さな★5つ */
 function StarsInline({ level }: { level: Level }) {
   return (
-    <span className="inline-flex items-center gap-[var(--product-space-2)] align-[-2px]" aria-label={`★${level}`}>
+    <span className="inline-flex items-center gap-[var(--product-space-2)]" aria-label={`★${level}`}>
       {LEVELS.map((n) => (
         <StarIcon key={n} filled={n <= level} className="size-4" />
       ))}
@@ -318,196 +310,236 @@ function StarsInline({ level }: { level: Level }) {
   );
 }
 
-/* ── ① 評価 ─────────────────────────────────────────
-   Google マップで★を付けるときと同じ体験に寄せる（2026-09-26 天真の実機所感）。
-   ★の数の記憶のまま Google へ行ってもらうため、5つ横に並べてタップで塗る。 */
-
-function RatingStep({ selected, onSelect }: { selected: Level | null; onSelect: (level: Level) => void }) {
+function RatingReminder({ rating }: { rating: Level }) {
   return (
-    <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-24)] px-[var(--product-space-20)] pb-[var(--product-space-32)] pt-[var(--product-space-24)]">
-      <div className="flex w-full flex-col gap-[var(--product-space-8)]">
-        <h1 className="text-xl font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-          今日はいかがでしたか？
-        </h1>
-        <p className="text-sm font-medium leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
-          タップだけで終わります。書くのは自由です。
-        </p>
-      </div>
-
-      <div
-        role="radiogroup"
-        aria-label="5段階の評価"
-        className="flex w-full items-center justify-between rounded-[var(--product-radius-md)] border-[1.5px] border-solid px-[var(--product-space-8)] py-[var(--product-space-12)]"
-        style={{ backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--product-color-border-default)" }}
-      >
-        {LEVELS.map((n) => (
-          <button
-            key={n}
-            type="button"
-            role="radio"
-            aria-checked={selected === n}
-            aria-label={`★${n}（${LEVEL_LABEL[n]}）`}
-            onClick={() => onSelect(n)}
-            className="flex flex-1 items-center justify-center transition-transform duration-100 active:scale-90"
-            style={{ minHeight: 56 }}
-          >
-            <StarIcon filled={selected !== null && n <= selected} className="size-11" />
-          </button>
-        ))}
-      </div>
-
-      <p
-        className="text-center text-base font-bold"
-        aria-live="polite"
-        style={{ color: selected ? "var(--product-color-text-primary)" : "var(--product-color-text-tertiary)" }}
-      >
-        {selected ? LEVEL_LABEL[selected] : "★をタップしてください"}
+    <div
+      className="flex w-full items-center justify-between rounded-[var(--product-radius-md)] px-[var(--product-space-16)] py-[var(--product-space-12)]"
+      style={{ backgroundColor: "var(--product-color-surface-white)" }}
+    >
+      <p className="text-sm" style={{ color: "var(--product-color-text-secondary)" }}>
+        あなたの評価
+      </p>
+      <p className="flex items-center gap-[var(--product-space-8)] text-sm font-bold">
+        <StarsInline level={rating} />
+        {LEVEL_LABEL[rating]}
       </p>
     </div>
   );
 }
 
-/* ── ② 話題 ─────────────────────────────────────────
-   ★と合わせて、全員が答える設問はこの2つだけ。
-   ★が低い人も同じ画面で答えられるよう「良かった点」ではなく「当てはまるもの」と聞く。
-   ここで選んだ話題の数だけ、書く画面の欄ができる。 */
+/* ── ① 評価 ───────────────────────────────────────────
+   Figma `01 Rating UI Exploration` の Pattern C（星タップ・Google型）。Googleと同じ操作で、★の記憶のまま Google へ。
+   タップすると黄色い輪が広がり、★が左から順に弾む（Webサイトの tap と同じ動き）。 */
+
+function RatingStep({ selected, onSelect }: { selected: Level | null; onSelect: (level: Level) => void }) {
+  const [ring, setRing] = useState<{ level: Level; key: number } | null>(null);
+  return (
+    <div className="flex w-full flex-1 flex-col items-center px-[var(--product-space-24)] pb-[var(--product-space-40)] pt-[var(--product-space-24)]">
+      <Progress step={1} />
+      <div className="v5-rise mt-[var(--product-space-48)]">
+        <StoreLogo height={47} />
+      </div>
+
+      <div className="mt-[var(--product-space-64)] flex w-full flex-col items-center gap-[var(--product-space-12)] text-center">
+        <p
+          className="v5-rise rounded-[var(--product-radius-full)] px-[var(--product-space-16)] py-[var(--product-space-4)] text-xs font-bold"
+          style={{ backgroundColor: "var(--review-accent-wash)", animationDelay: "80ms" }}
+        >
+          所要時間は約1分です
+        </p>
+        <h1 className="v5-rise text-[22px] font-bold leading-[1.4] tracking-[0.02em]" style={{ animationDelay: "140ms" }}>
+          本日の体験はいかがでしたか？
+        </h1>
+        <p className="v5-rise text-sm" style={{ color: "var(--product-color-text-secondary)", animationDelay: "200ms" }}>
+          星をタップして評価してください
+        </p>
+      </div>
+
+      <div
+        className="v5-land mt-[var(--product-space-32)] flex w-full flex-col gap-[var(--product-space-12)] rounded-[20px] border-2 border-solid px-[var(--product-space-12)] pb-[var(--product-space-16)] pt-[var(--product-space-20)]"
+        style={{ backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--v5-ink)", animationDelay: "260ms" }}
+      >
+        <div role="radiogroup" aria-label="5段階の評価" className="flex w-full justify-between">
+          {LEVELS.map((n) => {
+            const filled = selected !== null && n <= selected;
+            return (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={selected === n}
+                aria-label={`★${n}（${LEVEL_LABEL[n]}）`}
+                onClick={() => {
+                  setRing({ level: n, key: Date.now() });
+                  onSelect(n);
+                }}
+                className="v5-press relative flex size-14 items-center justify-center"
+              >
+                {ring && ring.level === n ? (
+                  <span key={ring.key} aria-hidden>
+                    <span className="v5-ring" />
+                    <span className="v5-ring v5-ring--inner" />
+                  </span>
+                ) : null}
+                <StarIcon
+                  key={`${n}-${filled ? ring?.key ?? "f" : "e"}`}
+                  filled={filled}
+                  className={`size-11 ${filled && ring ? "v5-star-pop" : ""}`}
+                  style={{ animationDelay: `${(n - 1) * 70}ms` }}
+                />
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex w-full justify-between px-[var(--product-space-8)] text-[11px]" style={{ color: "var(--product-color-text-tertiary)" }}>
+          <span>不満</span>
+          <span>とても満足</span>
+        </div>
+      </div>
+
+      <p className="mt-[var(--product-space-20)] h-6 text-base font-bold" aria-live="polite">
+        {selected ? (
+          <span key={selected} className="v5-stamp">
+            {LEVEL_LABEL[selected]}
+          </span>
+        ) : null}
+      </p>
+    </div>
+  );
+}
+
+/* ── ② 印象に残ったこと ─────────────────────────────────────
+   Figma `02 / 良かった点`（1:360）の2カラム。問いは「良かった点」（選別に見える）でも「悪かった点」（わざわざ聞かない）
+   でもなく、良くも悪くも言える「印象に残ったこと」にした（2026-09-28 天真の依頼で見直し）。
+   ここで選んだ数だけ、書く画面の欄ができる。 */
 
 function TopicsStep({
   rating,
-  onChangeRating,
   topics,
-  onToggleTopic,
+  onToggle,
   onNext,
 }: {
   rating: Level | null;
-  onChangeRating: () => void;
   topics: string[];
-  onToggleTopic: (id: string) => void;
+  onToggle: (id: string) => void;
   onNext: () => void;
 }) {
   return (
-    <div className="review-slide-in flex w-full flex-1 flex-col">
-      <div className="flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-24)] pt-[var(--product-space-8)]">
-        {/* 押し間違いの救済。取り消せることが次の画面に見えていないと、誤タップが不信に変わる */}
-        <div className="flex w-full items-center justify-between">
-          <p className="flex items-center gap-[var(--product-space-8)] text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-            今日の評価
-            {rating ? <StarsInline level={rating} /> : null}
+    <div className="flex w-full flex-1 flex-col">
+      <div className="flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-24)] pt-[var(--product-space-12)]">
+        <div className="v5-rise flex w-full flex-col gap-[var(--product-space-8)]">
+          <RuleLabel>ご回答ありがとうございます</RuleLabel>
+          <h1 className="text-[22px] font-bold leading-[1.4]">印象に残ったことはありますか？</h1>
+          <p className="text-sm leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
+            いくつでも選べます。選ばなくても次へ進めます。
           </p>
-          <button
-            type="button"
-            onClick={onChangeRating}
-            className="flex items-center gap-[var(--product-space-4)] px-[var(--product-space-8)] text-sm font-bold underline"
-            style={{ minHeight: "var(--product-touch-min)", color: "var(--product-color-text-secondary)" }}
-          >
-            <BackIcon className="size-3.5" />
-            変更
-          </button>
+          {rating ? (
+            <p className="flex items-center gap-[var(--product-space-8)] text-xs" style={{ color: "var(--product-color-text-tertiary)" }}>
+              今日の評価 <StarsInline level={rating} />
+            </p>
+          ) : null}
         </div>
 
-        <div className="flex w-full flex-col gap-[var(--product-space-12)]">
-          <div className="flex w-full flex-col gap-[var(--product-space-2)]">
-            <h1 className="text-lg font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-              当てはまるものがあれば選んでください
-            </h1>
-            <p className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-              いくつでも。選ばなくても進めます。
-            </p>
-          </div>
-          <div className="flex w-full flex-wrap gap-[var(--product-space-8)]">
-            {TOPIC_TAGS.map((tag) => {
-              const isSelected = topics.includes(tag.id);
-              return (
-                <button
-                  key={tag.id}
-                  type="button"
-                  aria-pressed={isSelected}
-                  onClick={() => onToggleTopic(tag.id)}
-                  className="review-rise flex items-center gap-[var(--product-space-8)] rounded-[var(--product-radius-full)] border-solid px-[var(--product-space-16)] py-[var(--product-space-8)] transition-transform duration-100 active:scale-95"
-                  style={{
-                    minHeight: "var(--product-touch-min)",
-                    backgroundColor: isSelected ? "var(--review-accent-wash)" : "var(--product-color-surface-white)",
-                    borderWidth: isSelected ? 2 : 1.5,
-                    borderColor: isSelected ? "var(--review-accent-primary)" : "var(--product-color-border-default)",
-                  }}
-                >
-                  {isSelected ? (
-                    <CheckMarkIcon className="review-pop size-3.5" style={{ color: "var(--review-accent-primary)" }} />
-                  ) : null}
-                  <span
-                    className="text-sm font-bold"
-                    style={{ color: isSelected ? "var(--review-accent-primary)" : "var(--product-color-text-primary)" }}
-                  >
-                    {tag.label}
+        <div className="grid w-full grid-cols-2 gap-[var(--product-space-12)]">
+          {V5_TOPICS.map((topic, i) => {
+            const on = topics.includes(topic.id);
+            return (
+              <button
+                key={topic.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() => onToggle(topic.id)}
+                className={`v5-press v5-rise flex min-h-14 items-center justify-center gap-[var(--product-space-8)] rounded-[14px] border-solid px-[var(--product-space-12)] ${on ? "v5-bump" : ""}`}
+                style={{
+                  animationDelay: `${120 + i * 50}ms`,
+                  backgroundColor: on ? "var(--review-accent-wash)" : "var(--product-color-surface-white)",
+                  borderWidth: on ? 2 : 1.5,
+                  borderColor: on ? "var(--v5-ink)" : "var(--product-color-border-default)",
+                }}
+              >
+                {on ? (
+                  <span className="v5-stamp" style={{ color: "var(--review-accent-action)" }}>
+                    <CheckMarkIcon className="size-4" />
                   </span>
-                </button>
-              );
-            })}
-          </div>
+                ) : null}
+                <span className="text-sm font-bold">{topic.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <StickyBar>
-        <PrimaryButton onClick={onNext}>次へ</PrimaryButton>
+        <button type="button" onClick={onNext} className="v5-press v5-btn v5-btn--primary">
+          次へ
+        </button>
       </StickyBar>
     </div>
   );
 }
 
-/* ── ③ 届け先（2枚の扉） ───────────────────────────────
-   2枚は**同じ大きさ・同じ形・同じ書式**。並び順は★によらず固定（案I）。
-   どちらの扉も、上が塗りの「文章も書く」、下が線の「書かずに届ける」（2026-09-26 天真の実機所感）。 */
+/* ── ③ 届け先（2枚の扉） ──────────────────────────────────────
+   2枚は同じ大きさ・同じ形・同じ書式（案I・LP「2つの扉は同じ重さ」）。並び順は★によらず固定。
+   イラストは Figma `05 / 宛先を選ぶ`（732:12673）の Google とお店。上が塗りの「文章も書く」、下が枠の「★だけ」。 */
 
 function DestinationStep({
-  onStarOnly,
-  onStoreAsIs,
   onWrite,
-  onBack,
+  onStarOnly,
+  onStoreRatingOnly,
 }: {
-  onStarOnly: () => void;
-  onStoreAsIs: () => void;
   onWrite: (d: Destination) => void;
-  onBack: () => void;
+  onStarOnly: () => void;
+  onStoreRatingOnly: () => void;
 }) {
   return (
-    <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-32)] pt-[var(--product-space-24)]">
-      <h1 className="text-xl font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-        どこに届けますか？
-      </h1>
-      <div className="flex w-full flex-col gap-[var(--product-space-12)]">
+    <div className="flex w-full flex-1 flex-col gap-[var(--product-space-24)] px-[var(--product-space-20)] pb-[var(--product-space-40)] pt-[var(--product-space-12)]">
+      <div className="v5-rise flex w-full flex-col gap-[var(--product-space-8)]">
+        <RuleLabel>届け先</RuleLabel>
+        <h1 className="text-[22px] font-bold leading-[1.4]">この感想を、どこに届けますか？</h1>
+      </div>
+      <div className="flex w-full flex-col gap-[var(--product-space-24)]">
         <DoorCard
+          art="google"
           title="Googleマップに投稿"
           note="だれでも読めます"
-          quietLabel="★だけで投稿する"
+          quietLabel="★だけで評価する"
           onWrite={() => onWrite("google")}
           onQuiet={onStarOnly}
-          delay={0}
+          delay={80}
         />
         <DoorCard
+          art="store"
           title="お店にだけ届ける"
           note="お店の人だけが読みます"
-          quietLabel="このまま届ける"
+          quietLabel="★評価だけを届ける"
           onWrite={() => onWrite("store")}
-          onQuiet={onStoreAsIs}
-          delay={60}
+          onQuiet={onStoreRatingOnly}
+          delay={200}
         />
       </div>
-      <p className="text-center text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+      <p className="text-center text-xs" style={{ color: "var(--product-color-text-secondary)" }}>
         どちらを選んでも、ご回答はお店に届いています
       </p>
-      <button
-        type="button"
-        onClick={onBack}
-        className="self-center px-[var(--product-space-16)] text-sm font-bold underline"
-        style={{ minHeight: "var(--product-touch-min)", color: "var(--product-color-text-secondary)" }}
-      >
-        もどる
-      </button>
+    </div>
+  );
+}
+
+/** Figma の画像の切り抜き位置をそのまま再現する（732:12681／732:12686） */
+function DoorArt({ art }: { art: Destination }) {
+  const crop =
+    art === "google"
+      ? { box: { width: 29, height: 36.754 }, img: { height: "108.02%", left: "-18.45%", top: "-4.01%", width: "136.9%" }, src: "/demo/v5/door-google.png" }
+      : { box: { width: 40, height: 32 }, img: { height: "136.72%", left: "-31.88%", top: "-17.62%", width: "163.75%" }, src: "/demo/v5/door-store.png" };
+  return (
+    <div className="relative shrink-0 overflow-hidden" style={{ width: crop.box.width * 1.3, height: crop.box.height * 1.3 }} aria-hidden>
+      {/* eslint-disable-next-line @next/next/no-img-element -- Figma の書き出し。切り抜き位置を保つため img の絶対配置で置く */}
+      <img alt="" src={crop.src} className="absolute max-w-none" style={crop.img} />
     </div>
   );
 }
 
 function DoorCard({
+  art,
   title,
   note,
   quietLabel,
@@ -515,6 +547,7 @@ function DoorCard({
   onQuiet,
   delay,
 }: {
+  art: Destination;
   title: string;
   note: string;
   quietLabel: string;
@@ -524,359 +557,63 @@ function DoorCard({
 }) {
   return (
     <div
-      className="review-rise flex w-full flex-col gap-[var(--product-space-12)] rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-16)]"
-      style={{
-        animationDelay: `${delay}ms`,
-        backgroundColor: "var(--product-color-surface-white)",
-        borderColor: "var(--product-color-border-default)",
-      }}
+      className="v5-land v5-paper-card flex w-full flex-col items-center gap-[var(--product-space-16)] rounded-[20px] border-2 border-solid px-[var(--product-space-20)] pb-[var(--product-space-20)] pt-[var(--product-space-24)]"
+      style={{ animationDelay: `${delay}ms`, backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--v5-ink)" }}
     >
-      <div className="flex w-full flex-col gap-[var(--product-space-2)]">
-        <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-          {title}
-        </p>
-        <p className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
+      <DoorArt art={art} />
+      <div className="flex w-full flex-col items-center gap-[var(--product-space-4)] text-center">
+        <p className="text-[17px] font-bold">{title}</p>
+        <p className="text-[13px]" style={{ color: "var(--product-color-text-secondary)" }}>
           {note}
         </p>
       </div>
       <div className="flex w-full flex-col gap-[var(--product-space-8)]">
-        <button
-          type="button"
-          onClick={onWrite}
-          className="flex h-[48px] w-full items-center justify-center rounded-[var(--product-radius-sm)] transition-transform duration-100 active:scale-[0.99]"
-          style={{ backgroundColor: "var(--review-accent-primary)", color: "var(--review-accent-on-primary)" }}
-        >
-          <span className="text-base font-bold">文章も書く</span>
+        <button type="button" onClick={onWrite} className="v5-press v5-btn v5-btn--primary">
+          文章も書く
         </button>
-        <button
-          type="button"
-          onClick={onQuiet}
-          className="flex h-[48px] w-full items-center justify-center rounded-[var(--product-radius-sm)] border-[1.5px] border-solid transition-transform duration-100 active:scale-[0.99]"
-          style={{
-            backgroundColor: "var(--product-color-surface-white)",
-            borderColor: "var(--review-accent-primary)",
-            color: "var(--review-accent-action)",
-          }}
-        >
-          <span className="text-base font-bold">{quietLabel}</span>
+        <button type="button" onClick={onQuiet} className="v5-press v5-btn v5-btn--secondary">
+          {quietLabel}
         </button>
       </div>
     </div>
   );
 }
 
-/* ── ④a ★だけ ─────────────────────────────────────────
-   ★はこちらから Google に引き継げない（Google の仕様）。選んだ★を添えて、記憶のまま Google へ行ってもらう。
-   「同じ数を選んでください」とは書かない（評価の中身に触れないため）。 */
+/* ── ④a ★だけで評価する（Google） ─────────────────────────────── */
 
-function StarOnlyStep({ rating, onBack, onFinish }: { rating: Level | null; onBack: () => void; onFinish: () => void }) {
+function StarOnlyStep({ rating, onFinish }: { rating: Level | null; onFinish: () => void }) {
   return (
-    <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-32)] pt-[var(--product-space-24)]">
-      <h1 className="text-xl font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-        Googleマップを開きます
-      </h1>
+    <div className="flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-40)] pt-[var(--product-space-12)]">
+      <div className="v5-rise flex w-full flex-col gap-[var(--product-space-8)]">
+        <RuleLabel>Googleマップへ</RuleLabel>
+        <h1 className="text-[22px] font-bold leading-[1.4]">Googleマップで★を付けます</h1>
+      </div>
       {rating ? <RatingReminder rating={rating} /> : null}
-      <p className="text-[15px] font-medium leading-[1.9]" style={{ color: "var(--product-color-text-primary)" }}>
-        Googleの画面で★を選んで、「投稿」を押すと完了です。
+      <p className="text-[15px] leading-[1.9]">Googleの画面で★を選んで、「投稿」を押すと完了です。</p>
+      <p className="text-xs leading-[1.9]" style={{ color: "var(--product-color-text-tertiary)" }}>
+        文章は書かなくても投稿できます。選んだものはGoogleには送られません。お店にだけ届きます。
       </p>
-      <p className="text-xs font-medium leading-[1.9]" style={{ color: "var(--product-color-text-tertiary)" }}>
-        文章は書かなくても投稿できます。
-        <br />
-        選んだものはGoogleには送られません。お店にだけ届きます。
-      </p>
-      <div className="flex w-full flex-col gap-[var(--product-space-12)]">
-        <PrimaryButton onClick={onFinish}>Googleマップを開く</PrimaryButton>
-        <BackLink onClick={onBack} />
+      <button type="button" onClick={onFinish} className="v5-press v5-btn v5-btn--primary">
+        <PinIcon className="size-[17px] shrink-0" />
+        Googleマップを開く
+      </button>
+    </div>
+  );
+}
+
+/* ── ④c ★評価だけを届ける（お店） ────────────────────────────── */
+
+function StoreConfirmStep({ rating, topics, onFinish }: { rating: Level | null; topics: string[]; onFinish: () => void }) {
+  const labels = topics.map((id) => v5Topic(id)?.label ?? "").filter(Boolean);
+  return (
+    <div className="flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-40)] pt-[var(--product-space-12)]">
+      <div className="v5-rise flex w-full flex-col gap-[var(--product-space-8)]">
+        <RuleLabel>お店へ</RuleLabel>
+        <h1 className="text-[22px] font-bold leading-[1.4]">お店にとどく内容</h1>
       </div>
-    </div>
-  );
-}
-
-function RatingReminder({ rating }: { rating: Level }) {
-  return (
-    <div
-      className="flex w-full items-center justify-between rounded-[var(--product-radius-md)] px-[var(--product-space-16)] py-[var(--product-space-12)]"
-      style={{ backgroundColor: "var(--product-color-bg-secondary)" }}
-    >
-      <p className="text-sm font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-        あなたの評価
-      </p>
-      <p className="flex items-center gap-[var(--product-space-8)] text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-        <StarsInline level={rating} />
-        {LEVEL_LABEL[rating]}
-      </p>
-    </div>
-  );
-}
-
-/* ── ④b 書く画面（2枚の扉で共通。届け先だけが違う） ─────────────
-   選んだ話題の数だけ欄を分ける（2026-09-26 天真の案）。欄ごとの問いは v4 の静的な問いで、AIは呼ばない。
-   書いている途中にAIは一度も出てこない。AIが出るのは次の「つなげる」画面だけ。 */
-
-function WriteStep({
-  destination,
-  fieldIds,
-  fragments,
-  rotation,
-  onChange,
-  hasText,
-  onBack,
-  onJoin,
-  onFinishEmpty,
-}: {
-  destination: Destination;
-  fieldIds: string[];
-  fragments: Record<string, string>;
-  rotation: number;
-  onChange: (id: string, value: string) => void;
-  hasText: boolean;
-  onBack: () => void;
-  onJoin: () => void;
-  onFinishEmpty: () => void;
-}) {
-  const emptyLabel = destination === "store" ? "お店にとどける" : "Googleマップを開く";
-  return (
-    <div className="review-slide-in flex w-full flex-1 flex-col">
-      <div className="flex w-full flex-1 flex-col gap-[var(--product-space-16)] px-[var(--product-space-20)] pb-[var(--product-space-24)] pt-[var(--product-space-4)]">
-        <TopRow destination={destination} onBack={onBack} />
-
-        <div className="flex w-full flex-col gap-[var(--product-space-4)]">
-          <h1 className="text-lg font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-            あなたの言葉で
-          </h1>
-          <p className="text-sm font-medium leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
-            選んだことごとに、ひとことずつ。単語だけでも大丈夫です。
-          </p>
-          <p className="flex items-center gap-[var(--product-space-4)] text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-            <MicIcon className="size-4 shrink-0" />
-            キーボードのマイクで、話しても書けます
-          </p>
-        </div>
-
-        {fieldIds.map((id) => {
-          const tag = id === GENERAL_FIELD ? null : topicTag(id);
-          const label = tag ? `${tag.label}について` : "今日のこと";
-          const questions = tag ? tag.questions : DEFAULT_QUESTIONS;
-          return (
-            <label key={id} className="flex w-full flex-col gap-[var(--product-space-8)]">
-              <span className="text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-                {label}
-              </span>
-              {/* プレースホルダは**例文ではなく問い**。欄ごとに違う問いになる */}
-              <textarea
-                value={fragments[id] ?? ""}
-                onChange={(e) => onChange(id, e.target.value)}
-                rows={2}
-                placeholder={questions[rotation % questions.length]}
-                className="w-full resize-none rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-12)] text-[15px] leading-[1.8] outline-none focus:ring-2 focus:ring-[color:var(--review-accent-primary)]"
-                style={{
-                  backgroundColor: "var(--product-color-surface-white)",
-                  borderColor: "var(--product-color-border-default)",
-                  color: "var(--product-color-text-primary)",
-                }}
-              />
-            </label>
-          );
-        })}
-
-        <p className="text-xs font-medium leading-[1.9]" style={{ color: "var(--product-color-text-tertiary)" }}>
-          空いている欄があっても大丈夫です。
-          <br />
-          お名前など、個人が特定できることは書かないでください。
-          {destination === "google" ? (
-            <>
-              <br />
-              書いた文章は、お店にも届きます。
-            </>
-          ) : null}
-        </p>
-      </div>
-
-      <StickyBar>
-        {hasText ? (
-          <PrimaryButton onClick={onJoin}>AIでつなげる</PrimaryButton>
-        ) : (
-          <PrimaryButton onClick={onFinishEmpty}>{emptyLabel}</PrimaryButton>
-        )}
-      </StickyBar>
-    </div>
-  );
-}
-
-/* ── ④b' つなげる ────────────────────────────────────
-   各欄の言葉を「整える」AI（v4）に1つずつ通し、1つの文章にする。AIが足せるのは助詞と句読点だけで、
-   検査はサーバー側（polish-guard.ts）。**AIが足した文字に色を付けて**、中身を足していないことを本人に見せる。
-   すぐに「元の言葉のまま」にも戻せる。直した時点で、本人の文になる（色は消える）。 */
-
-function JoinStep({
-  destination,
-  rating,
-  joining,
-  parts,
-  useAi,
-  onToggleAi,
-  plainText,
-  edited,
-  onEdit,
-  finalText,
-  copied,
-  onBack,
-  onFinish,
-}: {
-  destination: Destination;
-  rating: Level | null;
-  joining: boolean;
-  parts: JoinedPart[] | null;
-  useAi: boolean;
-  onToggleAi: () => void;
-  plainText: string;
-  edited: string | null;
-  onEdit: (value: string) => void;
-  finalText: string;
-  copied: boolean;
-  onBack: () => void;
-  onFinish: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const showAi = !joining && parts !== null && useAi && edited === null;
-  const finishLabel = destination === "store" ? "お店にとどける" : "コピーしてGoogleを開く";
-
-  return (
-    <div className="review-slide-in flex w-full flex-1 flex-col">
-      <div className="flex w-full flex-1 flex-col gap-[var(--product-space-16)] px-[var(--product-space-20)] pb-[var(--product-space-24)] pt-[var(--product-space-4)]">
-        <TopRow destination={destination} onBack={onBack} />
-
-        <div className="flex w-full items-start justify-between gap-[var(--product-space-12)]">
-          <h1 className="text-lg font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-            {destination === "store" ? "お店にとどく文章" : "この文章で投稿します"}
-          </h1>
-          {showAi ? <AiBadge label="AIがつなげました" /> : null}
-        </div>
-
-        {editing ? (
-          <textarea
-            value={finalText}
-            onChange={(e) => onEdit(e.target.value)}
-            rows={6}
-            className="w-full resize-none rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-12)] text-[15px] leading-[1.9] outline-none focus:ring-2 focus:ring-[color:var(--review-accent-primary)]"
-            style={{
-              backgroundColor: "var(--product-color-surface-white)",
-              borderColor: "var(--review-accent-primary)",
-              color: "var(--product-color-text-primary)",
-            }}
-          />
-        ) : (
-          <div
-            aria-busy={joining}
-            className="w-full rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-16)] text-[15px] leading-[2]"
-            style={{
-              backgroundColor: "var(--product-color-surface-white)",
-              borderColor: "var(--product-color-border-default)",
-              color: "var(--product-color-text-primary)",
-              opacity: joining ? 0.55 : 1,
-            }}
-          >
-            {showAi && parts
-              ? parts.map((part, k) => (
-                  <span key={k}>
-                    {part.chars.map((c, i) =>
-                      c.inserted ? (
-                        <span
-                          key={i}
-                          className="rounded-[3px] px-[1px] font-bold"
-                          style={{ backgroundColor: "var(--review-accent-wash)", color: "var(--review-accent-action)" }}
-                        >
-                          {c.char}
-                        </span>
-                      ) : (
-                        <span key={i}>{c.char}</span>
-                      ),
-                    )}
-                  </span>
-                ))
-              : edited ?? plainText}
-          </div>
-        )}
-
-        {showAi && !editing ? (
-          <p className="text-xs font-medium leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
-            <span
-              className="mr-[var(--product-space-4)] rounded-[3px] px-[var(--product-space-4)] font-bold"
-              style={{ backgroundColor: "var(--review-accent-wash)", color: "var(--review-accent-action)" }}
-            >
-              色の付いた文字
-            </span>
-            が、AIが足したところです。足したのは助詞と句読点だけで、中身はあなたの言葉のままです。
-          </p>
-        ) : null}
-
-        {!joining ? (
-          <div className="flex w-full flex-wrap gap-[var(--product-space-8)]">
-            {parts !== null && edited === null && !editing ? (
-              <SmallButton onClick={onToggleAi}>{useAi ? "元の言葉のまま使う" : "AIでつなげた文を使う"}</SmallButton>
-            ) : null}
-            {!editing ? (
-              <SmallButton
-                onClick={() => {
-                  tick();
-                  setEditing(true);
-                  // 直し始めた時点の文を、本人の文として持つ
-                  onEdit(finalText);
-                }}
-              >
-                直す
-              </SmallButton>
-            ) : null}
-          </div>
-        ) : null}
-
-        {destination === "google" && rating ? (
-          <div className="flex w-full flex-col gap-[var(--product-space-8)]">
-            <RatingReminder rating={rating} />
-            <p className="text-xs font-medium leading-[1.9]" style={{ color: "var(--product-color-text-tertiary)" }}>
-              Googleの画面で★を選び、文章を貼り付けて「投稿」を押すと完了です。
-            </p>
-          </div>
-        ) : null}
-      </div>
-
-      <StickyBar>
-        {copied ? (
-          <p role="status" className="review-pop text-center text-sm font-bold" style={{ color: "var(--review-accent-action)" }}>
-            文章をコピーしました
-          </p>
-        ) : null}
-        <PrimaryButton onClick={onFinish} disabled={joining}>
-          {finishLabel}
-        </PrimaryButton>
-      </StickyBar>
-    </div>
-  );
-}
-
-/* ── ④c お店へ（このまま届ける） ────────────────────────
-   店に何が届くのかを送信前に見せる。★だけと同じ1タップで終わらせ、2つの出口の重さを揃える。 */
-
-function StoreConfirmStep({
-  rating,
-  topics,
-  onBack,
-  onFinish,
-}: {
-  rating: Level | null;
-  topics: string[];
-  onBack: () => void;
-  onFinish: () => void;
-}) {
-  const labels = topics.map((id) => topicTag(id)?.label ?? "").filter(Boolean);
-  return (
-    <div className="review-slide-in flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-32)] pt-[var(--product-space-24)]">
-      <h1 className="text-xl font-bold tracking-[0.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-        お店にとどく内容
-      </h1>
       <div
-        className="flex w-full flex-col gap-[var(--product-space-16)] rounded-[var(--product-radius-md)] border-[1.5px] border-solid p-[var(--product-space-16)]"
-        style={{ backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--product-color-border-default)" }}
+        className="v5-land v5-paper-card flex w-full flex-col gap-[var(--product-space-16)] rounded-[20px] border-2 border-solid p-[var(--product-space-20)]"
+        style={{ backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--v5-ink)" }}
       >
         {rating ? (
           <Field label="今日の評価">
@@ -886,90 +623,274 @@ function StoreConfirmStep({
             </span>
           </Field>
         ) : null}
-        {labels.length > 0 ? <Field label="選んだこと">{labels.join("／")}</Field> : null}
+        {labels.length > 0 ? <Field label="印象に残ったこと">{labels.join("／")}</Field> : null}
       </div>
-      <div className="flex w-full flex-col gap-[var(--product-space-12)]">
-        <PrimaryButton onClick={onFinish}>とどける</PrimaryButton>
-        <BackLink onClick={onBack} />
-      </div>
-    </div>
-  );
-}
-
-/* ── ⑤ 完了 ─────────────────────────────────────────
-   追加のタップを一切要求しない。 */
-
-function DoneStep({ destination }: { destination: Destination }) {
-  return (
-    <div className="review-rise flex w-full flex-1 flex-col items-center justify-center gap-[var(--product-space-20)] px-[var(--product-space-24)] py-[var(--product-space-40)]">
-      <CheckCircleOutlineIcon className="size-16 shrink-0" />
-      <p className="text-center text-xl font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-        ありがとうございました
-      </p>
-      <p className="text-center text-sm font-medium leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
-        {destination === "google"
-          ? "このあとGoogleマップの投稿画面が開きます"
-          : "いただいた内容は、お店の担当者が確認します"}
-      </p>
-      <p className="text-center text-xs font-medium" style={{ color: "var(--product-color-text-muted)" }}>
-        これは検証用のデモです。回答は保存されません
-      </p>
-    </div>
-  );
-}
-
-/* ── 共通の部品 ─────────────────────────────────────── */
-
-function TopRow({ destination, onBack }: { destination: Destination; onBack: () => void }) {
-  const label = destination === "store" ? { title: "お店だけ", note: "お店の人だけが読みます" } : { title: "Googleマップ", note: "だれでも読めます" };
-  return (
-    <div className="flex w-full items-center justify-between">
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-[var(--product-space-4)] pr-[var(--product-space-8)] text-sm font-bold"
-        style={{ minHeight: "var(--product-touch-min)", color: "var(--product-color-text-secondary)" }}
-      >
-        <BackIcon className="size-4" />
-        もどる
+      <button type="button" onClick={onFinish} className="v5-press v5-btn v5-btn--primary mt-[var(--product-space-8)]">
+        とどける
       </button>
-      <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-        届け先：
-        <span className="font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-          {label.title}
-        </span>
-        （{label.note}）
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex w-full flex-col gap-[var(--product-space-4)]">
+      <p className="text-xs font-bold" style={{ color: "var(--product-color-text-tertiary)" }}>
+        {label}
       </p>
+      <div className="text-[15px] leading-[1.8]">{children}</div>
     </div>
   );
 }
 
-function StickyBar({ children }: { children: React.ReactNode }) {
+/* ── ④b 書く ─────────────────────────────────────────────
+   欄は「選んだ話題（選んだ順）＋その他（自由記入）」。各欄は5行（2026-09-28 天真）。
+   欄の下に**完成した文章**を常に出す：書くと手が止まってから約1秒で、AIが各欄に助詞と句読点だけを足して1つにつなげる。
+   AIが足した文字には色を付ける。Googleのときは ①コピー ②Googleマップを開く ③貼り付けて投稿 の順に押せる。 */
+
+function WriteStep({
+  destination,
+  rating,
+  fieldIds,
+  fragments,
+  rotation,
+  onChange,
+  onCompositionStart,
+  onCompositionEnd,
+  hasText,
+  joining,
+  aiParts,
+  aiReady,
+  useAi,
+  onToggleAi,
+  edited,
+  onEdit,
+  finalText,
+  copied,
+  copyFailed,
+  onCopy,
+  onFinish,
+}: {
+  destination: Destination;
+  rating: Level | null;
+  fieldIds: string[];
+  fragments: Record<string, string>;
+  rotation: number;
+  onChange: (id: string, value: string) => void;
+  onCompositionStart: () => void;
+  onCompositionEnd: () => void;
+  hasText: boolean;
+  joining: boolean;
+  aiParts: JoinedPart[] | null;
+  aiReady: boolean;
+  useAi: boolean;
+  onToggleAi: () => void;
+  edited: string | null;
+  onEdit: (value: string | null) => void;
+  finalText: string;
+  copied: boolean;
+  copyFailed: boolean;
+  onCopy: () => void;
+  onFinish: () => void;
+}) {
+  const google = destination === "google";
+  /** ②を押せるのは、コピーできたとき（できなかったときは長押しを案内したうえで押せるようにする） */
+  const canOpenGoogle = copied || copyFailed;
+  const editing = edited !== null;
+
   return (
-    <div
-      className="sticky bottom-0 z-10 flex w-full flex-col gap-[var(--product-space-8)] px-[var(--product-space-20)] pb-[var(--product-space-20)] pt-[var(--product-space-12)]"
-      style={{ backgroundColor: "var(--product-color-bg-primary)" }}
-    >
-      {children}
+    <div className="flex w-full flex-1 flex-col gap-[var(--product-space-24)] px-[var(--product-space-20)] pb-[var(--product-space-48)] pt-[var(--product-space-12)]">
+      <div className="v5-rise flex w-full flex-col gap-[var(--product-space-8)]">
+        <RuleLabel>{google ? "Googleマップに投稿" : "お店にだけ届ける"}</RuleLabel>
+        <h1 className="text-[22px] font-bold leading-[1.4]">{google ? "Googleに載せる感想を書く" : "お店に届ける感想を書く"}</h1>
+        <p className="text-sm leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
+          選んだことごとに、思ったことを書いてください。単語だけでも大丈夫です。最後にAIが1つの文章につなげます。
+        </p>
+        <p className="flex items-center gap-[var(--product-space-4)] text-xs" style={{ color: "var(--product-color-text-secondary)" }}>
+          <MicIcon className="size-4 shrink-0" />
+          キーボードのマイクで、話しても書けます
+        </p>
+      </div>
+
+      {fieldIds.map((id, i) => {
+        const topic = v5Topic(id);
+        const label = topic ? topic.fieldLabel : OTHER_FIELD.fieldLabel;
+        const questions = topic ? topic.questions : OTHER_FIELD.questions;
+        return (
+          <label key={id} className="v5-rise flex w-full flex-col gap-[var(--product-space-8)]" style={{ animationDelay: `${80 + i * 60}ms` }}>
+            <span className="text-sm font-bold">{label}</span>
+            {/* プレースホルダは**例文ではなく問い**。欄ごとに違う問いになる */}
+            <textarea
+              value={fragments[id] ?? ""}
+              onChange={(e) => onChange(id, e.target.value)}
+              onCompositionStart={onCompositionStart}
+              onCompositionEnd={onCompositionEnd}
+              rows={5}
+              placeholder={questions[rotation % questions.length]}
+              className="v5-notebook w-full resize-none rounded-[14px] border-[1.5px] border-solid px-[var(--product-space-12)] py-[var(--product-space-4)] text-[15px] outline-none focus:border-2 focus:border-[color:var(--product-color-text-primary)]"
+              style={{ borderColor: "var(--product-color-border-default)" }}
+            />
+          </label>
+        );
+      })}
+
+      <p className="text-xs leading-[1.9]" style={{ color: "var(--product-color-text-tertiary)" }}>
+        空いている欄があっても大丈夫です。お名前など、個人が特定できることは書かないでください。
+        {google ? "書いた文章は、お店にも届きます。" : ""}
+      </p>
+
+      {/* ── 完成した文章（AIがつなげたもの） ── */}
+      <section className="flex w-full flex-col gap-[var(--product-space-12)]" aria-label="完成した文章">
+        <div className="flex w-full items-center justify-between gap-[var(--product-space-8)]">
+          <RuleLabel>完成した文章</RuleLabel>
+          {aiParts ? <AiBadge label="AIがつなげました" /> : null}
+        </div>
+
+        {editing ? (
+          <textarea
+            value={edited ?? ""}
+            onChange={(e) => onEdit(e.target.value)}
+            rows={6}
+            className="w-full resize-none rounded-[20px] border-2 border-solid p-[var(--product-space-16)] text-[15px] leading-[1.9] outline-none"
+            style={{ backgroundColor: "var(--product-color-surface-white)", borderColor: "var(--v5-ink)" }}
+          />
+        ) : (
+          <div
+            aria-busy={joining}
+            className="v5-paper-card w-full rounded-[20px] border-2 p-[var(--product-space-16)] text-[15px] leading-[2]"
+            style={{
+              backgroundColor: "var(--product-color-surface-white)",
+              borderColor: hasText ? "var(--v5-ink)" : "var(--product-color-text-muted)",
+              borderStyle: hasText ? "solid" : "dashed",
+            }}
+          >
+            {!hasText ? (
+              <span style={{ color: "var(--product-color-text-tertiary)" }}>上の欄に書くと、ここにAIがつないだ文章が出ます。</span>
+            ) : aiParts ? (
+              aiParts.map((part, k) => (
+                <span key={k}>
+                  {part.chars.map((c, i) =>
+                    c.inserted ? (
+                      <span
+                        key={i}
+                        className="v5-stamp rounded-[3px] px-[1px] font-bold"
+                        style={{
+                          backgroundColor: "var(--review-accent-wash)",
+                          color: "var(--review-accent-action)",
+                          animationDelay: `${Math.min(i, 12) * 30}ms`,
+                        }}
+                      >
+                        {c.char}
+                      </span>
+                    ) : (
+                      <span key={i}>{c.char}</span>
+                    ),
+                  )}
+                </span>
+              ))
+            ) : (
+              <span style={{ opacity: joining ? 0.55 : 1, transition: "opacity 250ms" }}>{finalText}</span>
+            )}
+          </div>
+        )}
+
+        {hasText ? (
+          <>
+            {aiParts ? (
+              <p className="text-xs leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
+                <span
+                  className="mr-[var(--product-space-4)] rounded-[3px] px-[var(--product-space-4)] font-bold"
+                  style={{ backgroundColor: "var(--review-accent-wash)", color: "var(--review-accent-action)" }}
+                >
+                  色の付いた文字
+                </span>
+                が、AIが足したところです。足したのは助詞と句読点だけで、中身はあなたの言葉のままです。
+              </p>
+            ) : null}
+            {editing ? (
+              <p className="text-xs leading-[1.8]" style={{ color: "var(--product-color-text-tertiary)" }}>
+                直している間は、上の欄を書き換えてもここには反映されません。
+              </p>
+            ) : null}
+            <div className="flex w-full flex-wrap gap-[var(--product-space-8)]">
+              {aiReady && !editing ? (
+                <SmallButton onClick={onToggleAi}>{useAi ? "元の言葉のまま使う" : "AIでつなげた文を使う"}</SmallButton>
+              ) : null}
+              {editing ? (
+                <SmallButton onClick={() => onEdit(null)}>直すのをやめる</SmallButton>
+              ) : (
+                <SmallButton
+                  onClick={() => {
+                    tick();
+                    onEdit(finalText);
+                  }}
+                >
+                  直す
+                </SmallButton>
+              )}
+            </div>
+          </>
+        ) : null}
+      </section>
+
+      {/* ── 送る ── */}
+      {google ? (
+        <section className="flex w-full flex-col gap-[var(--product-space-12)]" aria-label="Googleに投稿する手順">
+          {rating ? <RatingReminder rating={rating} /> : null}
+          {hasText ? (
+            <>
+              <StepRow n={1} state={copied ? "done" : "active"}>
+                <button type="button" onClick={onCopy} disabled={joining} className={`v5-press v5-btn ${copied ? "v5-btn--done" : "v5-btn--primary"}`}>
+                  {copied ? <CheckMarkIcon className="size-4" /> : <CopyIcon className="size-[17px] shrink-0" />}
+                  {copied ? "コピーしました" : "この文章をコピー"}
+                </button>
+              </StepRow>
+              {copyFailed && !copied ? (
+                <p role="status" className="text-xs leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
+                  自動でコピーできませんでした。上の「完成した文章」を長押しして、コピーしてください。
+                </p>
+              ) : null}
+              <StepRow n={2} state={canOpenGoogle ? "active" : "idle"}>
+                <button type="button" onClick={onFinish} disabled={!canOpenGoogle} className="v5-press v5-btn v5-btn--primary">
+                  <PinIcon className="size-[17px] shrink-0" disabled={!canOpenGoogle} />
+                  Googleマップを開く
+                </button>
+              </StepRow>
+              <StepRow n={3} state="idle">
+                <p className="text-sm leading-[1.7]" style={{ color: "var(--product-color-text-secondary)" }}>
+                  Googleの画面で★を選び、クチコミ欄に貼り付けて投稿
+                </p>
+              </StepRow>
+            </>
+          ) : (
+            <button type="button" onClick={onFinish} className="v5-press v5-btn v5-btn--secondary">
+              書かずにGoogleマップを開く
+            </button>
+          )}
+        </section>
+      ) : (
+        <button type="button" onClick={onFinish} disabled={hasText && joining} className="v5-press v5-btn v5-btn--primary">
+          {hasText ? "この文章をお店に届ける" : "書かずに届ける"}
+        </button>
+      )}
     </div>
   );
 }
 
-function PrimaryButton({ children, onClick, disabled }: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
+/** Figma `03 / 下書き結果・コピー` の ①②③（Review / Step Number）。いま押すべき番号だけ濃くする */
+function StepRow({ n, state, children }: { n: 1 | 2 | 3; state: "active" | "done" | "idle"; children: React.ReactNode }) {
+  const bg = state === "active" ? "var(--v5-ink)" : state === "done" ? "var(--review-accent-primary)" : "var(--product-color-bg-tertiary)";
+  const fg = state === "idle" ? "var(--product-color-text-tertiary)" : "var(--product-color-surface-white)";
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="flex h-[52px] w-full items-center justify-center rounded-[var(--product-radius-sm)] transition-transform duration-100 active:scale-[0.99]"
-      style={{
-        backgroundColor: "var(--review-accent-primary)",
-        color: "var(--review-accent-on-primary)",
-        opacity: disabled ? 0.5 : 1,
-      }}
-    >
-      <span className="text-base font-bold">{children}</span>
-    </button>
+    <div className="flex w-full items-center gap-[var(--product-space-12)]">
+      <span
+        className="flex size-6 shrink-0 items-center justify-center rounded-[var(--product-radius-full)] text-xs font-bold"
+        style={{ backgroundColor: bg, color: fg, transition: "background-color 250ms var(--v5-ease-out)" }}
+      >
+        {n}
+      </span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
   );
 }
 
@@ -978,7 +899,7 @@ function SmallButton({ children, onClick }: { children: React.ReactNode; onClick
     <button
       type="button"
       onClick={onClick}
-      className="rounded-[var(--product-radius-full)] border-[1.5px] border-solid px-[var(--product-space-16)] text-sm font-bold transition-transform duration-100 active:scale-95"
+      className="v5-press rounded-[var(--product-radius-full)] border-[1.5px] border-solid px-[var(--product-space-16)] text-sm font-bold"
       style={{
         minHeight: "var(--product-touch-min)",
         backgroundColor: "var(--product-color-surface-white)",
@@ -991,28 +912,26 @@ function SmallButton({ children, onClick }: { children: React.ReactNode; onClick
   );
 }
 
-function BackLink({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="self-center px-[var(--product-space-16)] text-sm font-bold underline"
-      style={{ minHeight: "var(--product-touch-min)", color: "var(--product-color-text-secondary)" }}
-    >
-      もどる
-    </button>
-  );
-}
+/* ── 完了 ───────────────────────────────────────────── */
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function DoneStep({ destination }: { destination: Destination }) {
+  const message = useMemo(
+    () => (destination === "google" ? "このあとGoogleマップの投稿画面が開きます" : "いただいた内容は、お店の担当者が確認します"),
+    [destination],
+  );
   return (
-    <div className="flex w-full flex-col gap-[var(--product-space-4)]">
-      <p className="text-xs font-bold" style={{ color: "var(--product-color-text-tertiary)" }}>
-        {label}
-      </p>
-      <div className="text-[15px] font-medium leading-[1.8]" style={{ color: "var(--product-color-text-primary)" }}>
-        {children}
+    <div className="flex w-full flex-1 flex-col items-center justify-center gap-[var(--product-space-20)] px-[var(--product-space-24)] py-[var(--product-space-40)]">
+      <div className="v5-stamp">
+        <CheckCircleOutlineIcon className="size-16 shrink-0" />
       </div>
+      <StoreLogo height={36} />
+      <p className="v5-rise text-center text-xl font-bold">ありがとうございました</p>
+      <p className="v5-rise text-center text-sm leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
+        {message}
+      </p>
+      <p className="text-center text-xs" style={{ color: "var(--product-color-text-muted)" }}>
+        これは検証用のデモです。回答は保存されません
+      </p>
     </div>
   );
 }
