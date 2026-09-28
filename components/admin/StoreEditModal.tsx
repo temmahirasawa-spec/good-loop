@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { ReviewInput } from "@/components/admin/ReviewInput";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { BUSINESS_CATEGORIES } from "@/lib/admin/constants";
+import { BUSINESS_CATEGORIES, formatYen } from "@/lib/admin/constants";
 
 type PlaceSuggestion = { placeId: string; name: string; address: string };
 
@@ -12,8 +11,9 @@ type PlaceSuggestion = { placeId: string; name: string; address: string };
  * 店舗編集モーダル（Figma node 75:1416 PC / 76:1658 SP）。
  *
  * 店名検索は POST /api/admin/places/search（Google Places API、サーバー側の鍵を使用）。
- * 保存は stores.name / stores.business_category / stores.google_place_id を直接更新する
- * （RLSでテナント分離されるため、admin clientは使わない）。
+ * 保存は PATCH /api/admin/settings/stores（2026-09-28 からサーバーを通す。ログイン中のセッションで更新するので
+ * RLS はそのまま効く）。以前はブラウザから直接 DB を書き換えていたが、無料体験中に「前に体験したお店」を
+ * 紐付けたときの確認（docs/specs/billing.md §3-4 の Q4）をサーバーで判定するために変えた。
  *
  * 既にGoogleマップと連携済みの店舗を開いたときも、保存済みの google_place_id からは
  * 店名・住所を復元できない（Places Details APIを追加で叩けば可能だが、今回は簡易化のため
@@ -45,6 +45,8 @@ export function StoreEditModal({
   const [selected, setSelected] = useState<PlaceSuggestion | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 前に無料体験をしたお店を、体験中に紐付けようとした（Q4）。今日のお支払いの額を持つ */
+  const [paidConfirm, setPaidConfirm] = useState<{ excludingTax: number; includingTax: number } | null>(null);
 
   useEffect(() => {
     if (query.trim() === "") {
@@ -70,20 +72,39 @@ export function StoreEditModal({
     return () => clearTimeout(timer);
   }, [query]);
 
-  async function handleSave() {
+  async function handleSave(confirmPaid = false) {
     setSaving(true);
     setError(null);
-    const supabase = createSupabaseBrowserClient();
-    const { error: updateError } = await supabase
-      .from("stores")
-      .update({ name, business_category: category, ...(selected ? { google_place_id: selected.placeId } : {}) })
-      .eq("id", storeId);
-    setSaving(false);
-    if (updateError) {
+    try {
+      const res = await fetch("/api/admin/settings/stores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storeId,
+          name,
+          businessCategory: category,
+          ...(selected ? { googlePlaceId: selected.placeId } : {}),
+          confirmPaid,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        needsPaidConfirmation?: boolean;
+        quote?: { excludingTax: number; includingTax: number };
+      } | null;
+      if (res.status === 409 && data?.needsPaidConfirmation && data.quote) {
+        setPaidConfirm(data.quote);
+        return;
+      }
+      if (!res.ok) {
+        setError("保存できませんでした。もう一度お試しください。");
+        return;
+      }
+      onSave(name);
+    } catch {
       setError("保存できませんでした。もう一度お試しください。");
-      return;
+    } finally {
+      setSaving(false);
     }
-    onSave(name);
   }
 
   return (
@@ -217,13 +238,30 @@ export function StoreEditModal({
           </p>
         )}
 
+        {/* 前に無料体験をしたお店を、体験中に紐付けようとした（Q4）。押したときだけ体験を終えて請求する */}
+        {paidConfirm && (
+          <div className="flex w-full flex-col items-start gap-1 rounded-lg px-4 py-3" style={{ backgroundColor: "var(--product-color-bg-secondary)" }}>
+            <p className="text-[13px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+              このお店では、以前に無料体験をご利用いただいています。
+            </p>
+            <p className="text-xs font-medium leading-[1.6]" style={{ color: "var(--product-color-text-secondary)" }}>
+              今日から有料でのご利用になります。今日のお支払いは{formatYen(paidConfirm.excludingTax)}（税抜）です（税込 {formatYen(paidConfirm.includingTax)}）。
+            </p>
+          </div>
+        )}
+
         <div className="flex w-full items-center justify-between pt-2">
-          <button type="button" onClick={onClose} className="text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-            キャンセル
+          <button
+            type="button"
+            onClick={paidConfirm ? () => setPaidConfirm(null) : onClose}
+            className="text-[13px] font-medium"
+            style={{ color: "var(--product-color-text-secondary)" }}
+          >
+            {paidConfirm ? "やめる" : "キャンセル"}
           </button>
           <div className="w-fit">
-            <ReviewButton variant="primary" onClick={handleSave} disabled={saving}>
-              {saving ? "保存中…" : "保存する"}
+            <ReviewButton variant="primary" onClick={() => handleSave(Boolean(paidConfirm))} disabled={saving}>
+              {saving ? "保存中…" : paidConfirm ? "有料に切り替えて紐付ける" : "保存する"}
             </ReviewButton>
           </div>
         </div>

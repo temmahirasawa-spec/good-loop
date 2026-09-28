@@ -1,27 +1,43 @@
 import { NextResponse } from "next/server";
-import { STRIPE_ENABLED, STRIPE_PRICE_ADDITIONAL_STORE, STRIPE_PRICE_BASE } from "@/lib/billing/config";
+import { STRIPE_ENABLED, STRIPE_TAX_RATE_ID } from "@/lib/billing/config";
 import { getStripe } from "@/lib/billing/stripe";
 import { appOrigin, ensureStripeCustomer, getTenantBilling } from "@/lib/billing/server";
-import { getStoreQuotaState } from "@/lib/admin/store-quota";
-import { BILLING } from "@/lib/admin/constants";
+import {
+  findLiveSubscription,
+  precheckTrial,
+  quoteMonthly,
+  subscriptionItems,
+  syncTenantFromSubscription,
+  tenantQuota,
+} from "@/lib/billing/subscribe";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
- * カードの登録と初回のお支払い（docs/specs/billing.md 6章）。
+ * カードの登録（docs/specs/billing.md §3-3。Q1 の案A）。
  *
  * **この経路ではカード番号を受け取らない。** Stripe が用意した入力画面のURLを作って返し、
  * ブラウザをそちらへ送るだけ。カード番号は GOOD REVIEW のサーバーを一切通らない
  * （2026-08-24 天真の決定）。
  *
- * ── いま使っている店舗枠ぶんの契約を作る（2026-08-24 追加）──────────
- * 基本プランだけの契約を作ってはいけない。カード登録前の契約先は、運営が手で
- * `store_quota` を増やしている場合があり（例: 夙川店のテナントは 3）、
- * 基本プラン（1店舗込み）だけで契約すると Stripe からの通知で **枠が 3 → 1 に減る**。
- * 既存の店舗は消えないが枠オーバーになり、以後1店舗も追加できなくなる。
+ * | 判定（メール・お店。カードを入れる前） | 送る画面 |
+ * |---|---|
+ * | 体験あり | **setup モード**（カードを預かるだけ。今日の請求は0円）→ 戻り先で指紋を見て、体験つきの契約を作る |
+ * | 体験なし（2回目）で「有料で始める」を押した | subscription モード（今日の分を請求する） |
+ * | 体験なしで、まだ「有料で始める」を押していない | 画面を作らない。理由と金額を返し、確認の画面を出してもらう（**黙って請求しない**） |
  *
- * そのため「いまの枠と同じ数で契約する」＝ 3店舗使っているなら3店舗ぶん払う、
- * という自然な形にしている。
+ * 判定は**必ずここ（サーバー）でやり直す。** 画面から来た「体験あり」を信じない。
  */
+
+type Body = {
+  /** 対象外の確認で「有料で始める」を押したか */
+  paid?: unknown;
+  /** Stripe の画面で「戻る」を押したときに戻す先（/admin 配下だけ受け付ける） */
+  returnTo?: unknown;
+};
+
+function safeReturnPath(value: unknown): string {
+  return typeof value === "string" && /^\/admin(\/[\w\-/]*)?(\?[\w=&-]*)?$/.test(value) ? value : "/admin/settings/billing";
+}
 
 export async function POST(req: Request) {
   if (!STRIPE_ENABLED) {
@@ -31,76 +47,65 @@ export async function POST(req: Request) {
   const tenant = await getTenantBilling();
   if (!tenant) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  // すでに契約がある状態でもう一度ここを通すと、契約が二重になって二重に請求される。
-  // ⚠ ただし DB の subscription_id は**解約後も残る**（解約の記録として）。
-  //   ここで即 409 にすると、解約した契約先が二度と再契約できない（2026-08-25 修正）。
-  //   実際に生きている契約があるかは、この下で Stripe 側に問い合わせて判定する。
-
-  const quota = await getStoreQuotaState();
-  if (quota.quota === null) {
-    // 枠が読めない状態で契約を作ると、いくつぶんの契約なのかが決められない。
-    // 少ない数で契約してしまうと枠が減るので、ここでは進めずに止める
-    return NextResponse.json({ error: "店舗枠を取得できませんでした。時間をおいてお試しください。" }, { status: 503 });
-  }
-
-  // いまの枠のうち、基本プランに含まれない超過ぶん
-  const additionalStores = Math.max(0, quota.quota - BILLING.includedStores);
+  const body = ((await req.json().catch(() => null)) ?? {}) as Body;
+  const wantsPaid = body.paid === true;
+  const returnPath = safeReturnPath(body.returnTo);
 
   try {
     const stripe = getStripe();
     const customer = await ensureStripeCustomer(tenant);
 
-    // ── 二重契約を防ぐ最後の砦（2026-08-24 追加）────────────────
-    // 上の 409 判定は DB の値を見ているが、その値は Stripe からの通知で入る。
-    // 通知が届かなかった・遅れている間は「契約が無い」ように見えてしまい、
-    // もう一度ここを通すと契約が二重になって二重に請求される。
+    // ── 二重契約を防ぐ（2026-08-24 追加）────────────────────
+    // DB の値は Stripe からの通知で入るため、届いていない・遅れている間は「契約が無い」ように見える。
     // **Stripe 側を正として確かめる。** 見つかったら DB に書き戻して画面も回復させる。
-    const existing = await stripe.subscriptions.list({ customer, status: "all", limit: 10 });
-    const live = existing.data.find((s) => s.status !== "canceled" && s.status !== "incomplete_expired");
+    const live = await findLiveSubscription(customer);
     if (live) {
-      const admin = createSupabaseAdminClient();
-      await admin.from("tenants").update({ stripe_subscription_id: live.id }).eq("id", tenant.tenantId);
+      await syncTenantFromSubscription(createSupabaseAdminClient(), tenant.tenantId, live);
       return NextResponse.json({ error: "すでにご契約済みです。変更はお支払い方法の画面から行えます。" }, { status: 409 });
     }
 
+    const quota = await tenantQuota(tenant.tenantId);
+    const prior = await precheckTrial(tenant.tenantId, tenant.email);
     const origin = appOrigin(req);
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer,
-      line_items:
-        additionalStores > 0
-          ? [
-              { price: STRIPE_PRICE_BASE, quantity: 1 },
-              { price: STRIPE_PRICE_ADDITIONAL_STORE, quantity: additionalStores },
-            ]
-          : [{ price: STRIPE_PRICE_BASE, quantity: 1 }],
-      // 契約先IDは通知の両方の経路（セッション・契約）に載せる。
-      // Stripe から届く通知の種類によって、載っている場所が違うため
-      metadata: { tenant_id: tenant.tenantId },
-      subscription_data: { metadata: { tenant_id: tenant.tenantId } },
-      success_url: `${origin}/admin/settings/billing`,
-      cancel_url: `${origin}/admin/settings/billing`,
-      locale: "ja",
-      // Managed Payments（Stripe が販売事業者として表に立ち、消費税の計算・申告・納付を
-      // 代行する仕組み）は使わない（2026-08-24 天真の決定）。
-      // 販売事業者は株式会社UTUTU のままにする。/terms・/privacy が「提供者＝UTUTU」で
-      // 書かれており、そちらと食い違わせないため。
-      //
-      // **アカウント側の既定が「有効」なので、ここで明示的に切る必要がある。**
-      // 切らないと商品ごとの税コード登録が必須になり、
-      // 「this product tax code is ineligible for Managed Payments」で決済を作れない
-      // （2026-08-24、本番で実際に起きた）。
-      managed_payments: { enabled: false },
-    });
+    if (prior && !wantsPaid) {
+      // 前に無料体験をしていた。**ここでは画面を作らない。** 理由と金額を見せて選んでもらう
+      return NextResponse.json({ needsPaidConfirmation: true, reason: prior.kind, quote: await quoteMonthly(quota) }, { status: 409 });
+    }
+
+    const session = prior
+      ? // 体験なしで始める。今日の分を請求する
+        await stripe.checkout.sessions.create({
+          mode: "subscription",
+          customer,
+          line_items: subscriptionItems(quota).map((item) => ({ ...item, tax_rates: [STRIPE_TAX_RATE_ID] })),
+          metadata: { tenant_id: tenant.tenantId },
+          subscription_data: { metadata: { tenant_id: tenant.tenantId } },
+          success_url: `${origin}/admin/settings/billing?started=paid`,
+          cancel_url: `${origin}${returnPath}`,
+          locale: "ja",
+          // Managed Payments は使わない（2026-08-24 天真の決定。販売事業者は株式会社UTUTU のまま）。
+          // **アカウント側の既定が「有効」なので、ここで明示的に切る必要がある**（切らないと決済を作れない）
+          managed_payments: { enabled: false },
+        })
+      : // 体験あり。カードを預かるだけ（今日の請求は0円）。契約は戻り先で指紋を見てから作る
+        await stripe.checkout.sessions.create({
+          mode: "setup",
+          customer,
+          // setup モードで支払い方法の種類を指定しないときは、通貨が要る（支払い方法の種類は渡さない。§1-1）
+          currency: "jpy",
+          metadata: { tenant_id: tenant.tenantId },
+          setup_intent_data: { metadata: { tenant_id: tenant.tenantId } },
+          success_url: `${origin}/api/admin/billing/return?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${origin}${returnPath}`,
+          locale: "ja",
+        });
 
     if (!session.url) throw new Error("Checkout セッションのURLが返らなかった");
     return NextResponse.json({ url: session.url });
   } catch (error) {
     // 画面には理由を出さない（利用者が対処できる情報ではないため）。
-    // ただし原因を追えるよう、サーバーログには必ず残す（Vercel のログで見られる）。
-    // 2026-08-24、価格IDに商品IDが入っていて決済が開けなかったとき、
-    // 画面にもログにも何も出ず、原因の切り分けができなかったため追加した
+    // ただし原因を追えるよう、サーバーログには必ず残す（Vercel のログで見られる）
     console.error("[billing] checkout セッションの作成に失敗", error);
     return NextResponse.json({ error: "お支払いの画面を開けませんでした。もう一度お試しください。" }, { status: 500 });
   }

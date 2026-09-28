@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { validatePassword } from "@/lib/password";
-import { trialEndsAtFrom, TRIAL_DAYS } from "@/lib/billing/trial";
+import { TRIAL_DAYS } from "@/lib/billing/trial";
 import {
   checkSignupRateLimit,
   hashClientIp,
@@ -18,12 +18,18 @@ import { appOrigin } from "@/lib/billing/server";
  * 新規登録（セルフサーブ）。docs/specs/billing.md 5-2。
  *
  * `scripts/create-tenant.mjs` と同じ3つを作る。**順番と後始末も同じ形にしてある。**
- *   1. tenants（契約先。store_quota ＝ 申し込み店舗数、trial_ends_at ＝ 14日後）
+ *   1. tenants（契約先。store_quota ＝ 申し込み店舗数、card_required ＝ true）
  *   2. Supabase Auth のユーザー（**app_metadata.tenant_id が RLS の全ての土台**）
  *   3. stores（最初の店舗は作らない。オンボーディングのステップ2で店名を聞くため）
  *
  * ⚠ **service_role で書く。** 契約先がまだ無い段階なので、RLS を通せる主体がいない。
  *   そのぶん、書き込む値はすべてこの中で組み立て、リクエストの値をそのまま使わない。
+ *
+ * ⚠ **無料体験はここでは始めない**（2026-09-28 天真の決定。docs/specs/billing.md §3）。
+ *   14日間は「カードを登録した日から」数える。`trial_ends_at` は空のまま、カードの登録のときに
+ *   Stripe の契約の `trial_end` が Webhook 経由で入る。かわりに `card_required = true` を付け、
+ *   カードを登録するまで二次元コード・店舗枠の追加・来店客のアンケートを止める（§3-2）。
+ *   営業経由（`scripts/create-tenant.mjs`）は付けない＝今までどおり止まらない。
  *
  * ⚠ **メール確認あり**（2026-08-24 天真の決定）。`email_confirm: false` で作り、
  *   Supabase から確認メールを送る。確認リンクを踏むまでログインできない。
@@ -117,7 +123,7 @@ export async function POST(req: Request) {
       .insert({
         name: companyName,
         store_quota: storeCount,
-        trial_ends_at: trialEndsAtFrom().toISOString(),
+        card_required: true,
       })
       .select("id")
       .single<{ id: string }>();

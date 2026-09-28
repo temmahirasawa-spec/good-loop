@@ -13,7 +13,8 @@ import { BILLING } from "@/lib/admin/constants";
  *
  * | 方向 | 請求の扱い |
  * |---|---|
- * | 増やす | **今月の残り日数ぶんの差額を即時に請求**（`always_invoice`。従来どおり） |
+ * | 増やす（有料期間） | **今月の残り日数ぶんの差額を即時に請求**（`always_invoice`。従来どおり） |
+ * | 増やす（無料体験中） | **差額の請求は出さない**（`none`）。体験が終わった日に、そのときの数量で初めて請求（2026-09-28。§2） |
  * | 減らす | **次のお支払いから反映**（`none`）。日割りの返金はしない |
  *
  * 減らすときに返金しないのは、月の途中の減枠で返金を始めると経理が複雑になるため
@@ -62,9 +63,13 @@ export async function POST(req: Request) {
     const subscription = await stripe.subscriptions.retrieve(tenant.stripeSubscriptionId);
     const additional = subscription.items.data.find((item) => item.price.id === STRIPE_PRICE_ADDITIONAL_STORE);
     const desiredAdditional = Math.max(0, desired - BILLING.includedStores);
+    // 解約して期間が終わった契約の数量は変えない（お休みのあいだは店舗枠を増やせない。§3-8）
+    if (subscription.status === "canceled" || subscription.status === "incomplete_expired") {
+      return NextResponse.json({ error: "先にお支払い方法をご登録ください。" }, { status: 409 });
+    }
     const increasing = desired > quota.quota;
-    // 増=即時差額 / 減=次のお支払いから（返金しない）
-    const proration = increasing ? "always_invoice" : "none";
+    // 体験中は請求しない。有料期間の増=即時差額 / 減=次のお支払いから（返金しない）
+    const proration = subscription.status !== "trialing" && increasing ? "always_invoice" : "none";
 
     if (additional) {
       await stripe.subscriptionItems.update(additional.id, {

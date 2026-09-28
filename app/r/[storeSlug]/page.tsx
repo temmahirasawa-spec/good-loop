@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { RatingFlow } from "@/components/rating-flow/RatingFlow";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { byCategory, getOrSeedStoreTags } from "@/lib/store-tags";
+import { isSurveyStopped } from "@/lib/billing/survey-gate";
+import { SurveyPausedNotice } from "@/components/survey/SurveyPausedNotice";
 
 // 動的なSupabaseデータを毎リクエスト取得する（静的プリレンダー・fetchキャッシュで
 // 固定化されるのを防ぐ。2026-08-06、本番で新規タグが反映されない不具合の原因だった）
@@ -24,6 +26,10 @@ export default async function RatingFlowPage({ params }: { params: { storeSlug: 
     .maybeSingle();
 
   if (!store) notFound();
+
+  // カードを登録する前（申し込みから来た契約先）と、お休みのあいだは止める（docs/specs/billing.md §3-2・§3-8）。
+  // 読み取りの記録（page_views）も数えない。回答の API も同じ判定で断っている
+  if (await isSurveyStopped(supabase, store.tenant_id)) return <SurveyPausedNotice />;
 
   // QR読み取り数の元データ（launch-plan.md C節）。失敗しても来店客の画面は止めない
   await supabase

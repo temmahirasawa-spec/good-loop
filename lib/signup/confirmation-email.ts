@@ -1,7 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email/send";
-import { TRIAL_DAYS } from "@/lib/billing/trial";
 
 /**
  * 新規登録の確認メール（2026-08-24）。
@@ -43,8 +42,8 @@ export async function sendConfirmationEmail(
       "",
       link,
       "",
-      `無料期間は${TRIAL_DAYS}日間です。期間中にやめていただければ、費用は一切かかりません。`,
-      "カードのご登録は、期限までに管理画面の「設定 ＞ お支払い」からお願いします。",
+      // 2026-09-28 から、無料体験はカードを登録した日から数える（docs/specs/billing.md §13）
+      "アンケートの項目や業態テーマは、このまま設定できます。お店で使い始めるときに、お支払いのカードを登録してください。無料体験の14日間はその日から数えます。",
       "",
       "───────────────",
       "このメールにお心当たりがない場合は、お手数ですが破棄してください。",

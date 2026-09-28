@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { generateDraftAndLog } from "@/lib/rating-flow/generate-draft";
+import { isSurveyStopped } from "@/lib/billing/survey-gate";
 
 /**
  * 03画面「再生成」の送信先（rating-flow.md A-6）。上限5回はクライアント側（DraftResult.tsx の
@@ -47,6 +48,9 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (error || !response) {
     return NextResponse.json({ error: "response not found" }, { status: 404 });
+  }
+  if (await isSurveyStopped(supabase, response.tenant_id)) {
+    return NextResponse.json({ error: "survey paused" }, { status: 403 });
   }
 
   const draft = await generateDraftAndLog({

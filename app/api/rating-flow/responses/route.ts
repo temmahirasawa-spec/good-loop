@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { generateDraftAndLog } from "@/lib/rating-flow/generate-draft";
 import { sendLowRatingAlert } from "@/lib/rating-flow/low-rating-alert";
+import { isSurveyStopped } from "@/lib/billing/survey-gate";
 
 /**
  * 02画面「回答する」（★4以上）／04画面「送信する」（★3以下）の送信先（rating-flow.md A-6）。
@@ -54,6 +55,10 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (storeError || !store) {
     return NextResponse.json({ error: "store not found" }, { status: 404 });
+  }
+  // アンケートがお休みの契約先には回答を受け付けない（画面だけ止めても、ここを直接呼ばれると回答できてしまう）
+  if (await isSurveyStopped(supabase, store.tenant_id)) {
+    return NextResponse.json({ error: "survey paused" }, { status: 403 });
   }
 
   const { data: response, error: responseError } = await supabase

@@ -15,8 +15,8 @@ import { monthlyYenFor } from "@/lib/signup/plan";
  * 3つの段を1つの部品で持つ。**画面遷移を跨がないので、入力と選んだ店舗数が消えない。**
  *   料金 → アカウント作成 → お申し込み完了
  *
- * カードの登録はここでは求めない（14日間の無料トライアル）。
- * 支払いは期限までに 設定＞お支払い から行う（docs/specs/billing.md 5-2）。
+ * カードの登録はここでは求めない。**二次元コードを発行するとき（お店で使い始めるとき）に求める**。
+ * 14日間の無料体験は、カードを登録した日から始まる（2026-09-28 天真の決定。docs/specs/billing.md §3・§13）。
  */
 
 type Step = "pricing" | "account" | "done";
@@ -207,8 +207,8 @@ function Pricing({
           <ReviewButton variant="primary" onClick={onNext}>
             {TRIAL_DAYS}日間無料で始める
           </ReviewButton>
-          <p className="w-full text-center text-[11.5px]" style={{ color: "var(--product-color-text-muted)" }}>
-            カードの登録は不要です
+          <p className="w-full text-center text-[11.5px] leading-[1.6]" style={{ color: "var(--product-color-text-muted)" }}>
+            カードの登録は、まだ要りません。二次元コードを発行するときにお願いします。14日間の無料体験は、カードを登録した日から始まります。
           </p>
         </div>
       </div>
@@ -360,8 +360,8 @@ function Account({
       <ReviewButton variant="primary" type="submit" disabled={submitting}>
         {submitting ? "お申し込み中..." : `${TRIAL_DAYS}日間無料で始める`}
       </ReviewButton>
-      <p className="w-full text-center text-[11.5px]" style={{ color: "var(--product-color-text-muted)" }}>
-        カードの登録は不要です
+      <p className="w-full text-center text-[11.5px] leading-[1.6]" style={{ color: "var(--product-color-text-muted)" }}>
+        カードの登録は、まだ要りません。二次元コードを発行するときにお願いします。14日間の無料体験は、カードを登録した日から始まります。
       </p>
     </form>
   );
@@ -459,7 +459,7 @@ function Done({ storeCount, email }: { storeCount: number; email: string }) {
             </p>
           </div>
           <p className="text-[11.5px] leading-[1.6]" style={{ color: "var(--product-color-text-muted)" }}>
-            期限が近づいたらメールでお知らせします。設定＞お支払いから、いつでもカードを登録できます
+            アンケートの項目や業態テーマは、このまま設定できます。お店で使い始めるときに、お支払いのカードを登録してください。無料体験の14日間はその日から数えます。
           </p>
         </div>
 
