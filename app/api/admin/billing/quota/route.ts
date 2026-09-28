@@ -77,12 +77,17 @@ export async function POST(req: Request) {
         proration_behavior: proration,
       });
     } else if (desiredAdditional > 0) {
-      // 追加店舗の明細がまだ無い（＝基本プランだけの契約）。ここで作る
+      // 追加店舗の明細がまだ無い（＝基本プランだけの契約）。ここで作る。
+      // 契約に既定の税率が無く、基本プランの明細にだけ税率が付いている契約（Checkout で作った契約）は、
+      // 新しい明細にも同じ税率を付ける。付けないと、追加店舗の分だけ消費税が掛からない（2026-09-29 の点検で発見）
+      const base = subscription.items.data.find((item) => item.price.id !== STRIPE_PRICE_ADDITIONAL_STORE);
+      const itemTax = (base?.tax_rates ?? []).map((t) => t.id);
       await stripe.subscriptionItems.create({
         subscription: tenant.stripeSubscriptionId,
         price: STRIPE_PRICE_ADDITIONAL_STORE,
         quantity: desiredAdditional,
         proration_behavior: proration,
+        ...((subscription.default_tax_rates ?? []).length === 0 && itemTax.length > 0 ? { tax_rates: itemTax } : {}),
       });
     }
 

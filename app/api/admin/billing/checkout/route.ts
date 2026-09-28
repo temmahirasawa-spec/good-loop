@@ -92,7 +92,8 @@ export async function POST(req: Request) {
           customer,
           line_items: subscriptionItems(quota).map((item) => ({ ...item, tax_rates: [STRIPE_TAX_RATE_ID] })),
           metadata: { tenant_id: tenant.tenantId },
-          subscription_data: { metadata: { tenant_id: tenant.tenantId } },
+          // 明細の税率に加えて、契約の既定の税率も付ける。あとから店舗枠を足した明細にも同じ税率が掛かるように
+          subscription_data: { metadata: { tenant_id: tenant.tenantId }, default_tax_rates: [STRIPE_TAX_RATE_ID] },
           success_url: `${origin}/admin/settings/billing?started=paid`,
           cancel_url: `${origin}${returnPath}`,
           locale: "ja",

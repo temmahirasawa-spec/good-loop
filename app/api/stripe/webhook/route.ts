@@ -130,9 +130,13 @@ async function onCheckoutCompleted(session: Stripe.Checkout.Session) {
   await syncTenantFromSubscription(createSupabaseAdminClient(), tenantId, subscription);
 }
 
-async function onSubscriptionChanged(subscription: Stripe.Subscription) {
-  const tenantId = await resolveTenantId(idOf(subscription.customer), subscription.metadata);
+async function onSubscriptionChanged(received: Stripe.Subscription) {
+  const tenantId = await resolveTenantId(idOf(received.customer), received.metadata);
   if (!tenantId) return;
+
+  // 通知は届く順番が前後することがある（Stripe の仕様）。本文をそのまま書くと、古い状態で上書きしうる。
+  // **Stripe から最新の契約を取り直してから写す**（2026-09-29 の点検で追加）
+  const subscription = await getStripe().subscriptions.retrieve(received.id);
 
   // 古い契約の知らせで、新しい契約の状態を上書きしない（解約後にもう一度登録した契約先など）
   const current = await currentSubscriptionId(tenantId);
@@ -229,6 +233,10 @@ async function onInvoicePaid(invoice: Stripe.Invoice) {
 async function onPaymentFailed(invoice: Stripe.Invoice) {
   const tenantId = await resolveTenantId(idOf(invoice.customer), invoice.metadata);
   if (!tenantId) return;
+  // 今の契約の請求のときだけ（古い契約の請求の失敗で、新しい契約を未払いにしない）
+  const subscriptionId = idOf(invoice.parent?.subscription_details?.subscription ?? null);
+  const current = await currentSubscriptionId(tenantId);
+  if (subscriptionId && current && subscriptionId !== current) return;
 
   // 未払い。**止めない**（§3-8）。再請求が尽きたら Stripe が契約を終わらせ、deleted でお休みになる
   const admin = createSupabaseAdminClient();
