@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AiBadge } from "@/components/rating-flow/AiBadge";
-import { CheckCircleOutlineIcon, CopyIcon, PinIcon } from "@/components/rating-flow/icons";
-import { BackIcon, CheckMarkIcon, MicIcon } from "@/components/demo/icons";
+import { CheckCircleOutlineIcon, CopyIcon } from "@/components/rating-flow/icons";
+import { BackIcon, CheckMarkIcon, MapPinIcon, MicIcon } from "@/components/demo/icons";
 import { markInsertions, withPeriod, type MarkedChar } from "@/lib/survey/insertions";
 import { OTHER_FIELD, V5_TOPICS, v5Topic } from "@/lib/survey/v5-topics";
 
@@ -594,7 +594,7 @@ function StarOnlyStep({ rating, onFinish }: { rating: Level | null; onFinish: ()
         文章は書かなくても投稿できます。選んだものはGoogleには送られません。お店にだけ届きます。
       </p>
       <button type="button" onClick={onFinish} className="v5-press v5-btn v5-btn--primary">
-        <PinIcon className="size-[17px] shrink-0" />
+        <MapPinIcon className="size-[17px] shrink-0" />
         Googleマップを開く
       </button>
     </div>
@@ -852,7 +852,7 @@ function WriteStep({
               ) : null}
               <StepRow n={2} state={canOpenGoogle ? "active" : "idle"}>
                 <button type="button" onClick={onFinish} disabled={!canOpenGoogle} className="v5-press v5-btn v5-btn--primary">
-                  <PinIcon className="size-[17px] shrink-0" disabled={!canOpenGoogle} />
+                  <MapPinIcon className="size-[17px] shrink-0" />
                   Googleマップを開く
                 </button>
               </StepRow>

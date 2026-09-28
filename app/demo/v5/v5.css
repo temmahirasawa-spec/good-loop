@@ -199,6 +199,13 @@
   animation: v5-stamp 250ms var(--v5-ease-stamp) both;
 }
 
+/* ── 書く欄のプレースホルダ（欄の中の問い）。まだ入力されていない＝text/muted（2026-08-24 の決まり・Figma と同じ）。
+   指定しないとブラウザ既定の灰（#9CA3AF）になり、Figma と食い違っていた（2026-09-28） ── */
+.v5 textarea::placeholder {
+  color: var(--product-color-text-muted);
+  opacity: 1;
+}
+
 /* ── 書く欄：ノートの罫線（行の高さ 28px に合わせる） ── */
 .v5-notebook {
   line-height: 28px;

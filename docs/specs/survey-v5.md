@@ -185,8 +185,9 @@ Webサイト v2（`~/Dev/Websites/UTUTU/GOOD_LOOP_Official_worktrees/v2-rebrand`
 - 例の★は4（満足）。書く欄の例文は 9/28 のギャラリーと同じ（パスタ もちもち…／待ち時間 長かった…）
 - 色：生成り＝`LP v2 / ground/kinari`、影＝`LP v2 / shadow`、★の黄＝`Color / secondary/primary`（§0 B-4 が決まったらアプリ側の変数へ）
 
-**実装と違うところ（承認待ち）**
+**実装と違っていたところ（2026-09-28、天真の承認で実装を Figma に合わせた）**
 
-1. 「Googleマップを開く」（墨のボタン）のピン：実装は `#1A1A1A` の画像で見えていない。Figma は白
-2. 書く欄のプレースホルダ：実装はブラウザ既定の `#9CA3AF`、Figma は `text/muted`
-3. 完了画面の「これは検証用のデモです」は Figma に入れていない（試作だけの一文）
+1. 「Googleマップを開く」（墨のボタン）のピンが、実装では `#1A1A1A` の画像で見えていなかった
+   → `MapPinIcon`（`components/demo/icons.tsx`、線は文字色に従う）に替えた。墨のボタンでは白、押せないときは灰（text/tertiary）。Figma も同じ
+2. 書く欄のプレースホルダがブラウザ既定の `#9CA3AF` だった → `text/muted`（`v5.css` の `.v5 textarea::placeholder`）
+3. 完了画面の「これは検証用のデモです」は試作だけの一文なので、Figma には入れていない（そのまま）
