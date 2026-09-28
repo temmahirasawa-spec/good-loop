@@ -26,6 +26,9 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
  * | 体験なしで、まだ「有料で始める」を押していない | 画面を作らない。理由と金額を返し、確認の画面を出してもらう（**黙って請求しない**） |
  *
  * 判定は**必ずここ（サーバー）でやり直す。** 画面から来た「体験あり」を信じない。
+ *
+ * **営業経由の契約先（card_required = false）は、いままでどおり体験なし**（§3-10）。
+ * カードを登録したら、その場で有料の契約になる（subscription モード。以前の入口と同じ）。
  */
 
 type Body = {
@@ -65,15 +68,24 @@ export async function POST(req: Request) {
     }
 
     const quota = await tenantQuota(tenant.tenantId);
-    const prior = await precheckTrial(tenant.tenantId, tenant.email);
     const origin = appOrigin(req);
+
+    // 営業経由は体験の対象外。判定をせず、そのまま有料の契約へ（確認の画面も出さない。以前と同じ）
+    const { data: flags } = await createSupabaseAdminClient()
+      .from("tenants")
+      .select("card_required")
+      .eq("id", tenant.tenantId)
+      .maybeSingle<{ card_required: boolean | null }>();
+    const salesTenant = !flags?.card_required;
+
+    const prior = salesTenant ? null : await precheckTrial(tenant.tenantId, tenant.email);
 
     if (prior && !wantsPaid) {
       // 前に無料体験をしていた。**ここでは画面を作らない。** 理由と金額を見せて選んでもらう
       return NextResponse.json({ needsPaidConfirmation: true, reason: prior.kind, quote: await quoteMonthly(quota) }, { status: 409 });
     }
 
-    const session = prior
+    const session = prior || salesTenant
       ? // 体験なしで始める。今日の分を請求する
         await stripe.checkout.sessions.create({
           mode: "subscription",
