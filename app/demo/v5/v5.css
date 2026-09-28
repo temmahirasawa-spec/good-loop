@@ -206,14 +206,17 @@
   opacity: 1;
 }
 
-/* ── 書く欄：ノートの罫線（行の高さ 28px に合わせる） ── */
+/* ── 書く欄：ノートの罫線（行の高さ 28px に合わせる） ──
+   線は各行の**文字のすぐ下**（行の枠の上から 27px 目）。欄の上の余白は 4px なので、線は 27・55・83…px（2026-09-28 天真
+   「罫線と文字の高さを合わせたい。いまテキストが若干上にずれている」）。以前は 11px ずらしていて、線が1行目の文字の頭を横切り、
+   文字は下の線から浮いて見えていた。Figma の Review v5 / Field も同じ位置 */
 .v5-notebook {
   line-height: 28px;
   background-color: var(--product-color-surface-white);
   background-image: linear-gradient(transparent 27px, var(--v5-rule) 27px);
   background-size: 100% 28px;
   background-attachment: local;
-  background-position: 0 11px;
+  background-position: 0 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
