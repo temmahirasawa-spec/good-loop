@@ -26,7 +26,8 @@ export type SettingsStoreRow = {
   publicUrl: string;
   businessCategory: string;
   googlePlaceLinked: boolean;
-  qrSvg: string;
+  /** カードを登録する前・お休みのあいだは null（鍵の絵を出し、操作はカードの関門へ。docs/specs/billing.md §3-2） */
+  qrSvg: string | null;
 };
 
 /**

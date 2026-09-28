@@ -61,7 +61,19 @@ export const BILLING = {
   includedStores: 1,
   /** 追加1店舗あたりの月額 */
   additionalStoreMonthlyYen: 5000,
+  /**
+   * 消費税（外税）の率。画面に「税込」を添えるための見積もりに使う（2026-09-29。docs/specs/billing.md §2）。
+   * 実際の請求の税は Stripe の税率（STRIPE_TAX_RATE_ID）で掛かる。ここを変えても請求は変わらない
+   */
+  taxRatePercent: 10,
 };
+
+/** 店舗枠から月額（税抜・税込）を見積もる。追加店舗は「店舗枠 − 基本に含まれる店舗数」 */
+export function monthlyQuoteFor(quota: number): { excludingTax: number; includingTax: number; extraStores: number } {
+  const extraStores = Math.max(0, quota - BILLING.includedStores);
+  const excludingTax = BILLING.planMonthlyYen + extraStores * BILLING.additionalStoreMonthlyYen;
+  return { excludingTax, includingTax: Math.round(excludingTax * (1 + BILLING.taxRatePercent / 100)), extraStores };
+}
 
 /** 金額の表示形式を1箇所に揃える（例: 9800 → 「9,800円」） */
 export function formatYen(yen: number): string {

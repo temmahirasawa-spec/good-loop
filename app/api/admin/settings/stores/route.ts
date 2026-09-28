@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { refuseWhenPaused } from "@/lib/billing/state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { INDUSTRY_THEMES, BUSINESS_CATEGORIES } from "@/lib/admin/constants";
 import { isValidSlug } from "@/lib/admin/store-slug";
@@ -48,6 +49,10 @@ function isValidBody(body: unknown): body is Body {
 }
 
 export async function POST(request: Request) {
+  // お休み（見るだけ）のあいだは設定を変えさせない（docs/specs/billing.md §3-8）
+  const paused = await refuseWhenPaused();
+  if (paused) return paused;
+
   const body = await request.json().catch(() => null);
   if (!isValidBody(body)) {
     return NextResponse.json({ error: "invalid request body" }, { status: 400 });
@@ -134,6 +139,10 @@ function isValidEditBody(body: unknown): body is EditBody {
  * ログイン中のセッションで更新するので、RLS がそのまま効く（他の契約先の店舗は書き換えられない）。
  */
 export async function PATCH(request: Request) {
+  // お休み（見るだけ）のあいだは設定を変えさせない（docs/specs/billing.md §3-8）
+  const paused = await refuseWhenPaused();
+  if (paused) return paused;
+
   const body = await request.json().catch(() => null);
   if (!isValidEditBody(body)) {
     return NextResponse.json({ error: "invalid request body" }, { status: 400 });

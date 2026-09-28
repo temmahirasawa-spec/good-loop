@@ -1,4 +1,5 @@
 import "server-only";
+import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { STRIPE_ENABLED } from "@/lib/billing/config";
 import { billingAccess, type BillingAccess } from "@/lib/billing/access";
@@ -106,4 +107,17 @@ export async function getBillingState(): Promise<BillingState> {
   if (!data) return DISCONNECTED;
 
   return billingStateFromRow(data);
+}
+
+/** お休みのあいだに断るときの文（画面にそのまま出る） */
+export const PAUSED_EDIT_MESSAGE = "お休み中は設定を変更できません。カードを登録すると再開できます。";
+
+/**
+ * お休み（見るだけ）のあいだは、設定を変える API を断る（docs/specs/billing.md §3-8）。
+ * 断るときは 403 の応答を返す。通してよいときは null。
+ */
+export async function refuseWhenPaused(): Promise<NextResponse | null> {
+  const billing = await getBillingState();
+  if (!billing.access.paused) return null;
+  return NextResponse.json({ error: PAUSED_EDIT_MESSAGE, code: "paused" }, { status: 403 });
 }

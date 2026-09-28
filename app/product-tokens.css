@@ -48,6 +48,9 @@
      良かった点は業態色（--review-accent-primary）で、改善点はこの黄色で描き分ける。
      警告の意味では使わない（status-warning・icon-yellow とも別物） */
   --product-color-secondary-primary: #ffc32b;
+  /* 無料体験の残り3日の帯の地（2026-09-29 新設。Figma `secondary/tint`。
+     App Design Master「12 無料体験 / Trial」のトップ（残り3日・警告の色）で使う） */
+  --product-color-secondary-tint: #fff9ea;
 
   /* ── 角丸 ──────────────────────────────────────────── */
   /* radius/sm は2026-08-22に新設（UI検証Q4。ボタンの角丸を16→8にする天真の指示） */

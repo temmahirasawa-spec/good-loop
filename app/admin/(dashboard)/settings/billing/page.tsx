@@ -3,6 +3,7 @@ import { getStoreQuotaState } from "@/lib/admin/store-quota";
 import { getBillingState } from "@/lib/billing/state";
 import { getBillingDisplay } from "@/lib/billing/stripe";
 import { STRIPE_ENABLED } from "@/lib/billing/config";
+import { formatMonthDay, trialDaysLeft } from "@/lib/billing/trial";
 
 // 契約中の店舗枠と課金の状態は毎リクエスト取得する（枠を増やした直後に古い値が出ないように）
 export const dynamic = "force-dynamic";
@@ -17,14 +18,26 @@ export const dynamic = "force-dynamic";
  * 契約状態（DB）を先に引いてから、その顧客IDで Stripe に問い合わせる二段構えなので、
  * カード未登録の契約先には Stripe への問い合わせ自体が発生しない。
  */
-export default async function SettingsBillingPage() {
+export default async function SettingsBillingPage({ searchParams }: { searchParams: { confirm?: string; reason?: string; card?: string } }) {
   const [quota, billing] = await Promise.all([getStoreQuotaState(), getBillingState()]);
   const display = await getBillingDisplay(billing.customerId);
 
   return (
     <SettingsBillingView
       quota={{ quota: quota.quota, used: quota.used, hasPendingRequest: quota.hasPendingRequest }}
-      billing={{ status: billing.status, subscribed: billing.subscribed }}
+      billing={{
+        status: billing.status,
+        subscribed: billing.subscribed,
+        trial: billing.trialEndsAt ? { daysLeft: trialDaysLeft(billing.trialEndsAt) ?? 0, endLabel: formatMonthDay(billing.trialEndsAt) } : null,
+        cancelLabel: billing.cancelAt ? formatMonthDay(billing.cancelAt) : null,
+      }}
+      notice={{
+        confirmPaid:
+          searchParams.confirm === "paid" && (searchParams.reason === "place" || searchParams.reason === "card" || searchParams.reason === "email")
+            ? searchParams.reason
+            : null,
+        cardError: searchParams.card === "error",
+      }}
       stripeEnabled={STRIPE_ENABLED}
       card={display.card}
       invoices={display.invoices}

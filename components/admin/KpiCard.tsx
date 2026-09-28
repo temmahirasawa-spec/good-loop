@@ -36,6 +36,7 @@ export function KpiCard({
   prevLabel,
   delta,
   note,
+  wrapLabel = false,
 }: {
   label: string;
   value: string;
@@ -43,13 +44,15 @@ export function KpiCard({
   prevLabel: string;
   delta?: KpiDelta;
   note?: string;
+  /** 見出しを折り返す（スマホで2列に並べるとき、長い見出しがはみ出さないように） */
+  wrapLabel?: boolean;
 }) {
   return (
     <div
       className="flex w-full flex-1 flex-col items-start gap-3 rounded-2xl p-4 md:p-6"
       style={{ backgroundColor: "var(--product-color-surface-white)" }}
     >
-      <p className="whitespace-nowrap text-[11px] font-medium md:text-xs" style={{ color: "var(--product-color-text-secondary)" }}>
+      <p className={`${wrapLabel ? "" : "whitespace-nowrap "}text-[11px] font-medium md:text-xs`} style={{ color: "var(--product-color-text-secondary)" }}>
         {label}
       </p>
 

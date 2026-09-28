@@ -8,6 +8,7 @@ import { INDUSTRY_THEMES } from "@/lib/admin/constants";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
 import { BrandIcon } from "@/components/admin/SettingsMenuIcons";
+import { useCardGate } from "@/components/admin/billing/CardGate";
 
 /**
  * 設定（ブランドとテーマ） Figma node 69:1261 PC / 75:1613 SP。
@@ -38,7 +39,10 @@ export function SettingsBrandView({
   const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState<"brand" | "theme" | null>(null);
-  const [saveState, setSaveState] = useState<"idle" | "saved-brand" | "saved-theme" | "error">("idle");
+  const [saveState, setSaveState] = useState<"idle" | "saved-brand" | "saved-theme" | "error" | "paused">("idle");
+  // お休み（見るだけ）のあいだは保存させない（docs/specs/billing.md §3-8）。
+  // この画面はブラウザから直接保存しているので、ここで止める（ほかの設定はサーバーでも断っている）
+  const { paused } = useCardGate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -50,6 +54,7 @@ export function SettingsBrandView({
 
   /** ブランド（ロゴ・ブランド名）の保存 */
   async function handleSaveBrand() {
+    if (paused) return setSaveState("paused");
     setSaving("brand");
     setSaveState("idle");
     const supabase = createSupabaseBrowserClient();
@@ -87,6 +92,7 @@ export function SettingsBrandView({
 
   /** テーマ（色）の保存 */
   async function handleSaveTheme() {
+    if (paused) return setSaveState("paused");
     setSaving("theme");
     setSaveState("idle");
     const supabase = createSupabaseBrowserClient();
@@ -109,6 +115,11 @@ export function SettingsBrandView({
         {saveState === `saved-${section}` && (
           <p className="text-[12.5px] font-medium" style={{ color: "var(--review-accent-primary)" }}>
             保存しました
+          </p>
+        )}
+        {saveState === "paused" && (
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-status-error)" }}>
+            お休み中は設定を変更できません。カードを登録すると再開できます。
           </p>
         )}
         {saveState === "error" && saving === null && (

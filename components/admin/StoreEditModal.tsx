@@ -90,13 +90,16 @@ export function StoreEditModal({
       const data = (await res.json().catch(() => null)) as {
         needsPaidConfirmation?: boolean;
         quote?: { excludingTax: number; includingTax: number };
+        error?: string;
+        code?: string;
       } | null;
       if (res.status === 409 && data?.needsPaidConfirmation && data.quote) {
         setPaidConfirm(data.quote);
         return;
       }
       if (!res.ok) {
-        setError("保存できませんでした。もう一度お試しください。");
+        // お休み中の断り（403）は、サーバーの文をそのまま出す。それ以外は共通の文
+        setError(data?.code === "paused" && data.error ? data.error : "保存できませんでした。もう一度お試しください。");
         return;
       }
       onSave(name);
