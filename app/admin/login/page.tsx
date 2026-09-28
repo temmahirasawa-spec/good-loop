@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ReviewInput } from "@/components/admin/ReviewInput";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { BrandLogo } from "@/components/admin/BrandLogo";
 
 /**
  * ログイン（Figma node 81:1812 PC / 81:1846 SP、エラー版 81:1828 / 81:1862）。
@@ -48,9 +49,7 @@ export default function AdminLoginPage() {
         className="flex w-full max-w-[420px] flex-col items-center gap-5 rounded-[20px] p-8"
         style={{ backgroundColor: "var(--product-color-surface-white)" }}
       >
-        <p className="whitespace-nowrap text-xl font-bold tracking-[1.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-          GOOD REVIEW
-        </p>
+        <BrandLogo height={22} />
         <p className="whitespace-nowrap text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
           管理画面にログイン
         </p>
