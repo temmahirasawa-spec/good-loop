@@ -167,6 +167,7 @@ Webサイト v2（`~/Dev/Websites/UTUTU/GOOD_LOOP_Official_worktrees/v2-rebrand`
 | `app/demo/v5/v5.css` | v5 だけに効く見た目と動き（§8） |
 | `lib/survey/v5-topics.ts` | 2カラムの話題6つと「その他」、欄ごとの問い |
 | `public/demo/v5/*` | Figma から書き出したロゴ（SVG）と、Google・お店のイラスト（PNG） |
+| `components/survey/V5PausedNotice.tsx`・`app/demo/v5/paused/page.tsx` | 停止中のお知らせ（案B）と確認用ページ。本番の `/r/[storeSlug]` にはまだ繋いでいない（billing.md 5-2） |
 | `lib/survey/insertions.ts` | AIが足した文字に印を付ける（最長共通部分列）／句点を足す |
 | （v4 のまま）`app/api/survey/polish/route.ts`・`lib/survey/polish-prompt.ts`・`lib/survey/polish-guard.ts` | 欄ごとの「整える」と、その検査 |
 
@@ -180,7 +181,7 @@ Webサイト v2（`~/Dev/Websites/UTUTU/GOOD_LOOP_Official_worktrees/v2-rebrand`
 | 部品（`Review v5 / *` 12種と店舗ロゴ） | Components ／ `07 Review v5 / 来店客（2026-09-28）`（1495:8727） |
 | 差し替える前の画面（案I・本番で稼働中） | `_Archives` ／ 1500:9858 |
 | 業態別の色の確認（9業態 × ②と④b） | App Design Master ／ `03 テーマカラー / 業態別（02画面で色確認）`（82:1828） |
-| 停止中のお知らせ 3案（天真の選択待ち） | MTG ／ `13 停止中のお知らせ / v5 の見た目 3案`（1519:15690） |
+| 停止中のお知らせ（案B「お知らせの紙」に決定・2026-09-28） | 02 の「来店客 / 停止中のお知らせ — SP 390」（1520:11049）。3案は MTG ／ `13 停止中のお知らせ`（1519:15690） |
 
 - 並び：①評価 → ①★を選んだ → ②印象に残ったこと → ③届け先 → 4つの出口（Google×書く／Google×★だけ／お店×書く／お店×★だけ）→ ⑤完了。
   書く画面の状態（書く前・AIがつなげている途中・つなげられなかった・直している・コピーできなかった）も置いた

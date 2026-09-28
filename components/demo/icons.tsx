@@ -39,6 +39,19 @@ export function MapPinIcon({ className }: { className?: string }) {
   );
 }
 
+/**
+ * 丸にチェック（v5 の完了・停止中のお知らせ）。形は rating-flow の CheckCircleOutlineIcon と同じで、
+ * **線の色は文字色（currentColor）に従う**（あちらは線が #999999 の画像。Figma は text/tertiary）。
+ */
+export function CheckCircleIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 64 64" fill="none" stroke="currentColor" aria-hidden>
+      <path d="M32 60C47.464 60 60 47.464 60 32C60 16.536 47.464 4 32 4C16.536 4 4 16.536 4 32C4 47.464 16.536 60 32 60Z" strokeWidth={4.8} />
+      <path d="M18.6667 32.8L28 42.1333L45.3333 24" strokeWidth={5.86667} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /** 複数選択のチェックマーク（ラジオの丸と取り違えないこと。2026-08-28 天真の指摘） */
 export function CheckMarkIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (

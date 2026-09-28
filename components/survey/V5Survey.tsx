@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AiBadge } from "@/components/rating-flow/AiBadge";
-import { CheckCircleOutlineIcon, CopyIcon } from "@/components/rating-flow/icons";
-import { BackIcon, CheckMarkIcon, MapPinIcon, MicIcon } from "@/components/demo/icons";
+import { CopyIcon } from "@/components/rating-flow/icons";
+import { BackIcon, CheckCircleIcon, CheckMarkIcon, MapPinIcon, MicIcon } from "@/components/demo/icons";
 import { markInsertions, withPeriod, type MarkedChar } from "@/lib/survey/insertions";
 import { OTHER_FIELD, V5_TOPICS, v5Topic } from "@/lib/survey/v5-topics";
 
@@ -922,7 +922,7 @@ function DoneStep({ destination }: { destination: Destination }) {
   return (
     <div className="flex w-full flex-1 flex-col items-center justify-center gap-[var(--product-space-20)] px-[var(--product-space-24)] py-[var(--product-space-40)]">
       <div className="v5-stamp">
-        <CheckCircleOutlineIcon className="size-16 shrink-0" />
+        <CheckCircleIcon className="size-16 shrink-0" style={{ color: "var(--product-color-text-tertiary)" }} />
       </div>
       <StoreLogo height={36} />
       <p className="v5-rise text-center text-xl font-bold">ありがとうございました</p>
