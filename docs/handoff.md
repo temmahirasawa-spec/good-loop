@@ -4787,3 +4787,19 @@ LP（good-review-website の PR #4）は同じ決まりで書き換え済み。�
     カード登録前に店舗管理の「アンケートのURL＋コピー」を出すか
   - 選ばれたら：対象外・エラー・解約の予約中・お休み中・紐付けの確認・設定＞お支払いまで、その器で App Design Master に PC/SP の対で作る
 - 次：画面によらない部分（DB・Stripe・メール・定期実行・公開アンケートの停止）の実装を、main から切った別の枝で始める
+- **実装（画面によらない部分）を始めた**：枝 `feat/billing-trial-core`（main から。同じ worktree で枝を切り替えて作業）。まだ PR は作っていない（画面が決まってから一緒に出す）
+  - コミット a25cbc8・bfb1e0f。`npm run check` 通過
+  - `supabase/0017_billing_card_trial.sql`：card_required・billing_cancel_at・billing_ended_at、billing_status に trialing、
+    trial_claims（source ＝ `Stripe顧客ID:SetupIntentのID`。同じ登録の二重処理で自分の記録を「2回目」と誤判定しないため）・billing_notices・cancellation_feedback。
+    **天真に SQL Editor での実行をお願いする（未実行）**
+  - カードの登録：setup モード → 指紋・メール・お店で判定 → サーバーで体験つきの契約（冪等キー `trial-subscription:<SetupIntent>`）。
+    メール・お店で先に対象外と分かったら 409 で理由と金額を返し、「有料で始める」で subscription モードの Checkout。
+    カードで対象外なら戻り先で確認 → `POST /api/admin/billing/start-paid`
+  - **営業経由（card_required = false）は体験なし**：カード登録でそのまま subscription モード（以前と同じ）
+  - 課金の導線を出す条件（STRIPE_ENABLED）に **STRIPE_TAX_RATE_ID（txr_）と TRIAL_CLAIM_SALT（16文字以上）** を足した。
+    本番に入れる前に Vercel に設定しないと、課金の導線が消える（＝カードの関門も出ない。§9）
+  - 定期実行 `/api/cron/billing`（vercel.json の crons、毎日 03:00 UTC ＝ 日本時間の昼。`CRON_SECRET` が要る）。
+    データ削除は `BILLING_DATA_DELETION_ENABLED=true` まで実行しない（対象の数をログに出すだけ）
+  - 来店客の停止画面 `SurveyPausedNotice`：v5 の紙の色（生成り）がまだ変数に無いので、今の本番の変数の色で出している
+  - ⚠ **本番に `billing_status = 'canceled'` の契約先があれば、この変更でアンケートが止まる**（お休み）。マージの前に確認する
+  - 残り：画面（3案のどれか）・QR/POP のサーバー側の関門・設定＞お支払いの表示・オンボーディング7の関門・規約の文案・Stripe テストでの一周
