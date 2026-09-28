@@ -12,11 +12,16 @@ import { TRIAL_DAYS, TRIAL_ENDING_DAYS } from "@/lib/billing/trial";
  * | trial | 「無料体験 残り○日（○月○日まで）」＋14日のめもり。**残り3日から警告の色**（§3-5） |
  * | cancel | 「解約の手続きが済んでいます。○月○日までお使いいただけます。」（§13） |
  * | paused | お休み。見るだけ。「カードを登録する」（§3-8） |
+ * | before | カードを登録する前（申し込み直後・オンボーディングで「あとで登録する」を選んだ人）。関門のモーダルを開く |
+ *
+ * before は 2026-09-29 に足した（天真「無料体験はおまかせ」。Figma 12 の「トップ（カード登録前）」）。
+ * 「あとで登録する」を選んだ人が、体験を始める入口を見失わないようにする。
  */
 export type TrialBandProps =
   | { kind: "trial"; daysLeft: number; endLabel: string }
   | { kind: "cancel"; cancelLabel: string; daysLeft: number | null }
-  | { kind: "paused" };
+  | { kind: "paused" }
+  | { kind: "before" };
 
 export function TrialBand(props: TrialBandProps) {
   const gate = useCardGate();
@@ -42,6 +47,29 @@ export function TrialBand(props: TrialBandProps) {
         <p className="text-[11px]" style={{ color: "var(--product-color-text-tertiary)" }}>
           これまでの回答と集計はご覧いただけます。設定の変更・店舗の追加・卓上POPの発行は、カードのご登録後にご利用いただけます
         </p>
+      </div>
+    );
+  }
+
+  if (props.kind === "before") {
+    return (
+      <div
+        className="flex w-full shrink-0 flex-col gap-3 rounded-2xl px-4 py-4 md:flex-row md:items-center md:justify-between md:gap-4 md:px-6"
+        style={{ backgroundColor: "var(--product-color-surface-white)" }}
+      >
+        <div className="flex flex-col gap-1">
+          <p className="text-[13px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+            カードを登録した日から{TRIAL_DAYS}日間、無料です。
+          </p>
+          <p className="text-xs" style={{ color: "var(--product-color-text-secondary)" }}>
+            登録したその日から二次元コードを発行して、お店に置けます。お支払いは{TRIAL_DAYS + 1}日目からです。
+          </p>
+        </div>
+        <div className="w-full md:w-[220px] md:shrink-0">
+          <ReviewButton variant="primary" onClick={() => gate.requireCard()}>
+            カードを登録する
+          </ReviewButton>
+        </div>
       </div>
     );
   }

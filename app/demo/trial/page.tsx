@@ -5,6 +5,7 @@ import { TrialBand, type TrialBandProps } from "@/components/admin/billing/Trial
 import { TrialStartedModal } from "@/components/admin/billing/TrialStartedModal";
 import { generateQrSvg } from "@/lib/qr-code";
 import { PUBLIC_APP_URL } from "@/lib/site-url";
+import { SettingsStoresView } from "@/components/admin/SettingsStoresView";
 import { DemoOpenGate } from "./DemoOpenGate";
 
 /**
@@ -22,6 +23,8 @@ import { DemoOpenGate } from "./DemoOpenGate";
  *   /demo/trial?view=paid       以前に体験済み（有料で始める確認）
  *   /demo/trial?view=started    登録の直後（印刷して置く案内）
  *   /demo/trial?view=onboarding オンボーディング 7（カードの関門）
+ *   /demo/trial?view=before     カードを登録する前のトップ（帯）
+ *   /demo/trial?view=stores     カードを登録する前の店舗管理（URL と二次元コードを出さない）
  */
 export const metadata: Metadata = {
   title: "無料体験 検証用デモ | GOOD REVIEW",
@@ -37,6 +40,7 @@ export default async function DemoTrialPage({ searchParams }: { searchParams: { 
     top3: { kind: "trial", daysLeft: 3, endLabel: "10月12日" },
     cancel: { kind: "cancel", cancelLabel: "10月12日", daysLeft: 9 },
     paused: { kind: "paused" },
+    before: { kind: "before" },
   };
   const n = view === "top3" ? NUMBERS.top3 : NUMBERS.top;
 
@@ -63,6 +67,20 @@ export default async function DemoTrialPage({ searchParams }: { searchParams: { 
     );
   }
 
+  if (view === "stores") {
+    const demoStores = [
+      { id: "demo-1", name: "三宮本店", slug: "demo-sannomiya", googlePlaceLinked: true },
+      { id: "demo-2", name: "梅田うめきた店", slug: "demo-umeda", googlePlaceLinked: false },
+    ].map((s) => ({ ...s, publicUrl: null, businessCategory: "restaurant", qrSvg: null }));
+    return (
+      <CardGateProvider needsCard paused={false} quota={2}>
+        <main className="flex min-h-dvh w-full flex-col items-start gap-4 px-4 pb-8 pt-6 md:px-8 md:pt-8" style={{ backgroundColor: "var(--product-color-bg-secondary)" }}>
+          <SettingsStoresView stores={demoStores} quota={{ quota: 2, used: 2, canAddStore: false }} />
+        </main>
+      </CardGateProvider>
+    );
+  }
+
   const stores =
     view === "started"
       ? await Promise.all(
@@ -75,7 +93,7 @@ export default async function DemoTrialPage({ searchParams }: { searchParams: { 
 
   const paused = view === "paused";
   return (
-    <CardGateProvider needsCard={view === "gate" || view === "paid" || paused} paused={paused} quota={2}>
+    <CardGateProvider needsCard={view === "gate" || view === "paid" || view === "before" || paused} paused={paused} quota={2}>
       <main className="flex min-h-dvh w-full flex-col items-start gap-4 px-4 pb-8 pt-6 md:gap-6 md:px-8 md:pt-8" style={{ backgroundColor: "var(--product-color-bg-secondary)" }}>
         <div className="flex w-full items-center justify-between rounded-2xl px-6 py-5" style={{ backgroundColor: "var(--product-color-surface-white)" }}>
           <p className="text-xl font-bold" style={{ color: "var(--product-color-text-primary)" }}>
@@ -86,7 +104,7 @@ export default async function DemoTrialPage({ searchParams }: { searchParams: { 
           </p>
         </div>
         {bands[view] && <TrialBand {...bands[view]} />}
-        {view !== "paused" && (
+        {view !== "paused" && view !== "before" && (
           <div className="grid w-full grid-cols-2 gap-2 md:flex md:gap-4">
             <KpiCard label="読み取られた数" value={String(n[0])} unit="回" prevLabel="9月28日から" wrapLabel />
             <KpiCard label="回答の数" value={String(n[1])} prevLabel="9月28日から" wrapLabel />

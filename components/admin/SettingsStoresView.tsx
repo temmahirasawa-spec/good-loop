@@ -22,8 +22,12 @@ export type SettingsStoreRow = {
   id: string;
   name: string;
   slug: string;
-  /** お客様が開く投稿画面のURL（コピーして共有できるように表示する） */
-  publicUrl: string;
+  /**
+   * お客様が開く投稿画面のURL（コピーして共有できるように表示する）。
+   * カードを登録する前・お休みのあいだは null（公開アンケートが止まっているため出さない。2026-09-29、Figma 12
+   * 「設定（店舗・二次元コード管理・カード登録前）」）
+   */
+  publicUrl: string | null;
   businessCategory: string;
   googlePlaceLinked: boolean;
   /** カードを登録する前・お休みのあいだは null（鍵の絵を出し、操作はカードの関門へ。docs/specs/billing.md §3-2） */
@@ -174,7 +178,13 @@ export function SettingsStoresView({ stores, quota }: { stores: SettingsStoreRow
               >
                 {linked ? "Googleマップ連携済み" : "URL未設定"}
               </span>
-              <CopyableUrl url={store.publicUrl} />
+              {store.publicUrl ? (
+                <CopyableUrl url={store.publicUrl} />
+              ) : (
+                <p className="text-[12px]" style={{ color: "var(--product-color-text-tertiary)" }}>
+                  アンケートのURLは、カードを登録すると表示されます。
+                </p>
+              )}
             </div>
           );
         })}

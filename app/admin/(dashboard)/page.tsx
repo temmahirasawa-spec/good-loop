@@ -43,7 +43,9 @@ export default async function AdminTopPage({ searchParams }: { searchParams: { t
       ? { kind: "cancel", cancelLabel: formatMonthDay(billing.cancelAt), daysLeft }
       : trialing
         ? { kind: "trial", daysLeft: daysLeft ?? 0, endLabel }
-        : null;
+        : billing.access.needsCard
+          ? { kind: "before" }
+          : null;
 
   // 体験中は「カードを登録した日から」の4つの数字を出す（Google に実際に投稿された数は出さない。取得していない）
   let results: Awaited<ReturnType<typeof getTrialResults>> | null = null;

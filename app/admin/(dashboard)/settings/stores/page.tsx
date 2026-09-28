@@ -27,7 +27,8 @@ export default async function SettingsStoresPage() {
       id: s.id,
       name: s.name,
       slug: s.slug,
-      publicUrl: `${PUBLIC_APP_URL}/r/${s.slug}`,
+      // カードを登録するまでは URL も渡さない（公開アンケートが止まっているので、開いてもお休みの画面になる）
+      publicUrl: canShowQr ? `${PUBLIC_APP_URL}/r/${s.slug}` : null,
       businessCategory: s.businessCategory,
       googlePlaceLinked: s.googlePlaceLinked,
       qrSvg: canShowQr ? await generateQrSvg(`${PUBLIC_APP_URL}/r/${s.slug}`) : null,
