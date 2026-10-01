@@ -28,9 +28,26 @@ type Args = {
   rating: number;
   tags: string[];
   freeText: string;
+  /**
+   * v5 で来店客が選んだ届け先（2026-10-01、本番の画面を v5 にした）。旧い画面からの呼び出しは undefined。
+   * v5 は★で行き先を分けないので、★3以下でも Google を選んだ人がいる。その人について
+   * 「Google マップには投稿されていません」と書くと嘘になるため、文面を分ける。
+   */
+  destination?: "google" | "store";
 };
 
-export async function sendLowRatingAlert({ supabase, storeId, rating, tags, freeText }: Args): Promise<void> {
+/** メールの「どこに届いた声か」の1行。⚠ v5 の2つは天真さんの確認待ちの文言 */
+function routeLine(destination: Args["destination"]): string {
+  if (destination === "google") {
+    return "この方は Google マップへの投稿を選びました。実際に投稿されたかどうかは、Google マップでご確認ください。";
+  }
+  if (destination === "store") {
+    return "この内容は Google マップには投稿されていません。お店にだけ届いた声です。";
+  }
+  return "この内容は Google マップには投稿されていません。店内向けのアンケートとして届いています。";
+}
+
+export async function sendLowRatingAlert({ supabase, storeId, rating, tags, freeText, destination }: Args): Promise<void> {
   try {
     if (rating > LOW_RATING_THRESHOLD) return;
 
@@ -54,7 +71,7 @@ export async function sendLowRatingAlert({ supabase, storeId, rating, tags, free
       freeText.trim() ? indent(freeText.trim()) : "　　（記入なし）",
       "",
       "───────────────",
-      "この内容は Google マップには投稿されていません。店内向けのアンケートとして届いています。",
+      routeLine(destination),
       "",
       `回答の一覧はこちら：${PUBLIC_APP_URL}/admin/responses`,
       "",
