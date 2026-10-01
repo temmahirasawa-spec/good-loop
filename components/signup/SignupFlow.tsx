@@ -7,7 +7,7 @@ import { BILLING, formatYen } from "@/lib/admin/constants";
 import { PASSWORD_PLACEHOLDER, PASSWORD_RULE_TEXT } from "@/lib/password";
 import { TRIAL_DAYS } from "@/lib/billing/trial";
 import { PricingSimulator } from "@/components/signup/PricingSimulator";
-import { monthlyYenFor } from "@/lib/signup/plan";
+import { monthlyYenFor, PILOT_MAX_STORES, PILOT_STORE_LIMIT_TEXT } from "@/lib/signup/plan";
 import { INVITE_CODE_UNUSABLE, normalizeInviteCode } from "@/lib/signup/invite-code";
 
 /**
@@ -26,6 +26,8 @@ import { INVITE_CODE_UNUSABLE, normalizeInviteCode } from "@/lib/signup/invite-c
  *   - サーバーが「使えない」と返したら1つ目の段に戻し、欄の下に理由を出す。
  *     ほかの入力（会社名・メールなど）は同じ部品の中に残っているので消えない
  *   - 試験導入で登録できたら、完了画面に無料期間と月額の案内を出さない（無料のため）
+ *   - 試験導入の店舗数は PILOT_MAX_STORES まで（選んだ数がそのまま無料の枠になるため）。
+ *     invite ではステッパーの上限そのものを下げる。open でコードを入れたときは進む前に止める
  */
 
 type Step = "pricing" | "account" | "done";
@@ -81,7 +83,16 @@ export function SignupFlow({
   function goToAccount() {
     const typed = inviteCode.trim();
     const normalized = typed ? normalizeInviteCode(typed) : null;
-    const inviteError = !typed ? (inviteRequired ? "入力してください" : null) : normalized ? null : INVITE_CODE_UNUSABLE;
+    const inviteError = !typed
+      ? inviteRequired
+        ? "入力してください"
+        : null
+      : !normalized
+        ? INVITE_CODE_UNUSABLE
+        : storeCount > PILOT_MAX_STORES
+          ? // open で店舗数を多めに選んでからコードを入れた場合。コードを入れると試験導入になり、枠に上限がある
+            PILOT_STORE_LIMIT_TEXT
+          : null;
     setFieldErrors((prev) => {
       const next = { ...prev };
       delete next.inviteCode;
@@ -118,7 +129,10 @@ export function SignupFlow({
         setStep("pricing");
         setRevealInviteField(true);
       } else {
-        setFormError(typeof data?.error === "string" ? data.error : "お申し込みを完了できませんでした。");
+        // 店舗数の誤り（試験導入の上限など）は入力欄が無いので、上の帯でそのまま伝える
+        setFormError(
+          errors.storeCount ?? (typeof data?.error === "string" ? data.error : "お申し込みを完了できませんでした。"),
+        );
       }
     } catch {
       setFormError("通信できませんでした。時間をおいてお試しください。");
@@ -270,7 +284,12 @@ function Pricing({
           <p className="text-[15px] font-bold md:text-[16px]" style={{ color: "var(--product-color-text-primary)" }}>
             お店の数を選んでください
           </p>
-          <PricingSimulator storeCount={storeCount} onChange={setStoreCount} />
+          {/* 試験導入（invite）は無料なので、選べる店舗数に上限を置く（lib/signup/plan.ts の PILOT_MAX_STORES） */}
+          <PricingSimulator
+            storeCount={storeCount}
+            onChange={setStoreCount}
+            max={invite.required ? PILOT_MAX_STORES : undefined}
+          />
           <div
             className="flex w-full flex-col gap-1 rounded-xl px-4 py-3"
             style={{ backgroundColor: "var(--review-accent-wash)" }}

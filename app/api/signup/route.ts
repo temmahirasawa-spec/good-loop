@@ -10,7 +10,13 @@ import {
 import { MissingIpSaltError } from "@/lib/ai-check/rate-limit";
 // 上限と料金の計算は lib から取る。"use client" の部品から import すると
 // サーバー側で実際の値にならず、チェックが素通りする（2026-08-24 実測）
-import { isValidStoreCount, MAX_STORES, monthlyYenFor } from "@/lib/signup/plan";
+import {
+  isValidStoreCount,
+  MAX_STORES,
+  monthlyYenFor,
+  PILOT_MAX_STORES,
+  PILOT_STORE_LIMIT_TEXT,
+} from "@/lib/signup/plan";
 import { sendConfirmationEmail } from "@/lib/signup/confirmation-email";
 import { appOrigin } from "@/lib/billing/server";
 import { getSignupMode } from "@/lib/signup/mode";
@@ -116,6 +122,10 @@ export async function POST(req: Request) {
   if (passwordError) fieldErrors.password = passwordError;
   if (!isValidStoreCount(storeCount)) {
     fieldErrors.storeCount = `店舗数は1〜${MAX_STORES}の範囲でお選びください`;
+  } else if (rawInviteCode && storeCount > PILOT_MAX_STORES) {
+    // 試験導入は無料なので、選んだ店舗数がそのまま無料の店舗枠になる。
+    // 1つのコードで作れる枠に上限を置く（画面のステッパーも同じ上限。迂回されても通さない）
+    fieldErrors.storeCount = PILOT_STORE_LIMIT_TEXT;
   }
   if (Object.keys(fieldErrors).length > 0) {
     await recordSignupAttempt(admin, ipHash, false);
