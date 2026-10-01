@@ -1,8 +1,8 @@
 /**
  * アンケート v2 プロトタイプのデータ（docs/specs/survey-v2.md 段1）。
  *
- * **検証用。DBには一切書き込まない。** 中身は YORKYS BRUNCH（夙川）の実メニュー
- * （2026-08-28 天真提供の YBmenu.pdf。未確定版）。本番では店舗ごとにDBから来る。
+ * **検証用。DBには一切書き込まない。** 中身は実在の飲食店のメニューをもとにした例
+ * （2026-08-28 天真提供。2026-10-01、店名と店名入りの商品名を架空のものに替えた）。本番では店舗ごとにDBから来る。
  *
  * 2026-08-28 の再設計（チャッピー資料＋天真の方針）:
  *   ・**商品と感想を item 単位で紐づける**（「どの料理の感想か」を曖昧にしない）
@@ -12,7 +12,7 @@
  *   ・選択肢は**事実型**を中心にする（表現型は自由記述・音声から拾う）
  */
 
-export const STORE_NAME = "YORKYS BRUNCH 夙川";
+export const STORE_NAME = "グッドカフェ 本店";
 
 export type Choice = { id: string; label: string; provisional?: string };
 
@@ -76,7 +76,7 @@ export const MENU: MenuCategory[] = [
     id: "burger",
     label: "ハンバーガー",
     items: [
-      { id: "bg-yorkys", label: "YORKYSバーガー" },
+      { id: "bg-yorkys", label: "グッドバーガー" },
       { id: "bg-avocado", label: "アボカドとゴルゴンゾーラ" },
     ],
   },

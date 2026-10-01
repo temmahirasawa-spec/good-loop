@@ -1,26 +1,50 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AiBadge } from "@/components/rating-flow/AiBadge";
 import { CopyIcon } from "@/components/rating-flow/icons";
 import { BackIcon, CheckCircleIcon, CheckMarkIcon, MapPinIcon, MicIcon } from "@/components/demo/icons";
 import { markInsertions, withPeriod, type MarkedChar } from "@/lib/survey/insertions";
-import { OTHER_FIELD, V5_TOPICS, v5Topic } from "@/lib/survey/v5-topics";
+import { OTHER_FIELD, v5Topic, type V5Topic } from "@/lib/survey/v5-topics";
 
 /**
- * アンケート v5 のプロトタイプ（docs/specs/survey-v5.md）。
+ * アンケート v5（docs/specs/survey-v5.md）。本番の `/r/[storeSlug]` と、検証用の `/demo/v5` の両方で使う。
  *
- * **検証専用。DBには一切書き込まない。** 本番のお客様導線（/r/[storeSlug]）には影響しない。
- * 見た目と動きは app/demo/v5/v5.css（Webサイトのリブランディング版の世界観を借りている）。
+ * 見た目と動きは components/survey/v5.css（Webサイトのリブランディング版の世界観を借りている）。
  *
  * 流れ：① ★評価 → ② 印象に残ったこと（2カラム）→ ③ 届け先（2枚の扉）→ ④ ★だけ／書く／お店へ → 完了
  * 書く画面は「選んだ話題の欄＋その他（自由記入）」。**AIは欄の下の「完成した文章」で、各欄の言葉をつなげるだけ**
  * （助詞と句読点だけを足し、足した文字に色を付ける）。書いている途中にAIが話しかけることはない。
+ *
+ * **★で行き先を分けない。** ★はどの分岐にも使わず、届け先は本人が③で選ぶ（案I）。
+ *
+ * 保存（2026-10-01 本番化）：
+ *   - Google … 画面は**先に Google を開き**、保存は待たない（ポップアップを止められないよう、押した瞬間に開く）。
+ *              保存は keepalive で送るので、画面を離れても届く
+ *   - お店   … 保存できたのを見てから完了へ進む。失敗したら、その場でもう一度押せる
+ *   - `demo` のときは何も保存しない（/demo/v5）
  */
 
 type Phase = "rating" | "topics" | "destination" | "starOnly" | "write" | "storeConfirm" | "done";
 type Destination = "google" | "store";
 type Level = 1 | 2 | 3 | 4 | 5;
+
+/** 画面に出す店の情報。ロゴが無い店は店名を文字で出す */
+export type V5Store = {
+  /** 本番の店舗 id。demo のときは null */
+  id: string | null;
+  name: string;
+  logoUrl: string | null;
+  /** Google マップのクチコミ投稿を開く URL（lib/survey/google-url.ts）。demo のときは null */
+  googleReviewUrl: string | null;
+};
+
+type SaveInput = {
+  destination: Destination;
+  wrote: boolean;
+  copied?: boolean;
+  openedGoogle?: boolean;
+};
 
 const LEVELS: Level[] = [1, 2, 3, 4, 5];
 /** 本番の評価ボタン（components/rating-flow/RatingButton.tsx）と同じ言葉 */
@@ -31,6 +55,9 @@ const STEP_OF: Record<Phase, number> = { rating: 1, topics: 2, destination: 3, s
 const JOIN_IDLE_MS = 1200;
 /** これより短い欄はAIに渡さない（本人の言葉のまま句点だけ足す） */
 const JOIN_MIN_CHARS = 4;
+
+/** 店のロゴ・店名を画面の奥の部品まで配る（どの段にも出るので、props で順に渡さない） */
+const StoreContext = createContext<V5Store>({ id: null, name: "", logoUrl: null, googleReviewUrl: null });
 
 /** 短い触覚。対応していない端末では何も起きない */
 function tick() {
@@ -44,7 +71,7 @@ function plainPart(text: string): JoinedPart {
   return { chars: Array.from(withPeriod(text)).map((char) => ({ char, inserted: false })), byAi: false };
 }
 
-export function V5Survey() {
+export function V5Survey({ store, topics: topicChoices, demo = false }: { store: V5Store; topics: V5Topic[]; demo?: boolean }) {
   const [phase, setPhase] = useState<Phase>("rating");
   const [rating, setRating] = useState<Level | null>(null);
   const [topics, setTopics] = useState<string[]>([]);
@@ -61,6 +88,11 @@ export function V5Survey() {
   const [edited, setEdited] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
+
+  // ── 保存：届け先ごとに1回だけ（同じ人が「コピー」と「開く」を押しても行が2つにならない） ──
+  const saved = useRef<Partial<Record<Destination, Promise<string | null>>>>({});
+  const [sending, setSending] = useState(false);
+  const [sendFailed, setSendFailed] = useState(false);
 
   // hydration のずれを避けるため、乱数はマウント後に決める
   useEffect(() => {
@@ -112,6 +144,90 @@ export function V5Survey() {
   const plainText = filled.map(withPeriod).join("");
   const aiText = aiReady ? parts.map((p) => p!.chars.map((c) => c.char).join("")).join("") : null;
   const finalText = edited ?? (useAi && aiText ? aiText : plainText);
+  /** 完成した文章に「AIがつなげた文」を使っているか（元の言葉のまま・直したときは false） */
+  const aiJoined = edited === null && useAi && aiText !== null;
+
+  /** 回答を保存する。届け先ごとに1回。保存できなければ null（お店のときは押し直せる） */
+  const save = (input: SaveInput): Promise<string | null> => {
+    if (demo || !store.id || rating === null) return Promise.resolve(demo ? "demo" : null);
+    const existing = saved.current[input.destination];
+    if (existing) return existing;
+    const wrote = input.wrote && filled.length > 0;
+    const fields: Record<string, string> = {};
+    if (wrote) {
+      for (const id of fieldIds) {
+        const text = (fragments[id] ?? "").trim();
+        if (text !== "") fields[id] = text;
+      }
+    }
+    const request = fetch("/api/survey/v5/responses", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      // Google のときは押した瞬間に Google を開くので、このページが裏に回っても届くようにする
+      keepalive: true,
+      body: JSON.stringify({
+        storeId: store.id,
+        rating,
+        destination: input.destination,
+        wrote,
+        topics,
+        fields: wrote ? fields : undefined,
+        finalText: wrote ? finalText : undefined,
+        aiJoined: wrote ? aiJoined : undefined,
+        copied: input.copied === true,
+        openedGoogle: input.openedGoogle === true,
+      }),
+    })
+      .then((res) => (res.ok ? (res.json() as Promise<{ responseId?: string }>) : null))
+      .then((data) => data?.responseId ?? null)
+      .catch(() => null);
+    saved.current[input.destination] = request;
+    // 保存できなかったら覚えておかない（押し直したときに、もう一度送れるように）
+    request.then((id) => {
+      if (id === null) delete saved.current[input.destination];
+    });
+    return request;
+  };
+
+  /** すでに保存した回答に、Google を開いたことを書き足す（コピー → 開く の順に進んだ人） */
+  const trackOpened = (request: Promise<string | null>) => {
+    if (demo) return;
+    request.then((responseId) => {
+      if (!responseId) return;
+      fetch("/api/rating-flow/track-event", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({ responseId, eventType: "opened_google" }),
+      }).catch(() => {});
+    });
+  };
+
+  /** Google を開いて完了へ。**開くのは押した瞬間**（保存を待つとポップアップが止められる） */
+  const openGoogle = (wrote: boolean) => {
+    tick();
+    if (!demo && store.googleReviewUrl) window.open(store.googleReviewUrl, "_blank", "noreferrer");
+    const existing = saved.current.google;
+    if (existing) trackOpened(existing);
+    else void save({ destination: "google", wrote, openedGoogle: true });
+    setPhase("done");
+    window.scrollTo({ top: 0 });
+  };
+
+  /** お店へ届ける。保存できたのを見てから完了へ進む */
+  const sendToStore = async (wrote: boolean) => {
+    tick();
+    setSending(true);
+    setSendFailed(false);
+    const responseId = await save({ destination: "store", wrote });
+    setSending(false);
+    if (responseId === null) {
+      setSendFailed(true);
+      return;
+    }
+    setPhase("done");
+    window.scrollTo({ top: 0 });
+  };
 
   const chooseRating = (level: Level) => {
     tick();
@@ -127,6 +243,7 @@ export function V5Survey() {
 
   const go = (next: Phase) => {
     tick();
+    setSendFailed(false);
     setPhase(next);
     window.scrollTo({ top: 0 });
   };
@@ -137,6 +254,8 @@ export function V5Survey() {
       await navigator.clipboard.writeText(finalText);
       setCopiedText(finalText);
       setCopyFailed(false);
+      // コピーできた時点で保存する（このあと Google の画面へ行ったきり戻らない人がいるため）
+      void save({ destination: "google", wrote: true, copied: true });
     } catch {
       // コピーできていないのに「コピーしました」と出すと、貼り付ける段で必ず詰まる（v4 のレビュー）。
       // ただ、アプリ内ブラウザなどコピーを許さない環境で先へ進めなくなるのはもっと悪いので、
@@ -147,78 +266,101 @@ export function V5Survey() {
   };
 
   return (
-    <div className="v5 mx-auto flex min-h-dvh w-full max-w-[390px] flex-col">
-      {phase === "rating" ? <RatingStep selected={rating} onSelect={chooseRating} /> : null}
+    <StoreContext.Provider value={store}>
+      <div className="v5 mx-auto flex min-h-dvh w-full max-w-[390px] flex-col">
+        {phase === "rating" ? <RatingStep selected={rating} onSelect={chooseRating} /> : null}
 
-      {phase !== "rating" && phase !== "done" ? (
-        <AppBar step={STEP_OF[phase]} onBack={() => go(phase === "topics" ? "rating" : phase === "destination" ? "topics" : "destination")} />
-      ) : null}
+        {phase !== "rating" && phase !== "done" ? (
+          <AppBar step={STEP_OF[phase]} onBack={() => go(phase === "topics" ? "rating" : phase === "destination" ? "topics" : "destination")} />
+        ) : null}
 
-      {phase === "topics" ? (
-        <TopicsStep rating={rating} topics={topics} onToggle={toggleTopic} onNext={() => go("destination")} />
-      ) : null}
+        {phase === "topics" ? (
+          <TopicsStep rating={rating} choices={topicChoices} topics={topics} onToggle={toggleTopic} onNext={() => go("destination")} />
+        ) : null}
 
-      {phase === "destination" ? (
-        <DestinationStep
-          onWrite={(d) => {
-            setDestination(d);
-            go("write");
-          }}
-          onStarOnly={() => {
-            setDestination("google");
-            go("starOnly");
-          }}
-          onStoreRatingOnly={() => {
-            setDestination("store");
-            go("storeConfirm");
-          }}
-        />
-      ) : null}
+        {phase === "destination" ? (
+          <DestinationStep
+            onWrite={(d) => {
+              setDestination(d);
+              go("write");
+            }}
+            onStarOnly={() => {
+              setDestination("google");
+              go("starOnly");
+            }}
+            onStoreRatingOnly={() => {
+              setDestination("store");
+              go("storeConfirm");
+            }}
+          />
+        ) : null}
 
-      {phase === "starOnly" ? <StarOnlyStep rating={rating} onFinish={() => go("done")} /> : null}
+        {phase === "starOnly" ? <StarOnlyStep rating={rating} onOpenGoogle={() => openGoogle(false)} /> : null}
 
-      {phase === "storeConfirm" ? <StoreConfirmStep rating={rating} topics={topics} onFinish={() => go("done")} /> : null}
+        {phase === "storeConfirm" ? (
+          <StoreConfirmStep rating={rating} topics={topics} sending={sending} failed={sendFailed} onSend={() => void sendToStore(false)} />
+        ) : null}
 
-      {phase === "write" ? (
-        <WriteStep
-          destination={destination}
-          rating={rating}
-          fieldIds={fieldIds}
-          fragments={fragments}
-          rotation={rotation}
-          onChange={(id, v) => setFragments((prev) => ({ ...prev, [id]: v }))}
-          onCompositionStart={() => setComposing(true)}
-          onCompositionEnd={() => setComposing(false)}
-          hasText={filled.length > 0}
-          joining={joining}
-          aiParts={aiReady && useAi && edited === null ? (parts as JoinedPart[]) : null}
-          aiReady={aiReady}
-          useAi={useAi}
-          onToggleAi={() => {
-            tick();
-            setUseAi((v) => !v);
-          }}
-          edited={edited}
-          onEdit={setEdited}
-          finalText={finalText}
-          copied={copiedText !== null && copiedText === finalText}
-          copyFailed={copyFailed}
-          onCopy={copy}
-          onFinish={() => go("done")}
-        />
-      ) : null}
+        {phase === "write" ? (
+          <WriteStep
+            destination={destination}
+            rating={rating}
+            fieldIds={fieldIds}
+            fragments={fragments}
+            rotation={rotation}
+            onChange={(id, v) => setFragments((prev) => ({ ...prev, [id]: v }))}
+            onCompositionStart={() => setComposing(true)}
+            onCompositionEnd={() => setComposing(false)}
+            hasText={filled.length > 0}
+            joining={joining}
+            aiParts={aiReady && useAi && edited === null ? (parts as JoinedPart[]) : null}
+            aiReady={aiReady}
+            useAi={useAi}
+            onToggleAi={() => {
+              tick();
+              setUseAi((v) => !v);
+            }}
+            edited={edited}
+            onEdit={setEdited}
+            finalText={finalText}
+            copied={copiedText !== null && copiedText === finalText}
+            copyFailed={copyFailed}
+            onCopy={copy}
+            onOpenGoogle={() => openGoogle(filled.length > 0)}
+            sending={sending}
+            sendFailed={sendFailed}
+            onSendToStore={() => void sendToStore(filled.length > 0)}
+          />
+        ) : null}
 
-      {phase === "done" ? <DoneStep destination={destination} /> : null}
-    </div>
+        {phase === "done" ? <DoneStep destination={destination} demo={demo} /> : null}
+      </div>
+    </StoreContext.Provider>
   );
 }
 
 /* ── 共通：店のロゴ・進み具合・上のバー ─────────────────────────── */
 
-/** 店舗のロゴ（Figma `Logo / Horizontal / Black` 49:870 を書き出したもの。本番では店舗ごとに差し替わる） */
+/**
+ * 店のロゴ（Figma `Logo / Horizontal / Black` 49:870 の位置）。
+ * 店舗にロゴの画像があればそれを、無ければ**店名を文字で**出す（多くの店はロゴを登録していないため。2026-10-01）。
+ */
 function StoreLogo({ height }: { height: number }) {
-  // eslint-disable-next-line @next/next/no-img-element -- 試作。本番では店舗ごとの画像（next/image）にする
-  return <img src="/demo/v5/yorkys-logo.svg" alt="YORKYS BRUNCH" width={Math.round((135 / 47) * height)} height={height} />;
+  const store = useContext(StoreContext);
+  if (store.logoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- 店舗ごとの画像（Supabase Storage）。next/image は配信元の許可設定が要るので使わない
+      <img src={store.logoUrl} alt={store.name} className="w-auto max-w-[240px] object-contain" style={{ height }} />
+    );
+  }
+  return (
+    <p
+      className="max-w-[260px] truncate text-center font-bold leading-none tracking-[0.02em]"
+      style={{ fontSize: Math.round(height * 0.5), lineHeight: `${height}px` }}
+    >
+      {store.name}
+    </p>
+  );
 }
 
 /** 進み具合（Figma `Review / Progress Bar` を4段にしたもの） */
@@ -415,11 +557,14 @@ function RatingStep({ selected, onSelect }: { selected: Level | null; onSelect: 
 
 function TopicsStep({
   rating,
+  choices,
   topics,
   onToggle,
   onNext,
 }: {
   rating: Level | null;
+  /** 店舗の業態に合わせた6つ（lib/survey/v5-topics.ts の v5TopicsFor） */
+  choices: V5Topic[];
   topics: string[];
   onToggle: (id: string) => void;
   onNext: () => void;
@@ -441,7 +586,7 @@ function TopicsStep({
         </div>
 
         <div className="grid w-full grid-cols-2 gap-[var(--product-space-12)]">
-          {V5_TOPICS.map((topic, i) => {
+          {choices.map((topic, i) => {
             const on = topics.includes(topic.id);
             return (
               <button
@@ -581,7 +726,7 @@ function DoorCard({
 
 /* ── ④a ★だけで評価する（Google） ─────────────────────────────── */
 
-function StarOnlyStep({ rating, onFinish }: { rating: Level | null; onFinish: () => void }) {
+function StarOnlyStep({ rating, onOpenGoogle }: { rating: Level | null; onOpenGoogle: () => void }) {
   return (
     <div className="flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-40)] pt-[var(--product-space-12)]">
       <div className="v5-rise flex w-full flex-col gap-[var(--product-space-8)]">
@@ -593,7 +738,7 @@ function StarOnlyStep({ rating, onFinish }: { rating: Level | null; onFinish: ()
       <p className="text-xs leading-[1.9]" style={{ color: "var(--product-color-text-tertiary)" }}>
         文章は書かなくても投稿できます。選んだものはGoogleには送られません。お店にだけ届きます。
       </p>
-      <button type="button" onClick={onFinish} className="v5-press v5-btn v5-btn--primary">
+      <button type="button" onClick={onOpenGoogle} className="v5-press v5-btn v5-btn--primary">
         <MapPinIcon className="size-[17px] shrink-0" />
         Googleマップを開く
       </button>
@@ -603,7 +748,19 @@ function StarOnlyStep({ rating, onFinish }: { rating: Level | null; onFinish: ()
 
 /* ── ④c ★評価だけを届ける（お店） ────────────────────────────── */
 
-function StoreConfirmStep({ rating, topics, onFinish }: { rating: Level | null; topics: string[]; onFinish: () => void }) {
+function StoreConfirmStep({
+  rating,
+  topics,
+  sending,
+  failed,
+  onSend,
+}: {
+  rating: Level | null;
+  topics: string[];
+  sending: boolean;
+  failed: boolean;
+  onSend: () => void;
+}) {
   const labels = topics.map((id) => v5Topic(id)?.label ?? "").filter(Boolean);
   return (
     <div className="flex w-full flex-1 flex-col gap-[var(--product-space-20)] px-[var(--product-space-20)] pb-[var(--product-space-40)] pt-[var(--product-space-12)]">
@@ -625,10 +782,20 @@ function StoreConfirmStep({ rating, topics, onFinish }: { rating: Level | null; 
         ) : null}
         {labels.length > 0 ? <Field label="印象に残ったこと">{labels.join("／")}</Field> : null}
       </div>
-      <button type="button" onClick={onFinish} className="v5-press v5-btn v5-btn--primary mt-[var(--product-space-8)]">
-        とどける
+      {failed ? <SendFailedNote /> : null}
+      <button type="button" onClick={onSend} disabled={sending} className="v5-press v5-btn v5-btn--primary mt-[var(--product-space-8)]">
+        {sending ? "送っています…" : "とどける"}
       </button>
     </div>
+  );
+}
+
+/** お店へ届けられなかったとき。押し直せば、もう一度送る（保存できなかった回答は覚えていない） */
+function SendFailedNote() {
+  return (
+    <p role="alert" className="text-sm leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
+      送れませんでした。電波の良いところで、もう一度押してください。
+    </p>
   );
 }
 
@@ -669,7 +836,10 @@ function WriteStep({
   copied,
   copyFailed,
   onCopy,
-  onFinish,
+  onOpenGoogle,
+  sending,
+  sendFailed,
+  onSendToStore,
 }: {
   destination: Destination;
   rating: Level | null;
@@ -691,7 +861,12 @@ function WriteStep({
   copied: boolean;
   copyFailed: boolean;
   onCopy: () => void;
-  onFinish: () => void;
+  /** ②Googleマップを開く／書かずにGoogleマップを開く */
+  onOpenGoogle: () => void;
+  sending: boolean;
+  sendFailed: boolean;
+  /** この文章をお店に届ける／書かずに届ける */
+  onSendToStore: () => void;
 }) {
   const google = destination === "google";
   /** ②を押せるのは、コピーできたとき（できなかったときは長押しを案内したうえで押せるようにする） */
@@ -851,7 +1026,7 @@ function WriteStep({
                 </p>
               ) : null}
               <StepRow n={2} state={canOpenGoogle ? "active" : "idle"}>
-                <button type="button" onClick={onFinish} disabled={!canOpenGoogle} className="v5-press v5-btn v5-btn--primary">
+                <button type="button" onClick={onOpenGoogle} disabled={!canOpenGoogle} className="v5-press v5-btn v5-btn--primary">
                   <MapPinIcon className="size-[17px] shrink-0" />
                   Googleマップを開く
                 </button>
@@ -863,15 +1038,23 @@ function WriteStep({
               </StepRow>
             </>
           ) : (
-            <button type="button" onClick={onFinish} className="v5-press v5-btn v5-btn--secondary">
+            <button type="button" onClick={onOpenGoogle} className="v5-press v5-btn v5-btn--secondary">
               書かずにGoogleマップを開く
             </button>
           )}
         </section>
       ) : (
-        <button type="button" onClick={onFinish} disabled={hasText && joining} className="v5-press v5-btn v5-btn--primary">
-          {hasText ? "この文章をお店に届ける" : "書かずに届ける"}
-        </button>
+        <section className="flex w-full flex-col gap-[var(--product-space-12)]" aria-label="お店に届ける">
+          {sendFailed ? <SendFailedNote /> : null}
+          <button
+            type="button"
+            onClick={onSendToStore}
+            disabled={(hasText && joining) || sending}
+            className="v5-press v5-btn v5-btn--primary"
+          >
+            {sending ? "送っています…" : hasText ? "この文章をお店に届ける" : "書かずに届ける"}
+          </button>
+        </section>
       )}
     </div>
   );
@@ -914,11 +1097,13 @@ function SmallButton({ children, onClick }: { children: React.ReactNode; onClick
 
 /* ── 完了 ───────────────────────────────────────────── */
 
-function DoneStep({ destination }: { destination: Destination }) {
-  const message = useMemo(
-    () => (destination === "google" ? "このあとGoogleマップの投稿画面が開きます" : "いただいた内容は、お店の担当者が確認します"),
-    [destination],
-  );
+function DoneStep({ destination, demo }: { destination: Destination; demo: boolean }) {
+  const store = useContext(StoreContext);
+  const message = useMemo(() => {
+    if (destination === "store") return "いただいた内容は、お店の担当者が確認します";
+    // 本番は②を押した瞬間に別のタブで Google を開いている。戻ってきた人がここを見る
+    return demo ? "このあとGoogleマップの投稿画面が開きます" : "Googleマップの投稿画面を、別のタブで開きました";
+  }, [destination, demo]);
   return (
     <div className="flex w-full flex-1 flex-col items-center justify-center gap-[var(--product-space-20)] px-[var(--product-space-24)] py-[var(--product-space-40)]">
       <div className="v5-stamp">
@@ -929,9 +1114,24 @@ function DoneStep({ destination }: { destination: Destination }) {
       <p className="v5-rise text-center text-sm leading-[1.8]" style={{ color: "var(--product-color-text-secondary)" }}>
         {message}
       </p>
-      <p className="text-center text-xs" style={{ color: "var(--product-color-text-muted)" }}>
-        これは検証用のデモです。回答は保存されません
-      </p>
+      {!demo && destination === "google" && store.googleReviewUrl ? (
+        // 開かなかった（ブラウザに止められた・閉じてしまった）人のための入り口。押せる大きさにする
+        <a
+          href={store.googleReviewUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="v5-press v5-btn v5-btn--secondary"
+          onClick={() => tick()}
+        >
+          <MapPinIcon className="size-[17px] shrink-0" />
+          開かなかったときは、こちら
+        </a>
+      ) : null}
+      {demo ? (
+        <p className="text-center text-xs" style={{ color: "var(--product-color-text-muted)" }}>
+          これは検証用のデモです。回答は保存されません
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { CheckCircleIcon } from "@/components/demo/icons";
  * ⚠ まだ本番の `/r/[storeSlug]` には繋いでいない。トライアル切れで止める処理（`lib/billing/trial.ts` の
  *   `getTrialState` が "expired"）は、管理画面の予告（残り7日・3日の帯）と閲覧のみと**一緒に**入れる。
  *   予告なしで先に止めると、お店が知らないうちにアンケートが止まる（billing.md「期限切れで初めて知るのが一番まずい」）。
- *   見た目と動きは app/demo/v5/v5.css（`.v5` の下だけに効く）。
+ *   見た目と動きは components/survey/v5.css（`.v5` の下だけに効く）。
  */
 export function V5PausedNotice() {
   return (

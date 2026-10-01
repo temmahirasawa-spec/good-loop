@@ -1,5 +1,5 @@
 /*
- * アンケート v5 試作の見た目と動き（docs/specs/survey-v5.md §9）。「/demo/v5」の中だけに効く（.v5 の下に閉じている）。
+ * アンケート v5 試作の見た目と動き（docs/specs/survey-v5.md §9）。本番の /r/[storeSlug] と /demo/v5 で使う（.v5 の下に閉じている。2026-10-01 に app/demo/v5 から移した）。
  *
  * 2026-09-28 天真の指示「Webサイト（リブランディング版）の世界観やトーンをある程度踏襲」に沿って、
  * Webサイト v2（GOOD_LOOP_Official の feat/v2-rebrand、design/v2/palette.json・motion/v2/tokens.ts）の値を借りている。

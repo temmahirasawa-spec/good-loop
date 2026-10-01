@@ -2,7 +2,11 @@
 
 作成日: 2026-09-26（同日、天真の iPhone 実機での所感を受けて改訂。2026-09-28 に天真の修正指示で改訂）
 上位の前提: `docs/specs/survey-v4.md`（v4 の設計・検査層・根拠はすべて引き継ぐ）／壁打ち資料 https://claude.ai/artifact/EGRr9SAZFREHZ9yE8nTWLC
-実装の対象: `/demo/v5`（来店客側プロトタイプ。**DBには書き込まない**）→ その後 本番 `/r/[storeSlug]`
+実装の対象: 本番 `/r/[storeSlug]`（2026-10-01〜）と、検証用の `/demo/v5`（**DBには書き込まない**）。どちらも `components/survey/V5Survey.tsx`
+
+> **2026-10-01 本番化（天真「本番の来店客の画面を今すぐ v5 に。試験導入の前に」）。** 枝 `feat/survey-v5-production`（#77 の中身を含む）。
+> 旧い画面（★4以上だけ Google へ案内・AIが全文を書く `components/rating-flow/RatingFlow.tsx`）は `/r` から外した（コードは残してある）。
+> 保存は `supabase/0019_survey_v5.sql`（**マージの前に天真が実行**）。§0 の B-1〜B-4 と、下の B-5〜B-7 は承認待ちのまま PR で止めている。
 
 ---
 
@@ -15,7 +19,11 @@ CLAUDE.md 3章の「止まって確認する」に当たるもの。**承認が�
 | B-1 | 「つなげる」でAIが足せるのは助詞と句読点だけ、という線引きと、そのプロンプト（v4 の「整える」をそのまま使う＝v4 の A-2・A-5 と同じもの） | `lib/survey/polish-prompt.ts` | 本番の「AIでつなげる」が動かない（本人の言葉に句点を足してつなげるだけになる） |
 | B-2 | 来店客の文言（②の問い「印象に残ったことはありますか？」・話題の6つ・扉の文言・書く画面の見出し「Googleに載せる感想を書く」・欄の名前・完成した文章の説明） | §3 | v4 の文言のまま |
 | B-3 | 「書いた文章は、お店にも届きます」＝Googleを選んで書いた文もお店に保存すること | §3 ④b | Googleで投稿をやめた人の文がお店に届かない（保存するなら §7 のスキーマ変更も要る） |
-| B-4 | 試作専用に置いた3色（生成り #FAF6EC・★の黄 #FFBC11・影）を Figma の変数に登録すること | app/demo/v5/v5.css・§8 | 本番の画面は今の色のまま（Webサイトと色がそろわない） |
+| B-4 | 試作専用に置いた3色（生成り #FAF6EC・★の黄 #FFBC11・影）を Figma の変数に登録すること | components/survey/v5.css・§8 | 本番の画面は今の色のまま（Webサイトと色がそろわない） |
+| B-5 | **2026-10-01 本番化で足した文言**：送れなかったとき「送れませんでした。電波の良いところで、もう一度押してください。」／送っている間「送っています…」／Google を開いたあとの完了「Googleマップの投稿画面を、別のタブで開きました」と「開かなかったときは、こちら」 | `components/survey/V5Survey.tsx` | 試作の文言（「このあとGoogleマップの投稿画面が開きます」）のまま |
+| B-6 | **飲食以外の話題のセット**（一般＝サービスの内容・接客・店内の雰囲気・待ち時間と予約・料金・清潔さ／医療系＝説明・施術と診察・受付とスタッフ・待ち時間と予約・院内の雰囲気と清潔さ・費用）と、その問い | `lib/survey/v5-topics.ts` | 試験導入に飲食以外のお店が入ると、「料理・ドリンク」が出てしまう |
+| B-7 | **低評価のメールの1行**（v5 は★3以下でも Google を選ぶ人がいる）：Google「この方は Google マップへの投稿を選びました。実際に投稿されたかどうかは、Google マップでご確認ください。」／お店「この内容は Google マップには投稿されていません。お店にだけ届いた声です。」 | `lib/rating-flow/low-rating-alert.ts` | Google を選んだ人についても「投稿されていません」と書く（嘘になる） |
+| — | ロゴを登録していない店は、ロゴの場所に**店名を文字で**出す（Figma の `Logo / Horizontal / Black` の位置） | `V5Survey.tsx` の `StoreLogo` | 本番の店の大半はロゴが無いので、何も出ない |
 
 **取り消せるか：** どれも文言と設定なので、いつでも戻せる。B-3 で保存を始めた場合だけ、保存した文の扱い（消すか残すか）が要る。
 
@@ -137,7 +145,17 @@ Figma のデザインは最後に詰めるので、先に実装を進めてよ�
 | AI | 整える（押したときだけ・1文） | **つなげる**（書き終えたあとに1回。欄ごとに整えてつなげ、足した文字に色） |
 | 「AI」の表示 | なし | 「AIがつなげました」のバッジ（既存の `AiBadge`） |
 
-## 7. 本番化のときに決めること（未解決）
+## 7. 本番化のときに決めること（2026-10-01 に対応した分は ✅）
+
+- ✅ 1（レート制限）… Supabase の `survey_requests` で数える（`lib/survey/request-limit.ts`）。AI は IP あたり1時間300回・全体で1日6,000回、回答は IP あたり1時間60回・全体で1日5,000回。
+  数えられないとき、AI は断る（本人の言葉のまま句点だけでつなげる）／回答は通す。同じ店の Wi-Fi は同じ IP に見えるので、IP の上限は大きめ
+- ✅ 2（保存）… `survey_responses` に flow・destination・wrote・topics・fields・ai_joined を足した（0019）。完成した文章は既存の free_text。
+  **B-3（Googleを選んだ人の文もお店に保存）は提案どおりに実装した**（画面の注記「書いた文章は、お店にも届きます」と合わせるため）。承認されなければ外す
+- ✅ 3（Googleを開く）… `lib/survey/google-url.ts`（place_id → 登録したURL → 店名で検索）。押した瞬間に別のタブで開き、保存は keepalive で送る
+- branch（good / improve）は★から導いて入れ続ける（管理画面の絞り込みのため）。**行き先の決定には使わない**
+- 4・5 は未対応（iPhone 実機の確認、LP の書き換え）
+
+### 7（旧）本番化のときに決めること
 
 1. **レート制限を Supabase へ**：`/api/survey/polish` はサーバーの記憶で数えている（v4 からの宿題）。つなげるは欄の数だけ呼ぶので、上限の数え方も欄単位にする
 2. **書いた文と届け先の保存**（B-3）：v4 の `supabase/0017_*`（未作成・承認項目 A-4）と一緒に設計する。欄ごと（話題ごと）に保存できると、お店側で「料理についての声」「接客についての声」を分けて読める
@@ -162,11 +180,15 @@ Webサイト v2（`~/Dev/Websites/UTUTU/GOOD_LOOP_Official_worktrees/v2-rebrand`
 
 | ファイル | 役割 |
 |---|---|
-| `app/demo/v5/page.tsx` | 試作の入口（noindex） |
+| `app/demo/v5/page.tsx` | 検証用の入口（noindex・保存しない・架空の店「グッドカフェ」） |
 | `components/survey/V5Survey.tsx` | 画面①〜⑤ |
-| `app/demo/v5/v5.css` | v5 だけに効く見た目と動き（§8） |
+| `components/survey/v5.css` | v5 だけに効く見た目と動き（§8）。2026-10-01 に app/demo/v5 から移した |
+| `app/r/[storeSlug]/page.tsx` | 本番の入口（2026-10-01〜 v5）。店の業態で話題のセットを選ぶ |
+| `app/api/survey/v5/responses/route.ts` | 回答の保存・送客の記録・低評価のメール |
+| `lib/survey/request-limit.ts`・`lib/survey/google-url.ts` | 回数の上限・Google を開く URL |
+| `supabase/0019_survey_v5.sql` | 回答の列と回数の記録（**マージ前に実行**） |
 | `lib/survey/v5-topics.ts` | 2カラムの話題6つと「その他」、欄ごとの問い |
-| `public/demo/v5/*` | Figma から書き出したロゴ（SVG）と、Google・お店のイラスト（PNG） |
+| `public/demo/v5/*` | Google・お店のイラスト（PNG）。実在の店のロゴは 2026-10-01 に消した |
 | `components/survey/V5PausedNotice.tsx`・`app/demo/v5/paused/page.tsx` | 停止中のお知らせ（案B）と確認用ページ。本番の `/r/[storeSlug]` にはまだ繋いでいない（billing.md 5-2） |
 | `lib/survey/insertions.ts` | AIが足した文字に印を付ける（最長共通部分列）／句点を足す |
 | （v4 のまま）`app/api/survey/polish/route.ts`・`lib/survey/polish-prompt.ts`・`lib/survey/polish-guard.ts` | 欄ごとの「整える」と、その検査 |

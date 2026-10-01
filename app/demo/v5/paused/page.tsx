@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { V5PausedNotice } from "@/components/survey/V5PausedNotice";
-import "../v5.css";
+import "@/components/survey/v5.css";
 
 /**
  * 停止中のお知らせ（v5・案B）の確認用ページ。**検証専用・noindex。**
