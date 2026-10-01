@@ -28,6 +28,8 @@ import { INVITE_CODE_UNUSABLE, normalizeInviteCode } from "@/lib/signup/invite-c
  *   - 試験導入で登録できたら、完了画面に無料期間と月額の案内を出さない（無料のため）
  *   - 試験導入の店舗数は PILOT_MAX_STORES まで（選んだ数がそのまま無料の枠になるため）。
  *     invite ではステッパーの上限そのものを下げる。open でコードを入れたときは進む前に止める
+ *   - invite のときは料金の段を試験導入の文言（PILOT_COPY）にし、「14日間無料」
+ *     「15日目からの月額」「お申し込み後の月額」を出さない（試験導入は無料のため）
  */
 
 type Step = "pricing" | "account" | "done";
@@ -41,6 +43,19 @@ const FAQ = [
   ],
   ["支払い方法は何が使えますか？", "クレジットカードのみです。"],
 ] as const;
+
+/**
+ * 試験導入（SIGNUP_MODE=invite）のときの料金の段の文言（2026-10-01、天真さんの確認待ち）。
+ *
+ * 試験導入は無料なので「14日間無料」「15日目からの月額」は使わない（実態と違うため）。
+ * 料金の数字はプランのカードに参考として残す。**金額は BILLING から取る**（画面に直書きしない）。
+ */
+const PILOT_COPY = {
+  badge: "試験導入中は無料",
+  title: "試験導入のあいだは無料です",
+  body: `正式な公開のときに改めてご案内します。そこから${TRIAL_DAYS}日間の無料体験のあと、月額${formatYen(BILLING.planMonthlyYen)}（税抜）になります。いまカードの登録は要りません。`,
+  start: "無料で始める",
+};
 
 export function SignupFlow({
   inviteRequired,
@@ -65,6 +80,8 @@ export function SignupFlow({
   const [submitting, setSubmitting] = useState(false);
   /** 試験導入として登録されたか（完了画面に無料期間と月額の案内を出さない） */
   const [pilot, setPilot] = useState(false);
+  /** 始めるボタンの文言。料金の段・アカウント作成の段・同意の注記で同じものを使う */
+  const startLabel = inviteRequired ? PILOT_COPY.start : `${TRIAL_DAYS}日間無料で始める`;
 
   /**
    * サーバーが「コードが使えない」と返して1つ目の段に戻したとき、コードの欄まで画面を送る。
@@ -169,11 +186,14 @@ export function SignupFlow({
               error: fieldErrors.inviteCode,
               fieldRef: inviteFieldRef,
             }}
+            startLabel={startLabel}
             onNext={goToAccount}
           />
         ) : (
           <Account
             storeCount={storeCount}
+            inviteRequired={inviteRequired}
+            startLabel={startLabel}
             values={{ companyName, personName, email, password }}
             setters={{ setCompanyName, setPersonName, setEmail, setPassword }}
             fieldErrors={fieldErrors}
@@ -194,6 +214,7 @@ function Pricing({
   storeCount,
   setStoreCount,
   invite,
+  startLabel,
   onNext,
 }: {
   storeCount: number;
@@ -205,6 +226,7 @@ function Pricing({
     error?: string;
     fieldRef: RefObject<HTMLDivElement>;
   };
+  startLabel: string;
   onNext: () => void;
 }) {
   return (
@@ -233,7 +255,7 @@ function Pricing({
               className="whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-bold md:text-[12px]"
               style={{ backgroundColor: "var(--review-accent-wash)", color: "var(--review-accent-primary)" }}
             >
-              {TRIAL_DAYS}日間無料
+              {invite.required ? PILOT_COPY.badge : `${TRIAL_DAYS}日間無料`}
             </span>
           </div>
 
@@ -284,21 +306,25 @@ function Pricing({
           <p className="text-[15px] font-bold md:text-[16px]" style={{ color: "var(--product-color-text-primary)" }}>
             お店の数を選んでください
           </p>
-          {/* 試験導入（invite）は無料なので、選べる店舗数に上限を置く（lib/signup/plan.ts の PILOT_MAX_STORES） */}
+          {/* 試験導入（invite）は無料なので、選べる店舗数に上限を置く（lib/signup/plan.ts の PILOT_MAX_STORES）。
+              「お申し込み後の月額」も実態と違うので出さない（料金はプランのカードと下の案内に参考として残す） */}
           <PricingSimulator
             storeCount={storeCount}
             onChange={setStoreCount}
             max={invite.required ? PILOT_MAX_STORES : undefined}
+            showPrice={!invite.required}
           />
           <div
             className="flex w-full flex-col gap-1 rounded-xl px-4 py-3"
             style={{ backgroundColor: "var(--review-accent-wash)" }}
           >
             <p className="text-[12.5px] font-bold" style={{ color: "var(--review-accent-primary)" }}>
-              最初の{TRIAL_DAYS}日間は無料です
+              {invite.required ? PILOT_COPY.title : `最初の${TRIAL_DAYS}日間は無料です`}
             </p>
             <p className="text-[11.5px] leading-[1.6]" style={{ color: "var(--product-color-text-secondary)" }}>
-              お支払いが始まるのは{TRIAL_DAYS + 1}日目から。無料期間中にやめれば費用はかかりません
+              {invite.required
+                ? PILOT_COPY.body
+                : `お支払いが始まるのは${TRIAL_DAYS + 1}日目から。無料期間中にやめれば費用はかかりません`}
             </p>
           </div>
           {/* 招待コード（2026-10-01）。Figma に無い要素なので、アカウント作成の段と同じ入力欄をそのまま使う */}
@@ -315,7 +341,7 @@ function Pricing({
             />
           </div>
           <ReviewButton variant="primary" onClick={onNext}>
-            {TRIAL_DAYS}日間無料で始める
+            {startLabel}
           </ReviewButton>
           <p className="w-full text-center text-[11.5px]" style={{ color: "var(--product-color-text-muted)" }}>
             カードの登録は不要です
@@ -358,6 +384,8 @@ function Pricing({
 
 function Account({
   storeCount,
+  inviteRequired,
+  startLabel,
   values,
   setters,
   fieldErrors,
@@ -367,6 +395,10 @@ function Account({
   onSubmit,
 }: {
   storeCount: number;
+  /** 試験導入（invite）か。無料なので「15日目からの月額」を出さない */
+  inviteRequired: boolean;
+  /** 始めるボタンの文言（料金の段と同じ） */
+  startLabel: string;
   values: { companyName: string; personName: string; email: string; password: string };
   setters: {
     setCompanyName: (v: string) => void;
@@ -416,14 +448,16 @@ function Account({
             変更
           </button>
         </div>
-        <div className="flex w-full items-center justify-between gap-3">
-          <p className="text-[12.5px]" style={{ color: "var(--product-color-text-secondary)" }}>
-            {TRIAL_DAYS + 1}日目からの月額
-          </p>
-          <p className="text-[14px] font-bold tabular-nums" style={{ color: "var(--product-color-text-primary)" }}>
-            {formatYen(monthlyYenFor(storeCount))}
-          </p>
-        </div>
+        {!inviteRequired && (
+          <div className="flex w-full items-center justify-between gap-3">
+            <p className="text-[12.5px]" style={{ color: "var(--product-color-text-secondary)" }}>
+              {TRIAL_DAYS + 1}日目からの月額
+            </p>
+            <p className="text-[14px] font-bold tabular-nums" style={{ color: "var(--product-color-text-primary)" }}>
+              {formatYen(monthlyYenFor(storeCount))}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex w-full flex-col gap-4">
@@ -463,12 +497,12 @@ function Account({
       </div>
 
       <p className="text-[11.5px] leading-[1.6]" style={{ color: "var(--product-color-text-muted)" }}>
-        「{TRIAL_DAYS}日間無料で始める」を押すと、<a href="/terms" className="underline">利用規約</a>と
+        「{startLabel}」を押すと、<a href="/terms" className="underline">利用規約</a>と
         <a href="/privacy" className="underline">プライバシーポリシー</a>に同意したものとみなします
       </p>
 
       <ReviewButton variant="primary" type="submit" disabled={submitting}>
-        {submitting ? "お申し込み中..." : `${TRIAL_DAYS}日間無料で始める`}
+        {submitting ? "お申し込み中..." : startLabel}
       </ReviewButton>
       <p className="w-full text-center text-[11.5px]" style={{ color: "var(--product-color-text-muted)" }}>
         カードの登録は不要です
