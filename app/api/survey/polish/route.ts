@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { createHash } from "node:crypto";
+import { hashClientIp } from "@/lib/ai-check/rate-limit";
 import { GUARD_WORDS } from "@/lib/demo/fact-model";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { guardPolished, MAX_INPUT_CHARS } from "@/lib/survey/polish-guard";
 import {
   POLISH_MAX_TOKENS,
@@ -8,58 +9,38 @@ import {
   POLISH_SYSTEM_PROMPT,
   buildPolishUserPrompt,
 } from "@/lib/survey/polish-prompt";
+import { checkSurveyLimit, recordSurveyRequest } from "@/lib/survey/request-limit";
 
 /**
- * v4「文にする」の API（docs/specs/survey-v4.md §6）。
+ * 「整える」の API（docs/specs/survey-v4.md §6）。v5 の「つなげる」は、欄ごとにこれを呼ぶ（survey-v5.md §4）。
  *
  * **受け取るのは本文の文字列だけ。** ★・話題タグ・店名・メニュー名は受け取らない
  * （body の型に無いので、構造的に混入できない）。
  *
  * **検査はサーバー側で行う。** ブラウザ側だけの検証は迂回できる飾りになるため
  * （strategy-2026-09-13 §4-2 #4）。検査に落ちたら `{ text: null }` を返し、
- * 画面には何も出さない（エラー文言も出さない）。
+ * 画面には何も出さない（エラー文言も出さない）。画面は本人の言葉のまま（句点だけ足す）でつなげる。
  *
- * ⚠ **プロトタイプ（/demo/v4）専用。DBには一切書き込まない。**
- *   レート制限と似すぎ検出はプロセス内のメモリで数えている。
- *   **本番に載せるときは Supabase に移すこと**（lib/ai-check/rate-limit.ts と同じ形にする）。
- *   サーバーレスはプロセスが使い回されない場合があり、メモリの計数は上限として信用できない。
+ * **DBには回答を書き込まない。** 回答の保存は /api/survey/v5/responses。
+ *
+ * 回数の上限は Supabase で数える（supabase/0019 の survey_requests、2026-10-01 に本番化）。
+ * 数えられないとき（表がまだ無い・塩が無い・Supabase に繋がらない）は**断る**。
+ * 上限が効かないまま AI を呼ぶと、請求額が止まらなくなるため（lib/ai-check/rate-limit.ts と同じ方針）。
  */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 1つのIPが1時間に「文にする」を押せる回数 */
-const HOURLY_LIMIT = 30;
-/** 全体で1時間に許す回数。IPを変えられても止まるようにする本当の上限 */
-const GLOBAL_HOURLY_LIMIT = 300;
-const HOUR_MS = 60 * 60 * 1000;
-
-/** ⚠ プロトタイプ専用のメモリ計数。本番は Supabase へ移す */
-const hits: { at: number; ip: string }[] = [];
 /**
  * 似すぎ検出の比較相手。**同一店舗の、他のお客様が実際に送った本文**がここに入る想定。
  *
- * ⚠ プロトタイプでは**常に空**にしてある。本番は survey_responses から直近20件を読む。
+ * ⚠ いまは**常に空**にしてある。v5 で AI が足せるのは許可した助詞と句読点だけなので、
+ *   似た文面になる余地がほとんど無い（strategy-2026-09-13 §5-4 の心配は全文生成のもの）。
+ *   使うなら survey_responses から同じ店の直近20件を読む。
  *   自分が今さっき出した候補を貯めると、**同じ人の2回目が必ず似すぎで落ちる**
  *   （同じ入力から出る候補は文字の重なりが大きいのが当たり前。2026-09-13 のレビューで再現）。
- *   比較すべきは「別のお客様の口コミ」であって「自分の直前の下書き」ではない。
  */
 const recentBodies: string[] = [];
-
-function clientIpHash(req: Request): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  const ip = (forwarded?.split(",")[0] ?? req.headers.get("x-real-ip") ?? "unknown").trim();
-  return createHash("sha256").update(ip).digest("hex").slice(0, 32);
-}
-
-function rateLimited(ip: string): boolean {
-  const cutoff = Date.now() - HOUR_MS;
-  while (hits.length > 0 && hits[0].at < cutoff) hits.shift();
-  if (hits.length >= GLOBAL_HOURLY_LIMIT) return true;
-  if (hits.filter((h) => h.ip === ip).length >= HOURLY_LIMIT) return true;
-  hits.push({ at: Date.now(), ip });
-  return false;
-}
 
 /** モデルがコードフェンスや前置きを付けてもJSONを取り出す */
 function extractJson(text: string): unknown {
@@ -88,10 +69,20 @@ export async function POST(req: Request) {
   if (!input) return nothing("empty-input");
   if (Array.from(input).length > MAX_INPUT_CHARS) return nothing("too-long-input");
 
-  if (rateLimited(clientIpHash(req))) return nothing("rate-limited");
-
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return nothing("no-key");
+
+  let ipHash: string;
+  try {
+    ipHash = hashClientIp(req);
+  } catch {
+    return nothing("limit-unavailable");
+  }
+  const supabase = createSupabaseAdminClient();
+  const limit = await checkSurveyLimit(supabase, ipHash, "polish");
+  if (!limit.allowed) return nothing(limit.reason === "unavailable" ? "limit-unavailable" : "rate-limited");
+  // AI を呼ぶ前に記録する（呼んだあとだと、失敗や時間切れのぶんが数えられず上限が甘くなる）
+  await recordSurveyRequest(supabase, ipHash, "polish");
 
   let raw: string;
   try {
