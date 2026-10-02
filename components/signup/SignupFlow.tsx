@@ -9,6 +9,7 @@ import { TRIAL_DAYS } from "@/lib/billing/trial";
 import { PricingSimulator } from "@/components/signup/PricingSimulator";
 import { monthlyYenFor, PILOT_MAX_STORES, PILOT_STORE_LIMIT_TEXT } from "@/lib/signup/plan";
 import { INVITE_CODE_UNUSABLE, normalizeInviteCode } from "@/lib/signup/invite-code";
+import { BrandLogo } from "@/components/admin/BrandLogo";
 
 /**
  * 新規登録（Figma `11 新規登録 / Signup`。案C = 料金ページ＋申し込みカード）。
@@ -165,9 +166,8 @@ export function SignupFlow({
         className="flex w-full items-center gap-2 px-4 py-4 md:px-10 md:py-5"
         style={{ backgroundColor: "var(--product-color-surface-white)" }}
       >
-        <p className="text-[15px] font-bold tracking-[0.5px] md:text-[18px]" style={{ color: "var(--product-color-text-primary)" }}>
-          GOOD REVIEW
-        </p>
+        <BrandLogo height={17} className="block shrink-0 md:hidden" />
+        <BrandLogo height={20} className="hidden shrink-0 md:block" />
         <div className="flex-1" />
         <a href="/admin/login" className="whitespace-nowrap text-[12.5px]" style={{ color: "var(--review-accent-primary)" }}>
           すでにご契約の方はログイン
