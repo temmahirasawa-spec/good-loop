@@ -16,6 +16,18 @@ import { BILLING } from "@/lib/admin/constants";
 /** 申し込める店舗数の上限。これ以上は商談でお願いする */
 export const MAX_STORES = 20;
 
+/**
+ * 試験導入（招待コードで登録。supabase/0018）で選べる店舗数の上限。
+ * **2026-10-01 時点の仮の値（天真さんの判断待ち）。**
+ *
+ * 試験導入は無料なので、申し込み画面で選んだ店舗数がそのまま**無料の店舗枠**になる。
+ * 上限を置かないと、1つのコードで20店舗ぶんの枠が無料で作れてしまう。
+ */
+export const PILOT_MAX_STORES = 3;
+
+/** 試験導入で上限を超えたときの文言。画面とサーバーで同じものを出す */
+export const PILOT_STORE_LIMIT_TEXT = `試験導入では${PILOT_MAX_STORES}店舗までお選びいただけます`;
+
 /** 店舗数から月額を出す */
 export function monthlyYenFor(storeCount: number): number {
   const extra = Math.max(0, storeCount - BILLING.includedStores);
