@@ -6,6 +6,7 @@ import { ReviewInput } from "@/components/admin/ReviewInput";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PASSWORD_PLACEHOLDER, PASSWORD_RULE_TEXT, validatePassword } from "@/lib/password";
+import { BrandLogo } from "@/components/admin/BrandLogo";
 
 /**
  * パスワード再設定・確認（Figmaに対応ノード無し。天真確認・案A決定 2026-08-06）。
@@ -64,9 +65,7 @@ export default function ResetPasswordConfirmPage() {
         className="flex w-full max-w-[420px] flex-col items-center gap-5 rounded-[20px] p-8"
         style={{ backgroundColor: "var(--product-color-surface-white)" }}
       >
-        <p className="whitespace-nowrap text-xl font-bold tracking-[1.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-          GOOD REVIEW
-        </p>
+        <BrandLogo height={22} />
         <p className="whitespace-nowrap text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
           新しいパスワードを設定
         </p>

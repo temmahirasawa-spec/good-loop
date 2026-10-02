@@ -15,6 +15,7 @@ import {
   StoreIcon,
   SurveyIcon,
 } from "@/components/admin/SettingsMenuIcons";
+import { BrandLogo } from "@/components/admin/BrandLogo";
 
 // 下層リンクの小アイコン（2026-08-23、Figmaコメント 1895972811「ここにもアイコン追加」。PCサイドバーと同じ）
 const SETTINGS_ICONS = {
@@ -108,9 +109,7 @@ export function AdminMobileTopBar({
             className="absolute left-0 top-0 flex h-full w-[300px] flex-col items-start gap-1 overflow-y-auto px-4 py-8"
             style={{ backgroundColor: "var(--product-color-surface-white)", boxShadow: "6px 0px 24px 0px rgba(0,0,0,0.18)" }}
           >
-            <p className="whitespace-nowrap text-base font-bold tracking-[0.64px]" style={{ color: "var(--product-color-text-primary)" }}>
-              GOOD REVIEW
-            </p>
+            <BrandLogo height={18} />
             <p className="whitespace-nowrap text-[11px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
               {storeName}
             </p>
