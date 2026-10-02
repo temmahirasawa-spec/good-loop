@@ -57,7 +57,7 @@ export default function ResetPasswordPage() {
               <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
                 メールアドレス
               </p>
-              <ReviewInput value={email} onChange={setEmail} type="email" placeholder="temma@yorkys.jp" />
+              <ReviewInput value={email} onChange={setEmail} type="email" placeholder="mail@example.com" />
             </div>
             <ReviewButton variant="primary" type="submit" disabled={submitting}>
               {submitting ? "送信中…" : "再設定用のリンクを送る"}

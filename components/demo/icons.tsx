@@ -26,6 +26,32 @@ export function StopIcon({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Googleマップのピン。形は rating-flow の PinIcon と同じだが、**線の色は文字色（currentColor）に従う**。
+ * PinIcon は線が #1A1A1A の画像なので、v5 の墨のボタンの上では見えなかった（2026-09-28、Figma に写したときに発見）。
+ */
+export function MapPinIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 17 17" fill="none" stroke="currentColor" strokeWidth={1.34583} aria-hidden>
+      <path d="M8.5 1.7C5.66667 1.7 3.4 3.96667 3.4 6.8C3.4 10.625 8.5 15.3 8.5 15.3C8.5 15.3 13.6 10.625 13.6 6.8C13.6 3.96667 11.3333 1.7 8.5 1.7Z" strokeLinejoin="round" />
+      <path d="M8.5 8.64167C9.51712 8.64167 10.3417 7.81712 10.3417 6.8C10.3417 5.78288 9.51712 4.95833 8.5 4.95833C7.48288 4.95833 6.65833 5.78288 6.65833 6.8C6.65833 7.81712 7.48288 8.64167 8.5 8.64167Z" />
+    </svg>
+  );
+}
+
+/**
+ * 丸にチェック（v5 の完了・停止中のお知らせ）。形は rating-flow の CheckCircleOutlineIcon と同じで、
+ * **線の色は文字色（currentColor）に従う**（あちらは線が #999999 の画像。Figma は text/tertiary）。
+ */
+export function CheckCircleIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 64 64" fill="none" stroke="currentColor" aria-hidden>
+      <path d="M32 60C47.464 60 60 47.464 60 32C60 16.536 47.464 4 32 4C16.536 4 4 16.536 4 32C4 47.464 16.536 60 32 60Z" strokeWidth={4.8} />
+      <path d="M18.6667 32.8L28 42.1333L45.3333 24" strokeWidth={5.86667} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /** 複数選択のチェックマーク（ラジオの丸と取り違えないこと。2026-08-28 天真の指摘） */
 export function CheckMarkIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (

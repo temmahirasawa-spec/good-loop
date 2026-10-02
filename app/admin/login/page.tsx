@@ -66,7 +66,7 @@ export default function AdminLoginPage() {
           <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
             メールアドレス
           </p>
-          <ReviewInput value={email} onChange={setEmail} type="email" placeholder="temma@yorkys.jp" error={showError} />
+          <ReviewInput value={email} onChange={setEmail} type="email" placeholder="mail@example.com" error={showError} />
         </div>
 
         <div className="flex w-full flex-col items-start gap-2">
