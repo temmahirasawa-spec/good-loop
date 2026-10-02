@@ -4868,6 +4868,86 @@ B-4 が承認されたら、アプリ側の変数に登録してつなぎ替え�
 - `npm run check` 通過。検品用ビルドを 3111 番で配信し、検証用の店（PC検証ベーカリー・オンボ検証カフェ）で一周した（本番 DB の page_views に検証用の店の行が数件入った。回答は 0019 未実行のため保存されていない＝書き込みなし）
 - Google を開く：place_id の無い店は店名の検索 URL で別タブが開いた
 
+## 2026-10-01 — 招待コードで登録する「試験導入」（招待制ベータ）
+
+天真の指示：**招待コードを持っている人だけが登録できる試験導入**を作る。
+枝 `feat/signup-invite`（origin/main から）。課金の枝（PR #80 `feat/billing-trial-core`）には触っていない。
+
+### 仕組み
+
+| 部品 | 中身 |
+|---|---|
+| `supabase/0018_invite_codes.sql` | 台帳 `invite_codes`（service_role だけが読み書き）／`tenants.invite_code_id`・`tenants.is_pilot`（既定 false）／関数 `consume_invite_code`・`release_invite_code`（実行は service_role だけ） |
+| 環境変数 `SIGNUP_MODE` | `invite` = コード必須／`open` = コード任意。**未設定・想定外の値は invite**（`lib/signup/mode.ts`） |
+| `/signup` | 料金の段（1つ目）に「招待コード」欄。`/signup?code=XXXX-XXXX` で開くと入った状態で始まる |
+| `/api/signup` | コードを**作る前に1回ぶん確保**し、失敗したら後始末で戻す。コードで作った契約先は `is_pilot = true`・`trial_ends_at = null` |
+| 設定＞お支払い | `is_pilot` なら「試験導入中（無料）」。お支払い方法の登録ボタン・金額（月額・内訳・ご請求の注意書き）を出さない。店舗枠の変更は申し込み（担当者が確認） |
+| `npm run invite:create` | コードの発行（`scripts/create-invite.mjs`）。既定は dry-run、`--commit` で作る |
+
+### 設計の要点（あとで触るときに壊さないこと）
+
+- **「確かめて1増やす」は1文の UPDATE**（`consume_invite_code`）。select してから update すると、
+  残り1回のコードを2人が同時に通してしまう。同じ行を同時に書こうとした2人目は、1人目の確定を待って
+  条件（`used_count < max_uses`）を確かめ直すので弾かれる
+- **関数と台帳は anon・authenticated から剥奪してある。** 剥がさないと、ブラウザに渡っている公開キーで
+  `/rest/v1/rpc/consume_invite_code` を叩いて、他人のコードを使い切ったり、あるかどうかを探ったりできる
+- **使えないときの文言は1つ**（入力の誤り・期限切れ・使用済み・停止中を区別しない）。区別すると存在を探れる
+- コードは DB に `XXXX-XXXX`（大文字）で持つ。入力の揺れ（小文字・全角・ハイフンの有無と種類・空白・
+  日本語入力の「ー」）は `lib/signup/invite-code.ts` でそろえてから照合する。形の違う値は DB の制約で入らない
+- **open でも、コードを入れたなら使えるコードでなければ通さない。** 黙って通常の申し込みにすると、
+  本人は試験導入のつもりで請求の対象になる
+- `is_pilot` は**お支払いの状態（`getBillingState`）とは別に読む**（`lib/billing/pilot.ts`）。
+  同じ select に入れると、0018 を実行する前は列が無くて select 全体が失敗し、契約の状態まで「未接続」に見える。
+  読めなかったときは false（＝従来どおりの表示）に倒す
+- コードの失敗も新規登録の回数制限（1時間3件）に数える。8文字・31種で約8,500億通りなので総当たりは成り立たない
+- 決済の API（checkout など）では止めていない。画面から押せないだけ
+
+### 運営の操作
+
+```
+npm run invite:create -- --label "○○カフェ 山田さん" --uses 1 --days 30           # 確認だけ
+npm run invite:create -- --label "○○カフェ 山田さん" --uses 1 --days 30 --commit  # 作る
+```
+
+- コードを止める：`update invite_codes set disabled_at = now() where code = 'XXXX-XXXX';`（**行は消さない**。使われた行は消せない）
+- 試験導入を終える：`update tenants set is_pilot = false where id = '…';`（そのあとのお支払いの扱いは別に決める）
+
+### ⚠ 順番：SQL 0018 → マージ
+
+`SIGNUP_MODE` が invite（未設定を含む）のまま 0018 の無い本番に出すと、コードを確かめる関数が無いため
+**新規登録がすべて失敗する**（500）。お支払い画面は 0018 が無くても従来どおり動く。
+
+### PR #80（カード登録つきの無料体験）を取り込むとき
+
+- **招待で作った店は `card_required` を false のままにする**（`/api/signup` の insert で `card_required: !pilot`）。
+  true にすると、カードの関門・トップの帯・公開アンケートの停止の対象になる
+- #80 も `app/api/signup/route.ts`・`components/signup/SignupFlow.tsx`・`lib/signup/confirmation-email.ts`・
+  `components/admin/SettingsBillingView.tsx`・`settings/billing/page.tsx` を変えている。**試験導入の分岐（pilot）を残す**
+- `trial_ends_at` はこの枝では試験導入の店に入れていない。#80 では Webhook が入れる列なので食い違わない
+
+### スクリーンショット
+
+管理画面のお支払いはログインが要るため、表示部分だけを一時的なページに出して撮った（ページはコミットしていない）。
+このマシンの Playwright のブラウザは別の版（1243）だけが入っていて `npm run screenshot` は起動しない。
+`scripts/screenshot.mjs` と同じ大きさで、実行ファイルだけ差し替えた一時スクリプトで撮った。
+
+### 追記（同日）：試験導入の店舗枠は最大3（仮）
+
+- 試験導入は無料なので、申し込み画面で選んだ店舗数がそのまま**無料の店舗枠**になる。上限が無いと1つのコードで
+  20店舗ぶん作れてしまうため、`PILOT_MAX_STORES = 3`（`lib/signup/plan.ts`）。**仮の値で、天真さんの判断待ち**
+- サーバー：コードを入れた申し込みで3を超えたら `fieldErrors.storeCount` で弾く（画面には上の帯で出す）。
+  画面：invite ではステッパーの上限を3に下げる。open でコードを入れたときは、進む前にコードの欄の下で止める
+
+### 追記（同日）：invite のときの料金の段を試験導入の文言に
+
+- 「14日間無料」「15日目からの月額」は試験導入の実態と違うので、invite のときだけ差し替えた
+  （`components/signup/SignupFlow.tsx` の `PILOT_COPY`。**文言は天真さんの確認待ち**）
+  - 見出し「試験導入のあいだは無料です」／本文「正式な公開のときに改めてご案内します。そこから14日間の無料体験のあと、
+    月額9,800円（税抜）になります。いまカードの登録は要りません。」（数字は `BILLING`・`TRIAL_DAYS` から）
+  - プランのカードの印「試験導入中は無料」、始めるボタン「無料で始める」（同意の注記もこの名前に合わせる）
+  - シミュレーションの内訳と「お申し込み後の月額」、アカウント作成の段の「15日目からの月額」は出さない
+- 料金の数字はプランのカードに参考として残した（追加店舗の金額は `BILLING` のまま。直すのは別の PR）
+- よくある質問（無料期間・店舗の増やし方）は変えていない。open のとき（コード任意）は従来どおりの表示
 ## 2026-10-02 — 未マージの整理と、次のセッションへの申し送り（Stripe の開設と本体の価格の見直し）
 
 **法人口座が開いた。次のセッションのメインは ① Stripe の本番の開設 ② 本体（GOOD REVIEW）の価格の見直し。**
