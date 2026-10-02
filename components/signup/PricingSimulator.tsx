@@ -19,6 +19,8 @@ export function PricingSimulator({
   countLabel = "店舗数",
   totalLabel = "お申し込み後の月額",
   min = 1,
+  max = MAX_STORES,
+  showPrice = true,
 }: {
   storeCount: number;
   onChange: (next: number) => void;
@@ -30,6 +32,13 @@ export function PricingSimulator({
   totalLabel?: string;
   /** 下限。設定＞お支払いでは「いま使っている店舗数」より減らせない */
   min?: number;
+  /** 上限。申し込みの invite モード（試験導入）では PILOT_MAX_STORES（lib/signup/plan.ts） */
+  max?: number;
+  /**
+   * 金額（内訳・合計）を出すか。試験導入中（無料）の契約先の設定＞お支払いでは、
+   * ステッパーだけを出す（supabase/0018、2026-10-01）
+   */
+  showPrice?: boolean;
 }) {
   const extra = Math.max(0, storeCount - BILLING.includedStores);
   const total = monthlyYenFor(storeCount);
@@ -68,8 +77,8 @@ export function PricingSimulator({
           <button
             type="button"
             aria-label="店舗数を増やす"
-            disabled={storeCount >= MAX_STORES}
-            onClick={() => onChange(Math.min(MAX_STORES, storeCount + 1))}
+            disabled={storeCount >= max}
+            onClick={() => onChange(Math.min(max, storeCount + 1))}
             className="grid h-11 w-11 place-items-center rounded-full text-lg font-bold disabled:opacity-40"
             style={{
               backgroundColor: "var(--review-accent-primary)",
@@ -81,23 +90,27 @@ export function PricingSimulator({
         </div>
       </div>
 
-      {!compact && (
-        <div className="flex w-full flex-col gap-3">
-          <Row label={`基本プラン（${BILLING.includedStores}店舗まで）`} value={formatYen(BILLING.planMonthlyYen)} />
-          <Row label={`追加店舗 × ${extra}`} value={formatYen(extra * BILLING.additionalStoreMonthlyYen)} />
-        </div>
+      {showPrice && (
+        <>
+          {!compact && (
+            <div className="flex w-full flex-col gap-3">
+              <Row label={`基本プラン（${BILLING.includedStores}店舗まで）`} value={formatYen(BILLING.planMonthlyYen)} />
+              <Row label={`追加店舗 × ${extra}`} value={formatYen(extra * BILLING.additionalStoreMonthlyYen)} />
+            </div>
+          )}
+
+          <div className="h-px w-full" style={{ backgroundColor: "var(--product-color-border-divider)" }} />
+
+          <div className="flex w-full items-center justify-between gap-3">
+            <p className="text-[14px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+              {totalLabel}
+            </p>
+            <p className="text-[24px] font-bold tabular-nums" style={{ color: "var(--review-accent-primary)" }}>
+              {formatYen(total)}
+            </p>
+          </div>
+        </>
       )}
-
-      <div className="h-px w-full" style={{ backgroundColor: "var(--product-color-border-divider)" }} />
-
-      <div className="flex w-full items-center justify-between gap-3">
-        <p className="text-[14px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-          {totalLabel}
-        </p>
-        <p className="text-[24px] font-bold tabular-nums" style={{ color: "var(--review-accent-primary)" }}>
-          {formatYen(total)}
-        </p>
-      </div>
     </div>
   );
 }
