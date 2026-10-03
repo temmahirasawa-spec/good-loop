@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { finalizeCardSetup, syncTenantFromSubscription } from "@/lib/billing/subscribe";
 import { sendTrialWillEnd } from "@/lib/billing/notices";
 import type { BillingStatus } from "@/lib/billing/types";
+import { quoteFromAmount } from "@/lib/admin/constants";
 
 /**
  * Stripe からの通知の受け口（docs/specs/billing.md §7）。
@@ -204,17 +205,17 @@ async function onTrialWillEnd(subscription: Stripe.Subscription) {
   if (subscription.cancel_at_period_end || subscription.cancel_at) return;
 
   // 金額は契約の明細と税率から出す（画面の定数ではなく、実際に請求される額）
-  const excludingTax = subscription.items.data.reduce((sum, item) => sum + (item.price.unit_amount ?? 0) * (item.quantity ?? 1), 0);
-  const taxPercent = (subscription.default_tax_rates ?? []).reduce((sum, r) => sum + (r.inclusive ? 0 : r.percentage), 0);
-  const includingTax = Math.round(excludingTax * (1 + taxPercent / 100));
+  const amount = subscription.items.data.reduce((sum, item) => sum + (item.price.unit_amount ?? 0) * (item.quantity ?? 1), 0);
+  // 2026-10-03 から内税（価格が税込）。外税の税率が付いていても正しく出るよう、税率の種類を見て計算する
+  const rate = (subscription.default_tax_rates ?? [])[0];
+  const quote = quoteFromAmount(amount, rate?.percentage ?? 0, rate ? rate.inclusive : true);
 
   await sendTrialWillEnd(createSupabaseAdminClient(), {
     tenantId,
     customerId: idOf(subscription.customer),
     trialStart: new Date(subscription.trial_start * 1000).toISOString(),
     trialEndsAt: new Date(subscription.trial_end * 1000).toISOString(),
-    monthlyExcludingTax: excludingTax,
-    monthlyIncludingTax: includingTax,
+    monthlyTotal: quote.total,
   });
 }
 

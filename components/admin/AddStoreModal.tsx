@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { ReviewInput } from "@/components/admin/ReviewInput";
-import { BUSINESS_CATEGORIES, formatYen } from "@/lib/admin/constants";
+import { BUSINESS_CATEGORIES, formatYen, type MonthlyQuote } from "@/lib/admin/constants";
 
 type NewStore = { id: string; name: string; slug: string; loopTheme: string };
 type PlaceSuggestion = { placeId: string; name: string; address: string };
@@ -37,7 +37,7 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** 前に無料体験をしたお店を、体験中に紐付けようとした（docs/specs/billing.md §3-4 の Q4）。今日のお支払いの額 */
-  const [paidConfirm, setPaidConfirm] = useState<{ excludingTax: number; includingTax: number } | null>(null);
+  const [paidConfirm, setPaidConfirm] = useState<MonthlyQuote | null>(null);
 
   useEffect(() => {
     if (editingSlug || name.trim() === "") {
@@ -108,7 +108,7 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
         store?: NewStore;
         error?: string;
         needsPaidConfirmation?: boolean;
-        quote?: { excludingTax: number; includingTax: number };
+        quote?: MonthlyQuote;
       } = await res.json();
       if (res.status === 409 && data.needsPaidConfirmation && data.quote) {
         setPaidConfirm(data.quote);
@@ -275,7 +275,7 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
               このお店では、以前に無料体験をご利用いただいています。
             </p>
             <p className="text-xs font-medium leading-[1.6]" style={{ color: "var(--product-color-text-secondary)" }}>
-              今日から有料でのご利用になります。今日のお支払いは{formatYen(paidConfirm.excludingTax)}（税抜）です（税込 {formatYen(paidConfirm.includingTax)}）。
+              今日から有料でのご利用になります。今日のお支払いは{formatYen(paidConfirm.total)}（税込）です。
             </p>
           </div>
         )}

@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { BillingIcon } from "@/components/admin/SettingsMenuIcons";
-import { BILLING, formatYen, monthlyQuoteFor } from "@/lib/admin/constants";
+import { BILLING, formatYen, monthlyQuoteFor, type MonthlyQuote } from "@/lib/admin/constants";
 import { formatMonthDay, TRIAL_DAYS } from "@/lib/billing/trial";
 
 /**
@@ -22,7 +22,7 @@ import { formatMonthDay, TRIAL_DAYS } from "@/lib/billing/trial";
  */
 
 type Reason = "place" | "card" | "email";
-type Quote = { excludingTax: number; includingTax: number };
+type Quote = MonthlyQuote;
 type Mode = { kind: "gate" } | { kind: "paid"; reason: Reason; quote: Quote | null; via: "checkout" | "start-paid" };
 
 type GateValue = {
@@ -213,7 +213,7 @@ function GateModal({
 
         <p className="text-xs leading-[1.6]" style={{ color: "var(--product-color-text-secondary)" }}>
           {paid
-            ? `今日から有料でのご利用になります。今日のお支払いは${formatYen(quote.excludingTax)}（税抜）です（税込 ${formatYen(quote.includingTax)}）。`
+            ? `今日から有料でのご利用になります。今日のお支払いは${formatYen(quote.total)}（税込）です。`
             : "二次元コードの発行と店舗の追加は、お支払いのカードを登録してからお使いいただけます。14日間の無料体験は、登録した日から始まります。"}
         </p>
 
@@ -257,18 +257,18 @@ export function GateSummary({ quota, quote, paid = false }: { quota: number; quo
         <div className="h-px w-full" style={{ backgroundColor: "var(--product-color-border-divider)" }} />
         <div className="flex w-full items-center justify-between gap-3">
           <p className="text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-            {paid ? "今日のお支払い（税抜）" : `${end}からの月額（税抜）`}
+            {paid ? "今日のお支払い（税込）" : `${end}からの月額（税込）`}
           </p>
           <p className="text-xl font-bold tabular-nums" style={{ color: "var(--product-color-text-primary)" }}>
-            {formatYen(q.excludingTax)}
+            {formatYen(q.total)}
           </p>
         </div>
         <div className="flex w-full items-center justify-between gap-3">
           <p className="text-xs" style={{ color: "var(--product-color-text-tertiary)" }}>
-            税込
+            うち消費税
           </p>
           <p className="text-xs tabular-nums" style={{ color: "var(--product-color-text-tertiary)" }}>
-            {formatYen(q.includingTax)}
+            {formatYen(q.tax)}
           </p>
         </div>
       </div>
@@ -277,7 +277,7 @@ export function GateSummary({ quota, quote, paid = false }: { quota: number; quo
         <>
           <p className="text-[13px] leading-[1.6]" style={{ color: "var(--product-color-text-primary)" }}>
             <span className="font-bold">今日から{end}まで無料です。</span>
-            {end}から、月額{formatYen(q.excludingTax)}（税抜）のお支払いが始まります。
+            {end}から、月額{formatYen(q.total)}（税込）のお支払いが始まります。
           </p>
           <ul className="flex w-full flex-col gap-2">
             {["体験中に解約すれば、料金はかかりません。体験の最終日までお使いいただけます。", "無料体験は、1つのお店・1枚のカードにつき1回です。"].map((t) => (

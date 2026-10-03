@@ -54,7 +54,7 @@ const FAQ = [
 const PILOT_COPY = {
   badge: "試験導入中は無料",
   title: "試験導入のあいだは無料です",
-  body: `正式な公開のときに改めてご案内します。そこから${TRIAL_DAYS}日間の無料体験のあと、月額${formatYen(BILLING.planMonthlyYen)}（税抜）になります。いまカードの登録は要りません。`,
+  body: `正式な公開のときに改めてご案内します。そこから${TRIAL_DAYS}日間の無料体験のあと、月額${formatYen(BILLING.planMonthlyYen)}（税込）になります。いまカードの登録は要りません。`,
   start: "無料で始める",
 };
 
@@ -264,13 +264,14 @@ function Pricing({
               {BILLING.planMonthlyYen.toLocaleString("ja-JP")}
             </span>
             <span className="text-[12.5px] md:text-[14px]" style={{ color: "var(--product-color-text-secondary)" }}>
-              円 / 月・{BILLING.includedStores}店舗まで
+              円 / 月（税込）・{BILLING.includedStores}店舗まで
             </span>
           </p>
 
           <ul className="flex w-full flex-col gap-3">
             {[
-              "AIがクチコミの下書きを作成します",
+              // 2026-10-03、v5（AIは文章を作らない）に合わせて差し替え。旧「AIがクチコミの下書きを作成します」
+              "クチコミはお客様ご本人の言葉で（AIは文章を作りません）",
               "満足度アンケートと、項目ごとの集計",
               "低評価が入ったときのアラート通知",
               "卓上POPと二次元コードの発行",
@@ -293,7 +294,7 @@ function Pricing({
               追加店舗
             </p>
             <p className="text-[13.5px]" style={{ color: "var(--product-color-text-primary)" }}>
-              1店舗につき ＋{formatYen(BILLING.additionalStoreMonthlyYen)} / 月
+              1店舗につき ＋{formatYen(BILLING.additionalStoreMonthlyYen)} / 月（税込）
             </p>
           </div>
         </div>

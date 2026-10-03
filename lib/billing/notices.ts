@@ -108,7 +108,7 @@ export async function sendTrialDay7(
 /** 体験が終わる3日前（Stripe の trial_will_end で送る。§13） */
 export async function sendTrialWillEnd(
   admin: SupabaseClient,
-  t: { tenantId: string; customerId: string | null; trialStart: string; trialEndsAt: string; monthlyExcludingTax: number; monthlyIncludingTax: number },
+  t: { tenantId: string; customerId: string | null; trialStart: string; trialEndsAt: string; monthlyTotal: number },
 ): Promise<"sent" | "already_sent" | "no_address"> {
   const to = await billingEmailOf(t.customerId);
   if (!to) return "no_address";
@@ -123,7 +123,7 @@ export async function sendTrialWillEnd(
     text: [
       `GOOD REVIEW の無料体験は、${end}で終わります。`,
       "",
-      `${end}から、月額${formatYen(t.monthlyExcludingTax)}（税抜）のお支払いが始まります（税込 ${formatYen(t.monthlyIncludingTax)}）。`,
+      `${end}から、月額${formatYen(t.monthlyTotal)}（税込）のお支払いが始まります。`,
       "続けない場合は、設定＞お支払いから解約してください。体験の最終日までお使いいただけます。",
       `${PUBLIC_APP_URL}/admin/settings/billing`,
       "",

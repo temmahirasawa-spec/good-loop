@@ -10,7 +10,7 @@ import {
 } from "@/lib/billing/config";
 import { TRIAL_DAYS } from "@/lib/billing/trial";
 import { claimSource, findPriorTrial, recordTrialClaims, type PriorTrial } from "@/lib/billing/eligibility";
-import { BILLING } from "@/lib/admin/constants";
+import { BILLING, quoteFromAmount, type MonthlyQuote } from "@/lib/admin/constants";
 import type { BillingStatus } from "@/lib/billing/types";
 
 /**
@@ -42,12 +42,7 @@ export function subscriptionItems(quota: number): { price: string; quantity: num
     : [{ price: STRIPE_PRICE_BASE, quantity: 1 }];
 }
 
-export type MonthlyQuote = {
-  /** 月額（税抜）。円 */
-  excludingTax: number;
-  /** 月額（税込）。円 */
-  includingTax: number;
-};
+export type { MonthlyQuote };
 
 /**
  * 月額の見積もり。**金額は Stripe の価格と税率から取る**（画面の定数と食い違わないように。§10）。
@@ -61,10 +56,9 @@ export async function quoteMonthly(quota: number): Promise<MonthlyQuote> {
     stripe.taxRates.retrieve(STRIPE_TAX_RATE_ID),
   ]);
   const extra = Math.max(0, quota - BILLING.includedStores);
-  const excludingTax = (base.unit_amount ?? 0) + (additional.unit_amount ?? 0) * extra;
-  // 外税。Stripe は明細ごとに税を計算して端数を丸める。ここでは合計に掛けて四捨五入する（表示用の見積もり）
-  const includingTax = tax.inclusive ? excludingTax : Math.round(excludingTax * (1 + tax.percentage / 100));
-  return { excludingTax, includingTax };
+  const amount = (base.unit_amount ?? 0) + (additional.unit_amount ?? 0) * extra;
+  // 2026-10-03 から内税（価格が税込）。外税の税率が設定されていても正しく出るよう、どちらも扱う
+  return quoteFromAmount(amount, tax.percentage, tax.inclusive);
 }
 
 // ── 契約の検索と、契約先の状態への反映 ──────────────────────

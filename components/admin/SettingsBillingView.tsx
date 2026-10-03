@@ -189,7 +189,7 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
               無料体験 残り{billing.trial.daysLeft}日（{billing.trial.endLabel}まで）
             </p>
             <p className="text-xs leading-[1.6]" style={{ color: "var(--product-color-text-secondary)" }}>
-              {billing.trial.endLabel}から、月額{monthlyTotal === null ? "—" : formatYen(monthlyTotal)}（税抜）のお支払いが始まります。体験中に解約すれば、料金はかかりません。
+              {billing.trial.endLabel}から、月額{monthlyTotal === null ? "—" : formatYen(monthlyTotal)}（税込）のお支払いが始まります。体験中に解約すれば、料金はかかりません。
             </p>
           </div>
         ) : null}
@@ -305,7 +305,7 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
         {!pilot && (
           <div className="flex w-full items-center justify-between border-b py-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
             <p className="text-[12.5px]" style={{ color: "var(--product-color-text-secondary)" }}>
-              現在の月額
+              現在の月額（税込）
             </p>
             <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
               {monthlyTotal === null ? "—" : formatYen(monthlyTotal)}
@@ -334,7 +334,7 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
                 storeCount={desired}
                 onChange={(n) => setDesiredQuota(n)}
                 countLabel="店舗枠"
-                totalLabel="変更後の月額"
+                totalLabel="変更後の月額（税込）"
                 min={minQuota}
                 showPrice={!pilot}
               />
