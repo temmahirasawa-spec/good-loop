@@ -1,5 +1,6 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { v5Topic } from "@/lib/survey/v5-topics";
 import { routeRate } from "./metrics";
 import type { ResponseItem, StoreSummary } from "./types";
 
@@ -161,6 +162,8 @@ type ResponseWithJoinsRow = {
   stores: { name: string } | null;
   response_tags: { store_tags: { label: string } | null }[] | null;
   conversion_events: { event_type: string }[] | null;
+  /** v5 で選んだ話題の id（supabase/0019）。旧い画面の回答は空 */
+  topics: string[] | null;
 };
 
 /** 回答一覧・店舗詳細「直近の回答」で共有する回答データ */
@@ -183,7 +186,7 @@ export async function getResponseItems(
   let query = supabase
     .from("survey_responses")
     .select(
-      "id, store_id, rating, free_text, created_at, stores(name), response_tags(store_tags(label)), conversion_events(event_type)"
+      "id, store_id, rating, free_text, created_at, topics, stores(name), response_tags(store_tags(label)), conversion_events(event_type)"
     )
     .order("created_at", { ascending: false });
   if (options.storeId) query = query.eq("store_id", options.storeId);
@@ -205,7 +208,11 @@ export async function getResponseItems(
     rating: r.rating,
     dateLabel: formatDateLabel(r.created_at),
     routeStatus: (r.conversion_events ?? []).some((e) => e.event_type === "opened_google") ? "guided" : "store-only",
-    tags: (r.response_tags ?? []).map((rt) => rt.store_tags?.label).filter((label): label is string => Boolean(label)),
+    // 旧い画面はアンケート項目（store_tags）、v5 は「印象に残ったこと」で選んだ話題（lib/survey/v5-topics.ts）
+    tags: [
+      ...(r.response_tags ?? []).map((rt) => rt.store_tags?.label),
+      ...(r.topics ?? []).map((id) => v5Topic(id)?.label),
+    ].filter((label): label is string => Boolean(label)),
     freeText: r.free_text ?? undefined,
   }));
 }

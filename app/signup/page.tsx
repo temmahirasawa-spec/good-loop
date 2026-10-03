@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { SignupFlow } from "@/components/signup/SignupFlow";
 import { PUBLIC_APP_URL } from "@/lib/site-url";
+import { getSignupMode } from "@/lib/signup/mode";
+import { normalizeInviteCode } from "@/lib/signup/invite-code";
 
 /**
  * 新規登録（Figma `11 新規登録 / Signup`。案C = 料金ページ＋申し込みカード）。
@@ -10,6 +12,11 @@ import { PUBLIC_APP_URL } from "@/lib/site-url";
  *
  * 業態がまだ決まっていない画面なので、色は中立の `Default` モードに寄せる
  * （`data-review-theme` を置かない ＝ `:root` の既定値を使う。docs/handoff.md 参照）。
+ *
+ * 招待コード（試験導入＝招待制ベータ。supabase/0018、2026-10-01）：
+ * `/signup?code=XXXX-XXXX` で開くと、コードの欄に入った状態で始まる。
+ * コードが必須かは SIGNUP_MODE で決まる（未設定なら必須。lib/signup/mode.ts）。
+ * どちらもリクエストのたびに読むため、このページは毎回サーバーで組み立てる。
  */
 
 const TITLE = "料金とお申し込み | GOOD REVIEW";
@@ -33,6 +40,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default function SignupPage() {
-  return <SignupFlow />;
+export default function SignupPage({ searchParams }: { searchParams: { code?: string | string[] } }) {
+  const raw = Array.isArray(searchParams.code) ? searchParams.code[0] : searchParams.code;
+  // 揺れ（小文字・ハイフン無し）はここで XXXX-XXXX にそろえて見せる。
+  // 形にならない値はそのまま入れておき、進むときに「使えません」と伝える（黙って消さない）
+  const initialInviteCode = raw ? (normalizeInviteCode(raw) ?? raw.slice(0, 32)) : "";
+
+  return <SignupFlow inviteRequired={getSignupMode() === "invite"} initialInviteCode={initialInviteCode} />;
 }

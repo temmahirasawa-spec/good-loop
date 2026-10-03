@@ -15,7 +15,7 @@ import type { ReviewTheme, BusinessCategory } from "./types";
 export const INDUSTRY_THEMES: ReviewTheme[] = [
   { slug: "clinic", label: "グリーン", swatchPrimary: "#00c471", swatchLight: "#dff9ec" }, // design-qa-allow: 非アクティブ色のプレビュー
   { slug: "restaurant", label: "オレンジ", swatchPrimary: "#e0552b", swatchLight: "#fceee7" }, // design-qa-allow: 非アクティブ色のプレビュー
-  { slug: "salon", label: "ブラウン", swatchPrimary: "#a98a5c", swatchLight: "#f8f2e8" }, // design-qa-allow: 非アクティブ色のプレビュー
+  { slug: "salon", label: "ブラウン", swatchPrimary: "#a98a5c", swatchLight: "#f1e4cf" }, // design-qa-allow: 非アクティブ色のプレビュー（light は 2026-09-28 に #f8f2e8 から変更）
   { slug: "beauty", label: "ピンク", swatchPrimary: "#db6e8c", swatchLight: "#fcedf1" }, // design-qa-allow: 非アクティブ色のプレビュー
   { slug: "seikotsuin", label: "ネイビー", swatchPrimary: "#2c6fb5", swatchLight: "#e8f1fa" }, // design-qa-allow: 非アクティブ色のプレビュー
   { slug: "fitness", label: "ライム", swatchPrimary: "#93c90f", swatchLight: "#f2fbdd" }, // design-qa-allow: 非アクティブ色のプレビュー
@@ -44,14 +44,15 @@ export const BUSINESS_CATEGORIES: BusinessCategory[] = [
 export const TREND_WEEK_LABELS = ["5週前", "4週前", "3週前", "2週前", "今週"];
 
 /**
- * 料金（設定・お支払い／店舗枠の追加）。
+ * 料金（設定・お支払い／店舗枠の追加）。金額はすべて税抜。
  *
- * ⚠ 2026-08-21時点で**金額は未確定の仮の値**（launch-plan.md 6章の未決事項1）。
- * 天真の決定により「仮の金額で作り、決まったらここだけ直す」形にしている。
+ * 2026-08-27 に確定した（洋輔 × 天真）：スタンダード月 9,800円（1店舗込み）、追加店舗 1店舗 月 5,000円。
+ * 仮の値だった追加店舗 3,000円は誤り（2026-09-28 まで画面に残っていて、Stripe の請求 5,000円と食い違っていた）。
  * 画面に出る金額はすべてここを参照しているので、**このオブジェクトだけを書き換えれば
  * 全画面の表示が変わる**（他の場所に金額を直書きしないこと）。
  *
- * Stripe をつないだら、金額の正はStripeの価格（Price）側に移す。
+ * **実際の請求額の正は Stripe の価格（Price）。** 金額を変えるときは docs/specs/billing.md の
+ * 「金額を変えるときに直す場所」のとおり、Stripe の価格・環境変数の価格ID・ここ・LP・Figma を一緒に直す。
  */
 export const BILLING = {
   planLabel: "スタンダード",
@@ -59,7 +60,7 @@ export const BILLING = {
   /** 基本プランに含まれる店舗数。これを超える店舗は追加課金 */
   includedStores: 1,
   /** 追加1店舗あたりの月額 */
-  additionalStoreMonthlyYen: 3000,
+  additionalStoreMonthlyYen: 5000,
 };
 
 /** 金額の表示形式を1箇所に揃える（例: 9800 → 「9,800円」） */

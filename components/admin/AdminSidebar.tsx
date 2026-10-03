@@ -12,6 +12,7 @@ import {
   StoreIcon,
   SurveyIcon,
 } from "@/components/admin/SettingsMenuIcons";
+import { BrandLogo } from "@/components/admin/BrandLogo";
 
 /*
  * 下層リンクの左に置く小アイコン（2026-08-23、Figmaコメント 1895963412）。
@@ -46,9 +47,7 @@ export function AdminSidebar({ storeName }: { storeName: string }) {
       className="hidden h-full w-[228px] shrink-0 flex-col items-start gap-1 px-4 pb-6 pt-7 md:flex"
       style={{ backgroundColor: "var(--product-color-surface-white)", borderRight: `1px solid var(--product-color-border-divider)` }}
     >
-      <p className="whitespace-nowrap text-base font-bold tracking-[0.64px]" style={{ color: "var(--product-color-text-primary)" }}>
-        GOOD REVIEW
-      </p>
+      <BrandLogo height={18} />
       <p className="whitespace-nowrap text-[11px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
         {storeName}
       </p>

@@ -112,12 +112,14 @@
   --review-cta-on-primary: #FFFFFF;
 }
 
-/* Salon / 美容室（ブラス・上質） */
+/* Salon / 美容室（ブラス・上質）
+ * wash は 2026-09-28 に #F8F2E8 → #F1E4CF（天真の決定・案C）。v5 の生成りの背景（#FAF6EC）とほぼ同じ色で、
+ * 選んだ話題や「コピーしました」が見分けられなかったため。Figma の Industry Theme（Salon）も同時に変えた */
 [data-review-theme="salon"] {
   --review-accent-primary: #A98A5C;
   --review-accent-light: #C9AE85;
   --review-accent-action: #7A6134;
-  --review-accent-wash: #F8F2E8;
+  --review-accent-wash: #F1E4CF;
   --review-accent-on-primary: #FFFFFF;
   --review-cta-primary: #3E7C74;
   --review-cta-action: #2A5751;
