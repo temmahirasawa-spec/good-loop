@@ -31,6 +31,12 @@ type Props = {
   invoices: BillingInvoice[];
   /** Stripe への問い合わせに失敗したか。失敗しても画面は壊さず、その欄だけ断りを出す */
   lookupFailed: boolean;
+  /**
+   * 試験導入中（無料）の契約先か（招待コードで登録。supabase/0018、2026-10-01）。
+   * true なら、プランを「試験導入中（無料）」と出し、お支払いへの誘導と金額を出さない。
+   * 店舗枠の変更は申し込み（担当者が確認）として受ける
+   */
+  pilot: boolean;
 };
 
 /**
@@ -45,7 +51,7 @@ type Props = {
  *
  * 金額は lib/admin/constants.ts の BILLING を参照する。**画面に金額を直書きしない。**
  */
-export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoices, lookupFailed, notice }: Props) {
+export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoices, lookupFailed, notice, pilot }: Props) {
   const router = useRouter();
   // カードの関門（無料体験 A案）。申し込みから来てカードがまだ無い・お休みのときは、登録をここから始める
   const gate = useCardGate();
@@ -81,8 +87,9 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
   /**
    * カードで決済できる状態か。鍵が揃っていて、かつ**契約がある**こと。
    * Stripe の顧客IDがあるだけでは足りない（カード登録前にも顧客は作られる）。
+   * 試験導入中は決済しない（無料のため。店舗枠の変更も申し込みとして担当者が受ける）。
    */
-  const canPay = stripeEnabled && billing.subscribed;
+  const canPay = !pilot && stripeEnabled && billing.subscribed;
   /** 枠の追加が「申し込み」で処理される状態か（Stripe未接続の運用。supabase/0011） */
   const requested = !canPay && (done || quota.hasPendingRequest);
 
@@ -210,7 +217,9 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
               プラン
             </p>
             <p className="text-[13.5px] md:whitespace-nowrap" style={{ color: "var(--product-color-text-primary)" }}>
-              {BILLING.planLabel}（月額 {formatYen(BILLING.planMonthlyYen)}・{BILLING.includedStores}店舗まで）
+              {pilot
+                ? "試験導入中（無料）"
+                : `${BILLING.planLabel}（月額 ${formatYen(BILLING.planMonthlyYen)}・${BILLING.includedStores}店舗まで）`}
             </p>
           </div>
           {canPay && <StripeLink path="/api/admin/billing/portal">プランを変更</StripeLink>}
@@ -228,8 +237,8 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
           {canPay && <StripeLink path="/api/admin/billing/portal">変更</StripeLink>}
         </div>
 
-        {/* 未契約のとき、登録の入口をここに出す（Stripeの鍵が揃っている場合だけ） */}
-        {stripeEnabled && !billing.subscribed && !gate.paused && (
+        {/* 未契約のとき、登録の入口をここに出す（Stripeの鍵が揃っている場合だけ。試験導入中は出さない） */}
+        {stripeEnabled && !billing.subscribed && !gate.paused && !pilot && (
           <ReviewButton
             variant="primary"
             disabled={navigating}
@@ -279,8 +288,10 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
         <p className="text-base font-bold" style={{ color: "var(--product-color-text-primary)" }}>
           店舗枠
         </p>
+        {/* 試験導入中は金額を出さない（無料のため。以下この欄の金額はすべて同じ扱い） */}
         <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-          店舗を追加するには、先に店舗枠を追加してください。追加1店舗につき月額 {formatYen(BILLING.additionalStoreMonthlyYen)} です
+          店舗を追加するには、先に店舗枠を追加してください。
+          {!pilot && `追加1店舗につき月額 ${formatYen(BILLING.additionalStoreMonthlyYen)} です`}
         </p>
 
         <div className="flex w-full items-center justify-between border-b py-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
@@ -291,14 +302,16 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
             {quota.quota === null ? "—" : `${quota.used} / ${quota.quota} 店舗`}
           </p>
         </div>
-        <div className="flex w-full items-center justify-between border-b py-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
-          <p className="text-[12.5px]" style={{ color: "var(--product-color-text-secondary)" }}>
-            現在の月額
-          </p>
-          <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
-            {monthlyTotal === null ? "—" : formatYen(monthlyTotal)}
-          </p>
-        </div>
+        {!pilot && (
+          <div className="flex w-full items-center justify-between border-b py-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
+            <p className="text-[12.5px]" style={{ color: "var(--product-color-text-secondary)" }}>
+              現在の月額
+            </p>
+            <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+              {monthlyTotal === null ? "—" : formatYen(monthlyTotal)}
+            </p>
+          </div>
+        )}
 
         {requested ? (
           <div className="flex w-full flex-col items-start gap-1 rounded-xl p-4" style={{ backgroundColor: "var(--review-accent-wash)" }}>
@@ -323,9 +336,11 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
                 countLabel="店舗枠"
                 totalLabel="変更後の月額"
                 min={minQuota}
+                showPrice={!pilot}
               />
               <p className="text-[11.5px] font-medium leading-[1.6]" style={{ color: "var(--product-color-text-muted)" }}>
-                増やした分は、今月の残り日数ぶんの差額をすぐにご請求します。減らした分は、次のお支払いから反映されます。いま使っている店舗数（{quota.used}店舗）より少なくはできません
+                {!pilot && "増やした分は、今月の残り日数ぶんの差額をすぐにご請求します。減らした分は、次のお支払いから反映されます。"}
+                いま使っている店舗数（{quota.used}店舗）より少なくはできません
               </p>
               <ReviewButton
                 variant="primary"
@@ -356,8 +371,8 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
               店舗枠を変更する
             </p>
             <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-              店舗枠を {quota.quota} 店舗から {desired} 店舗に{desired > (quota.quota ?? 0) ? "増やします" : "減らします"}。月額は{" "}
-              {monthlyTotal === null ? "—" : formatYen(monthlyTotal)} から {formatYen(desiredMonthly)} になります。
+              店舗枠を {quota.quota} 店舗から {desired} 店舗に{desired > (quota.quota ?? 0) ? "増やします" : "減らします"}。
+              {!pilot && `月額は ${monthlyTotal === null ? "—" : formatYen(monthlyTotal)} から ${formatYen(desiredMonthly)} になります。`}
               {canPay
                 ? desired > (quota.quota ?? 0)
                   ? "ご登録のカードに、今月の残り日数ぶんの差額を今すぐご請求します"

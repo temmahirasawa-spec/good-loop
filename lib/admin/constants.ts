@@ -15,7 +15,7 @@ import type { ReviewTheme, BusinessCategory } from "./types";
 export const INDUSTRY_THEMES: ReviewTheme[] = [
   { slug: "clinic", label: "グリーン", swatchPrimary: "#00c471", swatchLight: "#dff9ec" }, // design-qa-allow: 非アクティブ色のプレビュー
   { slug: "restaurant", label: "オレンジ", swatchPrimary: "#e0552b", swatchLight: "#fceee7" }, // design-qa-allow: 非アクティブ色のプレビュー
-  { slug: "salon", label: "ブラウン", swatchPrimary: "#a98a5c", swatchLight: "#f8f2e8" }, // design-qa-allow: 非アクティブ色のプレビュー
+  { slug: "salon", label: "ブラウン", swatchPrimary: "#a98a5c", swatchLight: "#f1e4cf" }, // design-qa-allow: 非アクティブ色のプレビュー（light は 2026-09-28 に #f8f2e8 から変更）
   { slug: "beauty", label: "ピンク", swatchPrimary: "#db6e8c", swatchLight: "#fcedf1" }, // design-qa-allow: 非アクティブ色のプレビュー
   { slug: "seikotsuin", label: "ネイビー", swatchPrimary: "#2c6fb5", swatchLight: "#e8f1fa" }, // design-qa-allow: 非アクティブ色のプレビュー
   { slug: "fitness", label: "ライム", swatchPrimary: "#93c90f", swatchLight: "#f2fbdd" }, // design-qa-allow: 非アクティブ色のプレビュー

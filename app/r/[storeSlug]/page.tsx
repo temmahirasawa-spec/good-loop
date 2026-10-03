@@ -1,27 +1,34 @@
 import { notFound } from "next/navigation";
-import { RatingFlow } from "@/components/rating-flow/RatingFlow";
+import { V5Survey } from "@/components/survey/V5Survey";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { byCategory, getOrSeedStoreTags } from "@/lib/store-tags";
 import { isSurveyStopped } from "@/lib/billing/survey-gate";
 import { SurveyPausedNotice } from "@/components/survey/SurveyPausedNotice";
+import { googleReviewUrl } from "@/lib/survey/google-url";
+import { v5TopicsFor } from "@/lib/survey/v5-topics";
+import "@/components/survey/v5.css";
 
 // 動的なSupabaseデータを毎リクエスト取得する（静的プリレンダー・fetchキャッシュで
 // 固定化されるのを防ぐ。2026-08-06、本番で新規タグが反映されない不具合の原因だった）
 export const dynamic = "force-dynamic";
 
+/** LINE Seed JP（Figma とWebサイトの書体）。next/font/google の一覧に無いので Google Fonts の CSS を直接読む */
+const LINE_SEED_JP = "https://fonts.googleapis.com/css2?family=LINE+Seed+JP:wght@400;700;800&display=swap";
+
 /**
- * 来店客の入口URL（docs/specs/rating-flow.md A-5）。
- * `https://app.good-review.jp/r/[storeSlug]` を想定。
+ * 来店客の入口URL（docs/specs/rating-flow.md A-5）。`https://app.good-review.jp/r/[storeSlug]`。
+ *
+ * 2026-10-01、画面を v5 にした（docs/specs/survey-v5.md）。**★で行き先を分けない。**
+ * 旧い画面（components/rating-flow/RatingFlow.tsx・★4以上だけ Google へ案内し、AIが全文を書く）は使わない。
  *
  * 来店客はログインしない前提（rating-flow.md）なので、RLSではなく admin client
  * （service_role・RLSを迂回）で読む。stores の SELECT には anon ロールへの GRANT を
  * 与えていない（supabase/0003_grants.sql）ため、ここは意図的に admin client を使う。
  */
-export default async function RatingFlowPage({ params }: { params: { storeSlug: string } }) {
+export default async function SurveyPage({ params }: { params: { storeSlug: string } }) {
   const supabase = createSupabaseAdminClient();
   const { data: store } = await supabase
     .from("stores")
-    .select("id, tenant_id, name, slug, loop_theme, business_category, google_place_id, google_maps_fallback_url")
+    .select("id, tenant_id, name, slug, logo_url, loop_theme, business_category, google_place_id, google_maps_fallback_url")
     .eq("slug", params.storeSlug)
     .maybeSingle();
 
@@ -37,22 +44,23 @@ export default async function RatingFlowPage({ params }: { params: { storeSlug: 
     .insert({ tenant_id: store.tenant_id, store_id: store.id })
     .then(() => {}, () => {});
 
-  // プリセットの種まきは店舗の業態に対応するものだけを使う（supabase/0010、2026-08-21）
-  const storeTags = await getOrSeedStoreTags(supabase, store.id, store.tenant_id, store.business_category);
-
   return (
-    // Figmaのフレームは390px固定（02基本形）。data-review-theme は店舗が選んだ色テーマをそのまま渡す
-    // （2026-08-06、業態とは分離した。値は変えていない。詳細はlib/admin/constants.ts参照）
-    <div className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-col" data-review-theme={store.loop_theme}>
-      <RatingFlow
+    // data-review-theme は店舗が選んだ色テーマをそのまま渡す（緑の部分＝--review-accent-* が業態の色になる）
+    <div data-review-theme={store.loop_theme}>
+      {/* eslint-disable-next-line @next/next/no-css-tags -- next/font/google の一覧に無い書体。next/font/local（サブセット化）に移すまではこの読み方 */}
+      <link rel="stylesheet" href={LINE_SEED_JP} precedence="default" />
+      <V5Survey
         store={{
           id: store.id,
           name: store.name,
-          slug: store.slug,
-          googlePlaceId: store.google_place_id,
-          googleMapsFallbackUrl: store.google_maps_fallback_url,
+          logoUrl: store.logo_url,
+          googleReviewUrl: googleReviewUrl({
+            name: store.name,
+            googlePlaceId: store.google_place_id,
+            googleMapsFallbackUrl: store.google_maps_fallback_url,
+          }),
         }}
-        tags={{ good: byCategory(storeTags, "good"), improve: byCategory(storeTags, "improve") }}
+        topics={v5TopicsFor(store.business_category)}
       />
     </div>
   );

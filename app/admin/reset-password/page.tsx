@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ReviewInput } from "@/components/admin/ReviewInput";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { BrandLogo } from "@/components/admin/BrandLogo";
 
 /**
  * パスワード再設定（Figmaに対応ノード無し。天真確認・案A「1画面完結」で決定 2026-08-06）。
@@ -36,9 +37,7 @@ export default function ResetPasswordPage() {
         className="flex w-full max-w-[420px] flex-col items-center gap-5 rounded-[20px] p-8"
         style={{ backgroundColor: "var(--product-color-surface-white)" }}
       >
-        <p className="whitespace-nowrap text-xl font-bold tracking-[1.2px]" style={{ color: "var(--product-color-text-primary)" }}>
-          GOOD REVIEW
-        </p>
+        <BrandLogo height={22} />
         <p className="whitespace-nowrap text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
           パスワードの再設定
         </p>
@@ -58,7 +57,7 @@ export default function ResetPasswordPage() {
               <p className="text-xs font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
                 メールアドレス
               </p>
-              <ReviewInput value={email} onChange={setEmail} type="email" placeholder="temma@yorkys.jp" />
+              <ReviewInput value={email} onChange={setEmail} type="email" placeholder="mail@example.com" />
             </div>
             <ReviewButton variant="primary" type="submit" disabled={submitting}>
               {submitting ? "送信中…" : "再設定用のリンクを送る"}

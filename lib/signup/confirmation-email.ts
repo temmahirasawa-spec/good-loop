@@ -11,11 +11,15 @@ import { sendEmail } from "@/lib/email/send";
  *
  * ⚠ **リンクは本人以外に渡らないようにすること。** このリンクを開いた人が
  *   そのアカウントにログインできる。ログにも画面にも出さない。
+ *
+ * 試験導入（招待コードで登録。supabase/0018）の契約先は無料なので、
+ * 無料期間とカード登録の案内を入れない（`pilot: true`）。
  */
 export async function sendConfirmationEmail(
   admin: SupabaseClient,
   email: string,
   origin: string,
+  { pilot = false }: { pilot?: boolean } = {},
 ): Promise<boolean> {
   const { data, error } = await admin.auth.admin.generateLink({
     type: "signup",
@@ -42,9 +46,13 @@ export async function sendConfirmationEmail(
       "",
       link,
       "",
-      // 2026-09-28 から、無料体験はカードを登録した日から数える（docs/specs/billing.md §13）
-      "アンケートの項目や業態テーマは、このまま設定できます。お店で使い始めるときに、お支払いのカードを登録してください。無料体験の14日間はその日から数えます。",
-      "",
+      ...(pilot
+        ? []
+        : [
+            // 2026-09-28 から、無料体験はカードを登録した日から数える（docs/specs/billing.md §13）
+            "アンケートの項目や業態テーマは、このまま設定できます。お店で使い始めるときに、お支払いのカードを登録してください。無料体験の14日間はその日から数えます。",
+            "",
+          ]),
       "───────────────",
       "このメールにお心当たりがない場合は、お手数ですが破棄してください。",
       "リンクを開かないかぎり、ご利用が始まることはありません。",

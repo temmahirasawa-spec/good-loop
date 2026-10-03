@@ -1,0 +1,238 @@
+/*
+ * アンケート v5 試作の見た目と動き（docs/specs/survey-v5.md §9）。本番の /r/[storeSlug] と /demo/v5 で使う（.v5 の下に閉じている。2026-10-01 に app/demo/v5 から移した）。
+ *
+ * 2026-09-28 天真の指示「Webサイト（リブランディング版）の世界観やトーンをある程度踏襲」に沿って、
+ * Webサイト v2（GOOD_LOOP_Official の feat/v2-rebrand、design/v2/palette.json・motion/v2/tokens.ts）の値を借りている。
+ *
+ * ⚠ ここにある生の色は3つだけ（生成りの紙・★の黄・影）。どれも Figma の変数にまだ無い。
+ *   本番化の前に Figma の `Industry Theme`／UTUTU の変数に登録し、app/design-tokens.css へ移すこと
+ *   （CLAUDE.md 4章「実装だけに色を足さない」）。緑は業態テーマの --review-accent-* をそのまま使う。
+ * 書体は LINE Seed JP（Figma とWebサイトが使っている）。読み込みは page.tsx の <link>（Google Fonts。使う文字の分だけ届く）。
+ * ⚠ ここで @import すると next build の CSS 圧縮が「Unexpected '/'」で落ちる（2026-09-28 実測）。
+ */
+
+.v5 {
+  --v5-paper: #faf6ec; /* 生成り（Webサイト v2 の kinari） */
+  --v5-star: #ffbc11; /* ★の黄（Webサイト v2 の yellow。app の cta/primary #FFC32B は旧色） */
+  --v5-shadow: rgb(35 48 41 / 0.14); /* ずらした影（ぼかさない） */
+  --v5-ink: var(--product-color-text-primary);
+  --v5-rule: color-mix(in srgb, var(--review-accent-primary) 20%, var(--product-color-surface-white));
+  --v5-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --v5-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --v5-ease-stamp: cubic-bezier(0.34, 1.9, 0.64, 1);
+
+  font-family: "LINE Seed JP", var(--font-noto-sans-jp), sans-serif;
+  background: var(--v5-paper);
+  color: var(--v5-ink);
+  line-break: strict;
+}
+
+.v5 h1,
+.v5 h2 {
+  text-wrap: balance;
+  word-break: auto-phrase;
+}
+
+/* 見出しの上の短い縦線（Webサイトの見出しの型） */
+.v5-rule-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--product-color-text-secondary);
+}
+.v5-rule-label::before {
+  content: "";
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--v5-ink);
+}
+
+/* ── 押したとき：沈んで、弾んで戻る（Webサイトの tap） ── */
+.v5-press {
+  transition: transform 250ms var(--v5-ease-pop);
+  -webkit-tap-highlight-color: transparent;
+}
+.v5-press:active {
+  transform: scale(0.96);
+  transition: transform 125ms ease-in;
+}
+
+/* ── 主ボタン（墨の塗り・白い文字・丸い形）と、枠のボタン ── */
+.v5-btn {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 2px solid var(--v5-ink);
+  padding: 0 24px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.v5-btn--primary {
+  background: var(--v5-ink);
+  color: var(--product-color-surface-white);
+}
+.v5-btn--secondary {
+  background: var(--product-color-surface-white);
+  color: var(--v5-ink);
+}
+.v5-btn--done {
+  background: var(--review-accent-wash);
+  color: var(--v5-ink);
+}
+.v5-btn:disabled {
+  background: var(--product-color-surface-white);
+  border-style: dashed;
+  border-color: var(--product-color-text-muted);
+  color: var(--product-color-text-tertiary);
+}
+
+/* ── ずらした影（届け先のカードと、完成した文章のカードだけ）。ぼかさず右下にずらす ──
+   ⚠ ::before を z-index:-1 で後ろに回す作りにすると、カード自身の白い面の上に影が乗って灰色に見えた（2026-09-28 実測）。
+   ぼかし0の box-shadow なら見た目は同じで、面の上に乗らない */
+.v5-paper-card {
+  box-shadow: 6px 9px 0 0 var(--v5-shadow);
+}
+
+/* ── 着地（上から降りてきて、少し弾んで止まる） ── */
+@keyframes v5-land {
+  from {
+    opacity: 0;
+    transform: translateY(-24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.v5-land {
+  animation: v5-land 500ms var(--v5-ease-pop) both;
+}
+
+@keyframes v5-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.v5-rise {
+  animation: v5-rise 500ms var(--v5-ease-out) both;
+}
+
+/* ── ★：左から順に弾む ── */
+@keyframes v5-star-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.v5-star-pop {
+  animation: v5-star-pop 250ms var(--v5-ease-stamp) both;
+}
+
+/* ── タップした場所から黄色い輪が2つ広がる（Webサイトの tap ring） ── */
+@keyframes v5-ring {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.25);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+.v5-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 72px;
+  height: 72px;
+  border: 3px solid var(--v5-star);
+  border-radius: 999px;
+  pointer-events: none;
+  animation: v5-ring 500ms var(--v5-ease-out) both;
+}
+.v5-ring--inner {
+  width: 56px;
+  height: 56px;
+  animation-delay: 90ms;
+}
+
+/* ── 選んだとき：小さく弾む／チェックが判子のように押される ── */
+@keyframes v5-bump {
+  from {
+    transform: scale(1.05);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+.v5-bump {
+  animation: v5-bump 250ms var(--v5-ease-pop);
+}
+@keyframes v5-stamp {
+  from {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.v5-stamp {
+  display: inline-block;
+  animation: v5-stamp 250ms var(--v5-ease-stamp) both;
+}
+
+/* ── 書く欄のプレースホルダ（欄の中の問い）。まだ入力されていない＝text/muted（2026-08-24 の決まり・Figma と同じ）。
+   指定しないとブラウザ既定の灰（#9CA3AF）になり、Figma と食い違っていた（2026-09-28） ── */
+.v5 textarea::placeholder {
+  color: var(--product-color-text-muted);
+  opacity: 1;
+}
+
+/* ── 書く欄：ノートの罫線（行の高さ 28px に合わせる） ──
+   線は各行の**文字のすぐ下**（行の枠の上から 27px 目）。欄の上の余白は 4px なので、線は 27・55・83…px（2026-09-28 天真
+   「罫線と文字の高さを合わせたい。いまテキストが若干上にずれている」）。以前は 11px ずらしていて、線が1行目の文字の頭を横切り、
+   文字は下の線から浮いて見えていた。Figma の Review v5 / Field も同じ位置 */
+.v5-notebook {
+  line-height: 28px;
+  background-color: var(--product-color-surface-white);
+  background-image: linear-gradient(transparent 27px, var(--v5-rule) 27px);
+  background-size: 100% 28px;
+  background-attachment: local;
+  background-position: 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v5-press,
+  .v5-press:active {
+    transition: none;
+    transform: none;
+  }
+  .v5-land,
+  .v5-rise,
+  .v5-star-pop,
+  .v5-bump,
+  .v5-stamp {
+    animation: none;
+  }
+  .v5-ring {
+    display: none;
+  }
+}

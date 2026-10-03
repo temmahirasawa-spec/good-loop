@@ -165,7 +165,7 @@ export function OnboardingFlow({ presets, quota = 1 }: { presets: Record<string,
                 setStoreName(v);
                 if (nameError && v.trim() !== "") setNameError(false);
               }}
-              placeholder="例：YORKYS BRUNCH 夙川店"
+              placeholder="例：グッドカフェ 本店"
               error={nameError}
             />
             {nameError && (
@@ -495,7 +495,7 @@ function PlaceStep({
       secondaryLabel="あとで設定する"
       onSecondary={onSkip}
     >
-      <ReviewInput value={query} onChange={handleInput} placeholder="店名で検索（例：ヨーキーズブランチ）" />
+      <ReviewInput value={query} onChange={handleInput} placeholder="店名で検索（例：グッドカフェ）" />
 
       {searching && (
         <div className="flex w-full flex-col gap-2 rounded-xl p-4" style={{ backgroundColor: "var(--product-color-bg-secondary)" }}>
