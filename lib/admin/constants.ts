@@ -44,9 +44,12 @@ export const BUSINESS_CATEGORIES: BusinessCategory[] = [
 export const TREND_WEEK_LABELS = ["5週前", "4週前", "3週前", "2週前", "今週"];
 
 /**
- * 料金（設定・お支払い／店舗枠の追加）。金額はすべて税抜。
+ * 料金（設定・お支払い／店舗枠の追加）。**金額はすべて税込（内税）。**
  *
- * 2026-08-27 に確定した（洋輔 × 天真）：スタンダード月 9,800円（1店舗込み）、追加店舗 1店舗 月 5,000円。
+ * 2026-10-03、税込表示に切り替えた（天真の決定）：月 9,800円（税込・1店舗込み）、追加店舗 1店舗 月 4,800円（税込）。
+ * 小さな店（免税事業者）には税込の額がそのまま負担になるため。Stripe の税率も内税（inclusive）にする（docs/specs/billing.md §2）。
+ *
+ * 2026-08-27 に確定した（洋輔 × 天真）：スタンダード月 9,800円（1店舗込み）、追加店舗 1店舗 月 5,000円（当時は税抜。2026-10-03 に上の税込へ改めた）。
  * 仮の値だった追加店舗 3,000円は誤り（2026-09-28 まで画面に残っていて、Stripe の請求 5,000円と食い違っていた）。
  * 画面に出る金額はすべてここを参照しているので、**このオブジェクトだけを書き換えれば
  * 全画面の表示が変わる**（他の場所に金額を直書きしないこと）。
@@ -60,8 +63,33 @@ export const BILLING = {
   /** 基本プランに含まれる店舗数。これを超える店舗は追加課金 */
   includedStores: 1,
   /** 追加1店舗あたりの月額 */
-  additionalStoreMonthlyYen: 5000,
+  additionalStoreMonthlyYen: 4800,
+  /**
+   * 消費税の率。金額は税込なので、画面に「うち消費税」を出すための見積もりに使う（docs/specs/billing.md §2）。
+   * 実際の請求の税は Stripe の税率（STRIPE_TAX_RATE_ID・内税）で計算される。ここを変えても請求は変わらない
+   */
+  taxRatePercent: 10,
 };
+
+/** 月額の見積もり。total は税込のお支払い額、tax はそのうちの消費税（円） */
+export type MonthlyQuote = { total: number; tax: number };
+
+/**
+ * 明細の合計と税率から、税込の支払い額と消費税を出す。
+ * 内税（inclusive）なら合計がそのまま支払い額、外税なら税を足す。Stripe は明細ごとに端数を丸めるので、表示用の見積もり。
+ */
+export function quoteFromAmount(amount: number, taxPercent: number, inclusive: boolean): MonthlyQuote {
+  if (inclusive) return { total: amount, tax: amount - Math.round(amount / (1 + taxPercent / 100)) };
+  const total = Math.round(amount * (1 + taxPercent / 100));
+  return { total, tax: total - amount };
+}
+
+/** 店舗枠から月額（税込）を見積もる。追加店舗は「店舗枠 − 基本に含まれる店舗数」 */
+export function monthlyQuoteFor(quota: number): MonthlyQuote & { extraStores: number } {
+  const extraStores = Math.max(0, quota - BILLING.includedStores);
+  const amount = BILLING.planMonthlyYen + extraStores * BILLING.additionalStoreMonthlyYen;
+  return { ...quoteFromAmount(amount, BILLING.taxRatePercent, true), extraStores };
+}
 
 /** 金額の表示形式を1箇所に揃える（例: 9800 → 「9,800円」） */
 export function formatYen(yen: number): string {

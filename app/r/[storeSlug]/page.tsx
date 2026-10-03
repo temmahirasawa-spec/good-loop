@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { V5Survey } from "@/components/survey/V5Survey";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isSurveyStopped } from "@/lib/billing/survey-gate";
+import { V5PausedNotice } from "@/components/survey/V5PausedNotice";
 import { googleReviewUrl } from "@/lib/survey/google-url";
 import { v5TopicsFor } from "@/lib/survey/v5-topics";
 import "@/components/survey/v5.css";
@@ -31,6 +33,10 @@ export default async function SurveyPage({ params }: { params: { storeSlug: stri
     .maybeSingle();
 
   if (!store) notFound();
+
+  // カードを登録する前（申し込みから来た契約先）と、お休みのあいだは止める（docs/specs/billing.md §3-2・§3-8）。
+  // 読み取りの記録（page_views）も数えない。回答の API も同じ判定で断っている
+  if (await isSurveyStopped(supabase, store.tenant_id)) return <V5PausedNotice />;
 
   // QR読み取り数の元データ（launch-plan.md C節）。失敗しても来店客の画面は止めない
   await supabase

@@ -3,6 +3,9 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { CoachMarksAutoStart } from "@/components/admin/CoachMarks";
 import { StoreNameProvider } from "@/components/admin/StoreNameContext";
 import { getCurrentStore } from "@/lib/admin/current-store";
+import { CardGateProvider } from "@/components/admin/billing/CardGate";
+import { getBillingState } from "@/lib/billing/state";
+import { getStoreQuotaState } from "@/lib/admin/store-quota";
 
 /**
  * 管理画面の共通レイアウト。
@@ -26,8 +29,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!store) redirect("/admin/onboarding");
 
   const storeName = store.name;
+  // カードの関門（無料体験 A案。docs/specs/billing.md §3-2）。二次元コード・卓上POP・店舗枠の追加の手前で出す
+  const [billing, quota] = await Promise.all([getBillingState(), getStoreQuotaState()]);
 
   return (
+    <CardGateProvider needsCard={billing.access.needsCard} paused={billing.access.paused} quota={quota.quota ?? 1}>
     <StoreNameProvider value={storeName}>
       <div className="flex h-dvh w-full items-start" style={{ backgroundColor: "var(--product-color-bg-primary)" }}>
         {/* コーチマーク（PC）。初回だけサイドバーの4項目を順に説明する。SPはドロワー側 */}
@@ -41,5 +47,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </div>
     </StoreNameProvider>
+    </CardGateProvider>
   );
 }

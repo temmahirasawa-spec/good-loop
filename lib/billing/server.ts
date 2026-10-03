@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/billing/stripe";
 import { PUBLIC_APP_URL } from "@/lib/site-url";
+import { testClockId } from "@/lib/billing/config";
 
 /**
  * お支払いの API が共通で使うもの（docs/specs/billing.md 6章）。
@@ -54,10 +55,13 @@ export async function ensureStripeCustomer(tenant: TenantBilling): Promise<strin
   if (tenant.stripeCustomerId) return tenant.stripeCustomerId;
 
   const stripe = getStripe();
+  const clock = testClockId();
   const customer = await stripe.customers.create({
     name: tenant.name ?? undefined,
     email: tenant.email ?? undefined,
     metadata: { tenant_id: tenant.tenantId },
+    // テストのときだけ、日付を進められる時計に付ける（7日目・3日前・15日目をすぐに起こす。§14）
+    ...(clock ? { test_clock: clock } : {}),
   });
 
   const admin = createSupabaseAdminClient();

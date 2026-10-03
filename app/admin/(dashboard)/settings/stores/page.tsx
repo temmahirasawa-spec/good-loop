@@ -3,6 +3,7 @@ import { getStoreSummaries } from "@/lib/admin/queries";
 import { getStoreQuotaState } from "@/lib/admin/store-quota";
 import { generateQrSvg } from "@/lib/qr-code";
 import { PUBLIC_APP_URL } from "@/lib/site-url";
+import { getBillingState } from "@/lib/billing/state";
 
 // 動的な集計データを毎リクエスト取得する（静的プリレンダーで数値が固定化されるのを防ぐ）
 export const dynamic = "force-dynamic";
@@ -18,16 +19,19 @@ export const dynamic = "force-dynamic";
  * 2026-08-21、店舗枠（supabase/0009）を導入。空きが無いと追加できない。
  */
 export default async function SettingsStoresPage() {
-  const [stores, quota] = await Promise.all([getStoreSummaries(), getStoreQuotaState()]);
+  const [stores, quota, billing] = await Promise.all([getStoreSummaries(), getStoreQuotaState(), getBillingState()]);
+  // カードを登録する前・お休みのあいだは、二次元コードを作らない（画面は鍵の絵とカードの関門。docs/specs/billing.md §3-2）
+  const canShowQr = billing.access.canUseStoreFeatures;
   const storesWithQr = await Promise.all(
     stores.map(async (s) => ({
       id: s.id,
       name: s.name,
       slug: s.slug,
-      publicUrl: `${PUBLIC_APP_URL}/r/${s.slug}`,
+      // カードを登録するまでは URL も渡さない（公開アンケートが止まっているので、開いてもお休みの画面になる）
+      publicUrl: canShowQr ? `${PUBLIC_APP_URL}/r/${s.slug}` : null,
       businessCategory: s.businessCategory,
       googlePlaceLinked: s.googlePlaceLinked,
-      qrSvg: await generateQrSvg(`${PUBLIC_APP_URL}/r/${s.slug}`),
+      qrSvg: canShowQr ? await generateQrSvg(`${PUBLIC_APP_URL}/r/${s.slug}`) : null,
     }))
   );
   return (

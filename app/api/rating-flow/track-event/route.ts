@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isSurveyStopped } from "@/lib/billing/survey-gate";
 
 /**
  * 03画面「①この文章をコピー」「②Googleマップを開く」の記録先（launch-plan.md C節）。
@@ -38,6 +39,9 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (responseError || !response) {
     return NextResponse.json({ error: "response not found" }, { status: 404 });
+  }
+  if (await isSurveyStopped(supabase, response.tenant_id)) {
+    return NextResponse.json({ error: "survey paused" }, { status: 403 });
   }
 
   const { error: insertError } = await supabase.from("conversion_events").insert({

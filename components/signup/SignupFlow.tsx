@@ -17,8 +17,8 @@ import { BrandLogo } from "@/components/admin/BrandLogo";
  * 3つの段を1つの部品で持つ。**画面遷移を跨がないので、入力と選んだ店舗数が消えない。**
  *   料金 → アカウント作成 → お申し込み完了
  *
- * カードの登録はここでは求めない（14日間の無料トライアル）。
- * 支払いは期限までに 設定＞お支払い から行う（docs/specs/billing.md 5-2）。
+ * カードの登録はここでは求めない。**二次元コードを発行するとき（お店で使い始めるとき）に求める**。
+ * 14日間の無料体験は、カードを登録した日から始まる（2026-09-28 天真の決定。docs/specs/billing.md §3・§13）。
  *
  * ── 招待コード（試験導入＝招待制ベータ。supabase/0018、2026-10-01）──────────
  * 料金の段（1つ目）に欄を置く。Figma に無い要素なので、アカウント作成の段と同じ入力欄（Field）を使う。
@@ -54,7 +54,7 @@ const FAQ = [
 const PILOT_COPY = {
   badge: "試験導入中は無料",
   title: "試験導入のあいだは無料です",
-  body: `正式な公開のときに改めてご案内します。そこから${TRIAL_DAYS}日間の無料体験のあと、月額${formatYen(BILLING.planMonthlyYen)}（税抜）になります。いまカードの登録は要りません。`,
+  body: `正式な公開のときに改めてご案内します。そこから${TRIAL_DAYS}日間の無料体験のあと、月額${formatYen(BILLING.planMonthlyYen)}（税込）になります。いまカードの登録は要りません。`,
   start: "無料で始める",
 };
 
@@ -264,13 +264,14 @@ function Pricing({
               {BILLING.planMonthlyYen.toLocaleString("ja-JP")}
             </span>
             <span className="text-[12.5px] md:text-[14px]" style={{ color: "var(--product-color-text-secondary)" }}>
-              円 / 月・{BILLING.includedStores}店舗まで
+              円 / 月（税込）・{BILLING.includedStores}店舗まで
             </span>
           </p>
 
           <ul className="flex w-full flex-col gap-3">
             {[
-              "AIがクチコミの下書きを作成します",
+              // 2026-10-03、v5（AIは文章を作らない）に合わせて差し替え。旧「AIがクチコミの下書きを作成します」
+              "クチコミはお客様ご本人の言葉で（AIは文章を作りません）",
               "満足度アンケートと、項目ごとの集計",
               "低評価が入ったときのアラート通知",
               "卓上POPと二次元コードの発行",
@@ -293,7 +294,7 @@ function Pricing({
               追加店舗
             </p>
             <p className="text-[13.5px]" style={{ color: "var(--product-color-text-primary)" }}>
-              1店舗につき ＋{formatYen(BILLING.additionalStoreMonthlyYen)} / 月
+              1店舗につき ＋{formatYen(BILLING.additionalStoreMonthlyYen)} / 月（税込）
             </p>
           </div>
         </div>
@@ -343,8 +344,8 @@ function Pricing({
           <ReviewButton variant="primary" onClick={onNext}>
             {startLabel}
           </ReviewButton>
-          <p className="w-full text-center text-[11.5px]" style={{ color: "var(--product-color-text-muted)" }}>
-            カードの登録は不要です
+          <p className="w-full text-center text-[11.5px] leading-[1.6]" style={{ color: "var(--product-color-text-muted)" }}>
+            カードの登録は、まだ要りません。二次元コードを発行するときにお願いします。14日間の無料体験は、カードを登録した日から始まります。
           </p>
         </div>
       </div>
@@ -504,8 +505,8 @@ function Account({
       <ReviewButton variant="primary" type="submit" disabled={submitting}>
         {submitting ? "お申し込み中..." : startLabel}
       </ReviewButton>
-      <p className="w-full text-center text-[11.5px]" style={{ color: "var(--product-color-text-muted)" }}>
-        カードの登録は不要です
+      <p className="w-full text-center text-[11.5px] leading-[1.6]" style={{ color: "var(--product-color-text-muted)" }}>
+        カードの登録は、まだ要りません。二次元コードを発行するときにお願いします。14日間の無料体験は、カードを登録した日から始まります。
       </p>
     </form>
   );
@@ -623,7 +624,7 @@ function Done({ storeCount, email, pilot }: { storeCount: number; email: string;
               </p>
             </div>
             <p className="text-[11.5px] leading-[1.6]" style={{ color: "var(--product-color-text-muted)" }}>
-              期限が近づいたらメールでお知らせします。設定＞お支払いから、いつでもカードを登録できます
+              アンケートの項目や業態テーマは、このまま設定できます。お店で使い始めるときに、お支払いのカードを登録してください。無料体験の14日間はその日から数えます。
             </p>
           </div>
         )}

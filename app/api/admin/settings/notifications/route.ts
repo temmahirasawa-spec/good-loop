@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { refuseWhenPaused } from "@/lib/billing/state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -16,6 +17,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 type Body = { storeId?: unknown; notifyLowRating?: unknown; notifyEmail?: unknown };
 
 export async function PUT(req: Request) {
+  // お休み（見るだけ）のあいだは設定を変えさせない（docs/specs/billing.md §3-8）
+  const paused = await refuseWhenPaused();
+  if (paused) return paused;
+
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },

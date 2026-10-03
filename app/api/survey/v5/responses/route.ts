@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hashClientIp } from "@/lib/ai-check/rate-limit";
 import { sendLowRatingAlert } from "@/lib/rating-flow/low-rating-alert";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isSurveyStopped } from "@/lib/billing/survey-gate";
 import { checkSurveyLimit, recordSurveyRequest } from "@/lib/survey/request-limit";
 import { isV5FieldId, OTHER_FIELD, v5Topic } from "@/lib/survey/v5-topics";
 
@@ -120,6 +121,10 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (storeError || !store) {
     return NextResponse.json({ error: "store not found" }, { status: 404 });
+  }
+  // アンケートがお休みの契約先には回答を受け付けない（画面だけ止めても、ここを直接呼ばれると回答できてしまう。docs/specs/billing.md §3-8）
+  if (await isSurveyStopped(supabase, store.tenant_id)) {
+    return NextResponse.json({ error: "survey paused" }, { status: 403 });
   }
 
   const wroteSomething = body.wrote && (body.finalText !== "" || Object.keys(body.fields).length > 0);

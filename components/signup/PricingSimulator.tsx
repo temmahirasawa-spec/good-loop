@@ -17,7 +17,7 @@ export function PricingSimulator({
   onChange,
   compact = false,
   countLabel = "店舗数",
-  totalLabel = "お申し込み後の月額",
+  totalLabel = "お申し込み後の月額（税込）",
   min = 1,
   max = MAX_STORES,
   showPrice = true,

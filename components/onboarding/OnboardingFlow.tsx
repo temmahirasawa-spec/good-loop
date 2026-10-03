@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ReviewButton } from "@/components/rating-flow/Button";
+import { GateSummary, useCardGate } from "@/components/admin/billing/CardGate";
 import { ReviewInput } from "@/components/admin/ReviewInput";
 import { BUSINESS_CATEGORIES, INDUSTRY_THEMES, SURVEY_TALLY_NOTE } from "@/lib/admin/constants";
 import type { TagPreset } from "@/lib/store-tags";
@@ -34,7 +35,9 @@ const DRAFT_KEY = "goodreview:onboarding:draft";
 
 const TOTAL_STEPS = 8;
 
-export function OnboardingFlow({ presets }: { presets: Record<string, TagPreset> }) {
+export function OnboardingFlow({ presets, quota = 1 }: { presets: Record<string, TagPreset>; quota?: number }) {
+  // ステップ7のカードの関門（申し込みから来た契約先は、二次元コードの前にカードを登録する。docs/specs/billing.md §3-2）
+  const gate = useCardGate();
   const [step, setStep] = useState(1);
   const [storeName, setStoreName] = useState("");
   const [category, setCategory] = useState("restaurant");
@@ -46,7 +49,7 @@ export function OnboardingFlow({ presets }: { presets: Record<string, TagPreset>
   const [nameError, setNameError] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [created, setCreated] = useState<{ storeId: string; qrSvg: string } | null>(null);
+  const [created, setCreated] = useState<{ storeId: string; qrSvg: string; needsCard: boolean } | null>(null);
 
   // ── 下書きの復元と保存 ──────────────────────────────
   useEffect(() => {
@@ -119,7 +122,7 @@ export function OnboardingFlow({ presets }: { presets: Record<string, TagPreset>
         setCreateError(typeof data?.error === "string" ? data.error : "作成できませんでした。もう一度お試しください。");
         return;
       }
-      setCreated({ storeId: data.store.id, qrSvg: data.qrSvg ?? "" });
+      setCreated({ storeId: data.store.id, qrSvg: data.qrSvg ?? "", needsCard: Boolean(data.needsCard) });
       try {
         localStorage.removeItem(DRAFT_KEY);
       } catch {
@@ -268,7 +271,22 @@ export function OnboardingFlow({ presets }: { presets: Record<string, TagPreset>
           </StepFrame>
         )}
 
-        {step === 7 && created && (
+        {step === 7 && created && created.needsCard && (
+          // 無料体験 A案（Figma App Design Master `12 無料体験 / Trial` の「オンボーディング 7 カードの関門」）。
+          // 二次元コードの代わりに、料金・無料の期間・注意を見せる。「あとで登録する」なら準備完了へ進む
+          <StepFrame
+            title="カードを登録して、無料体験を始める"
+            description="二次元コードの発行と店舗の追加は、お支払いのカードを登録してからお使いいただけます。14日間の無料体験は、登録した日から始まります。"
+            primaryLabel="カードを登録する"
+            onPrimary={gate.beginCheckout}
+            secondaryLabel="あとで登録する"
+            onSecondary={next}
+          >
+            <GateSummary quota={quota} />
+          </StepFrame>
+        )}
+
+        {step === 7 && created && !created.needsCard && (
           <StepFrame
             title="二次元コードができました"
             description="卓上POPに印刷して、席に置いてください。"
@@ -292,7 +310,12 @@ export function OnboardingFlow({ presets }: { presets: Record<string, TagPreset>
         {step === 8 && (
           <StepFrame
             title="準備ができました"
-            description="あとはお客様が読み取るのを待つだけです。"
+            // カードの登録を「あとで」にした人には、二次元コードがまだ使えないことを伝える（2026-09-29。天真の確認待ちの文言）
+            description={
+              created?.needsCard
+                ? "二次元コードは、カードを登録すると使えるようになります。設定＞お支払いから、いつでも登録できます。"
+                : "あとはお客様が読み取るのを待つだけです。"
+            }
             primaryLabel="管理画面をひらく"
             onPrimary={() => {
               // ルーターの遷移だと (dashboard) レイアウトのキャッシュが「店舗0件」の
