@@ -5158,3 +5158,18 @@ Google 連携（口コミの取り込み・新着通知・AI 返信案）は審�
 - 不具合2つを直した（#80 に push）：①再請求が尽きたとき deleted と最後の payment_failed が同時に届き「お休み」が「未払い」で上書きされていた ②setup モードの Checkout に Managed Payments の無効化が無く、サンドボックスでカードの関門が開けなかった
 - 残り：天真が localhost で画面を一周（カード登録 → 体験の帯 → 設定＞お支払い）。検証用の契約先は「【検証用】Stripe テストテナント」。ログインは `~/.config/good-review/stripe-test-login.txt`
 - 本番 Stripe の ID は `~/.config/good-review/stripe-live-ids.txt`。本番のポータル・メール・再請求の設定は済み（10/5）
+
+## 2026-10-05 — 課金を本番で動く状態にした（#78・#80・#82 マージ、website #8、Stripe 本番、Vercel 本番）
+
+**マージ（天真が「おまかせ」）**：#78（仕様）→ #80（カード登録つき無料体験・税込化）→ #82（名刺サイズの POP）。website #8（LP の税込・FAQ）も同日。GOOD REVIEW のアプリの未マージ PR は0件。
+- #82 は #80 の古いコミットを含んでいたので、main から作り直して POP のコミットだけを載せた。SQL は **0020_pop_business_card.sql**（0018 は招待コード）。**本番に実行済み**
+- #80 に足したもの：①再請求が尽きたとき「お休み」が「未払い」で上書きされる不具合の修正（deleted と最後の payment_failed が同時に届く）②setup モードの Checkout でも Managed Payments を明示的に切る ③設定＞お支払いの請求履歴から0円の請求を外す ④「プランを変更」を消す（天真）
+
+**Stripe 本番（live）**：商品・価格（9,800円・4,800円、税込）・税率（消費税10%・内税）は API で作成。ID は `~/.config/good-review/stripe-live-ids.txt`。カスタマーポータル（期間の終わりに解約・理由を聞く・カード変更・請求書）、メール（体験終了のリマインダーはオフ・カード決済の失敗メールはオン）、再請求（2週間・尽きたらキャンセル）、Managed Payments オフ、Webhook（`https://app.good-review.jp/api/stripe/webhook`・7イベント・2026-07-29.dahlia）は天真が画面で設定。
+**サンドボックス**：税込の価格 `price_1UN3NIRJTq4ONSN40YerhQpU`（9,800）・`price_1UN3NIRJTq4ONSN49NcfGIM4`（4,800）・税率 `txr_1UN3NJRJTq4ONSN4WQ0yZX5x`。⚠ サンドボックスは Managed Payments がオンのまま（コードで切っているので動く）
+
+**Vercel**：Production と Preview で値を分けた。Production＝本番のキー・Webhook の秘密（天真が入力）、価格・税率・`TRIAL_CLAIM_SALT`・`CRON_SECRET`（AI が入力。塩は一度決めたら変えない）。Preview＝サンドボックスの値。10/5 に本番を出し直した。
+
+**データ**：本番 DB に残っていたサンドボックスの顧客IDを「検証」「【検証用】Stripe テストテナント」から外した。**YORKYS BRUNCH にもサンドボックスの顧客IDが残っている**（billing_status は none）。実在の店の契約先なので触っていない。本番のキーでは見つからないので、設定＞お支払いの表示が「取得できない」になる。扱いは天真の判断（YORKYS の件の「当面やらないこと」と合わせて）。
+
+**残り**：天真が本番で関門から Stripe の本番のカード画面が開くかを確認（カードは入れない）／設定用の制限付きキーの削除と `~/.config/good-review/stripe-live-setup.env` の削除／特商法のページ／年内6機能の予告・開発／関門で店舗数を選べるようにする。
