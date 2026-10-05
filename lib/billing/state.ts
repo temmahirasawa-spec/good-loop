@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { STRIPE_ENABLED } from "@/lib/billing/config";
 import { billingAccess, type BillingAccess } from "@/lib/billing/access";
 import type { BillingStatus } from "@/lib/billing/types";
+import { PAUSED_EDIT_MESSAGE } from "@/lib/billing/messages";
 
 /**
  * 契約先の課金状態（supabase/0013・0017、docs/specs/billing.md §5）。
@@ -110,7 +111,7 @@ export async function getBillingState(): Promise<BillingState> {
 }
 
 /** お休みのあいだに断るときの文（画面にそのまま出る） */
-export const PAUSED_EDIT_MESSAGE = "お休み中は設定を変更できません。カードを登録すると再開できます。";
+export { PAUSED_EDIT_MESSAGE };
 
 /**
  * お休み（見るだけ）のあいだは、設定を変える API を断る（docs/specs/billing.md §3-8）。

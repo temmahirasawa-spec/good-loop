@@ -1,35 +1,43 @@
 import { NextResponse } from "next/server";
 import { refuseWhenPaused } from "@/lib/billing/state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { POP_PRESETS, POP_QR_SIZES } from "@/lib/admin/pop";
+import { isPopColor, isPopDesign, isPopOrientation, isPopQrSize, POP_MAX_HEADING, POP_MAX_NOTE } from "@/lib/admin/pop";
 
 /**
- * 卓上POPの設定の保存先（supabase/0012、2026-08-22）。
+ * 卓上POPの設定の保存先（supabase/0012・0020。2026-09-29 名刺サイズに作り直した）。
  *
  * ログイン中ユーザーのセッションで stores を更新する。RLS（supabase/0002）が
  * 他テナントの店舗を書き換えられないことを保証するので、admin client は使わない。
  */
 
-const PRESETS = new Set<string>(POP_PRESETS.map((p) => p.code));
-const SIZES = new Set<string>(POP_QR_SIZES.map((s) => s.code));
-const MAX_HEADING = 40;
-const MAX_NOTE = 200;
-
-type Body = { storeId: string; preset: string; heading: string; note: string; qrSize: string };
+type Body = {
+  storeId: string;
+  orientation: string;
+  design: string;
+  color: string;
+  heading: string;
+  note: string;
+  qrSize: string;
+  showStoreLogo: boolean;
+  showBrandLogo: boolean;
+};
 
 function isValidBody(body: unknown): body is Body {
   if (typeof body !== "object" || body === null) return false;
   const b = body as Record<string, unknown>;
   return (
     typeof b.storeId === "string" &&
-    typeof b.preset === "string" &&
-    PRESETS.has(b.preset) &&
-    typeof b.qrSize === "string" &&
-    SIZES.has(b.qrSize) &&
+    isPopOrientation(b.orientation) &&
+    isPopDesign(b.design) &&
+    isPopColor(b.color) &&
+    isPopQrSize(b.qrSize) &&
     typeof b.heading === "string" &&
-    b.heading.length <= MAX_HEADING &&
+    b.heading.length <= POP_MAX_HEADING &&
     typeof b.note === "string" &&
-    b.note.length <= MAX_NOTE
+    // A6 のころの長い本文（最大200字）が残っている店舗もあるので、画面の上限より長くても受け付けて切り詰める
+    b.note.length <= 200 &&
+    typeof b.showStoreLogo === "boolean" &&
+    typeof b.showBrandLogo === "boolean"
   );
 }
 
@@ -49,18 +57,26 @@ export async function PUT(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const { error } = await supabase
+  const heading = body.heading.trim();
+  const note = body.note.trim().slice(0, POP_MAX_NOTE);
+  const { data, error } = await supabase
     .from("stores")
     .update({
-      pop_preset: body.preset,
-      // 空のまま保存したらプリセットの既定文言に戻す（null＝未設定）
-      pop_heading: body.heading.trim() === "" ? null : body.heading.trim(),
-      pop_note: body.note.trim() === "" ? null : body.note,
+      pop_orientation: body.orientation,
+      pop_design: body.design,
+      pop_color: body.color,
+      // 空のまま保存したら既定の文言に戻す（null＝未設定）
+      pop_heading: heading === "" ? null : heading,
+      pop_note: note === "" ? null : note,
       pop_qr_size: body.qrSize,
+      pop_show_store_logo: body.showStoreLogo,
+      pop_show_brand_logo: body.showBrandLogo,
     })
-    .eq("id", body.storeId);
+    .eq("id", body.storeId)
+    .select("id");
 
-  if (error) {
+  // RLS で他テナントの店舗は0件更新になる（エラーにはならない）。0件も失敗として返す
+  if (error || !data || data.length === 0) {
     return NextResponse.json({ error: "保存できませんでした。もう一度お試しください。" }, { status: 500 });
   }
   return NextResponse.json({ ok: true });

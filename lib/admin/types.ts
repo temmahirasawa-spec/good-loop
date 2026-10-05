@@ -55,6 +55,4 @@ export type BusinessCategory = {
   label: string;
 };
 
-/** 卓上POP（印刷用）の設定（supabase/0012、2026-08-22） */
-export type PopPreset = "a" | "b" | "c";
-export type PopQrSize = "sm" | "md" | "lg";
+/** 卓上POP の型は lib/admin/pop.ts（2026-09-29 名刺サイズに作り直した）にある */
