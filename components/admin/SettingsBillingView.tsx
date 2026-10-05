@@ -222,7 +222,7 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
                 : `${BILLING.planLabel}（月額 ${formatYen(BILLING.planMonthlyYen)}・${BILLING.includedStores}店舗まで）`}
             </p>
           </div>
-          {canPay && <StripeLink path="/api/admin/billing/portal">プランを変更</StripeLink>}
+          {/* 「プランを変更」は置かない（2026-10-05 天真。プランは1つだけで、店舗数は下の店舗枠で変える） */}
         </div>
 
         <div className="flex w-full items-start justify-between gap-3 py-2 md:h-12 md:items-center md:py-0">
