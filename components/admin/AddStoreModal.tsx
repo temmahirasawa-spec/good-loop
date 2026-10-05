@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { ReviewInput } from "@/components/admin/ReviewInput";
-import { BUSINESS_CATEGORIES } from "@/lib/admin/constants";
+import { BUSINESS_CATEGORIES, formatYen, type MonthlyQuote } from "@/lib/admin/constants";
 
 type NewStore = { id: string; name: string; slug: string; loopTheme: string };
 type PlaceSuggestion = { placeId: string; name: string; address: string };
@@ -36,6 +36,8 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
   const [selectedPlace, setSelectedPlace] = useState<PlaceSuggestion | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 前に無料体験をしたお店を、体験中に紐付けようとした（docs/specs/billing.md §3-4 の Q4）。今日のお支払いの額 */
+  const [paidConfirm, setPaidConfirm] = useState<MonthlyQuote | null>(null);
 
   useEffect(() => {
     if (editingSlug || name.trim() === "") {
@@ -85,7 +87,7 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
     return () => clearTimeout(timer);
   }, [placeQuery]);
 
-  async function handleSave() {
+  async function handleSave(confirmPaid = false) {
     if (name.trim() === "" || slug.trim() === "") return;
     setSaving(true);
     setError(null);
@@ -99,9 +101,20 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
           loopTheme: category, // 初期値は業態と同じ色。あとで「ブランドとテーマ」から自由に変更できる
           slug: slug.trim(),
           ...(selectedPlace ? { googlePlaceId: selectedPlace.placeId } : {}),
+          confirmPaid,
         }),
       });
-      const data: { store?: NewStore; error?: string } = await res.json();
+      const data: {
+        store?: NewStore;
+        error?: string;
+        needsPaidConfirmation?: boolean;
+        quote?: MonthlyQuote;
+      } = await res.json();
+      if (res.status === 409 && data.needsPaidConfirmation && data.quote) {
+        setPaidConfirm(data.quote);
+        setSaving(false);
+        return;
+      }
       if (!res.ok || !data.store) {
         setError(data.error ?? "保存できませんでした。もう一度お試しください。");
         setSaving(false);
@@ -255,13 +268,30 @@ export function AddStoreModal({ onClose, onCreated }: { onClose: () => void; onC
           </p>
         )}
 
+        {/* 前に無料体験をしたお店を、体験中に紐付けようとした（Q4）。押したときだけ体験を終えて請求する */}
+        {paidConfirm && (
+          <div className="flex w-full flex-col items-start gap-1 rounded-lg px-4 py-3" style={{ backgroundColor: "var(--product-color-bg-secondary)" }}>
+            <p className="text-[13px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+              このお店では、以前に無料体験をご利用いただいています。
+            </p>
+            <p className="text-xs font-medium leading-[1.6]" style={{ color: "var(--product-color-text-secondary)" }}>
+              今日から有料でのご利用になります。今日のお支払いは{formatYen(paidConfirm.total)}（税込）です。
+            </p>
+          </div>
+        )}
+
         <div className="flex w-full items-center justify-between pt-2">
-          <button type="button" onClick={onClose} className="text-[13px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-            キャンセル
+          <button
+            type="button"
+            onClick={paidConfirm ? () => setPaidConfirm(null) : onClose}
+            className="text-[13px] font-medium"
+            style={{ color: "var(--product-color-text-secondary)" }}
+          >
+            {paidConfirm ? "やめる" : "キャンセル"}
           </button>
           <div className="w-fit">
-            <ReviewButton variant="primary" onClick={handleSave} disabled={!canSave}>
-              {saving ? "保存中…" : "保存する"}
+            <ReviewButton variant="primary" onClick={() => handleSave(Boolean(paidConfirm))} disabled={!canSave}>
+              {saving ? "保存中…" : paidConfirm ? "有料に切り替えて紐付ける" : "保存する"}
             </ReviewButton>
           </div>
         </div>

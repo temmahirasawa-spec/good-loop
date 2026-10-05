@@ -5,6 +5,7 @@ import { ReviewButton } from "@/components/rating-flow/Button";
 import { ReviewInput } from "@/components/admin/ReviewInput";
 import { PopSheet } from "@/components/admin/PopSheet";
 import { POP_PRESETS, POP_QR_SIZES, presetOf } from "@/lib/admin/pop";
+import { useCardGate } from "@/components/admin/billing/CardGate";
 
 /**
  * 卓上POPを作る（Figma `Modal / 卓上POPを作る — PC` / `卓上POPを作る — SP 390`）。
@@ -31,6 +32,8 @@ export function PopEditor({
   qrSvg: string;
   initial: { preset: string; heading: string; note: string; qrSize: string };
 }) {
+  // 印刷（卓上POPの発行）はカードを登録してから（無料体験 A案。docs/specs/billing.md §3-2）
+  const gate = useCardGate();
   const [preset, setPreset] = useState(initial.preset);
   const [heading, setHeading] = useState(initial.heading);
   const [note, setNote] = useState(initial.note);
@@ -193,7 +196,7 @@ export function PopEditor({
             <ReviewButton variant="outline" disabled={saving} onClick={save}>
               {saving ? "保存中…" : saved ? "保存しました" : "保存する"}
             </ReviewButton>
-            <ReviewButton variant="primary" onClick={() => window.open(`/admin/pop/${storeId}`, "_blank")}>
+            <ReviewButton variant="primary" onClick={() => gate.requireCard(() => window.open(`/admin/pop/${storeId}`, "_blank"))}>
               印刷する
             </ReviewButton>
           </div>

@@ -54,12 +54,15 @@ export async function getBillingDisplay(customerId: string | null): Promise<Bill
     const stripe = getStripe();
     const [customer, invoiceList] = await Promise.all([
       stripe.customers.retrieve(customerId, { expand: ["invoice_settings.default_payment_method"] }),
-      stripe.invoices.list({ customer: customerId, limit: 3 }),
+      // 0円の請求（無料体験の始まりに Stripe が作るもの）を外してから3件にするので、多めに取る
+      stripe.invoices.list({ customer: customerId, limit: 10 }),
     ]);
 
     return {
       card: await resolveCard(stripe, customer, customerId),
-      invoices: invoiceList.data.map((invoice) => ({
+      // 0円の請求は一覧に出さない（2026-10-05 天真。体験の始まりの「0円・領収書をダウンロード」が紛らわしい）。
+      // すべての履歴は「請求履歴をすべて見る」（Stripe の画面）に残る
+      invoices: invoiceList.data.filter((invoice) => invoice.total !== 0).slice(0, 3).map((invoice) => ({
         id: invoice.id ?? `${invoice.created}`,
         periodLabel: toPeriodLabel(invoice.created),
         // JPY は最小単位が「円」そのもの（1円 = 1）。ドルのような100分の1の換算は要らない

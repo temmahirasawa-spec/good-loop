@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { refuseWhenPaused } from "@/lib/billing/state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -38,6 +39,10 @@ function isValidBody(body: unknown): body is Body {
 }
 
 export async function PUT(request: Request) {
+  // お休み（見るだけ）のあいだは設定を変えさせない（docs/specs/billing.md §3-8）
+  const paused = await refuseWhenPaused();
+  if (paused) return paused;
+
   const body = await request.json().catch(() => null);
   if (!isValidBody(body)) {
     return NextResponse.json({ error: "invalid request body" }, { status: 400 });

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useCardGate } from "@/components/admin/billing/CardGate";
 import { ReviewButton } from "@/components/rating-flow/Button";
 import { BILLING, formatYen } from "@/lib/admin/constants";
 import { SettingsCardTitle } from "@/components/admin/SettingsCardTitle";
@@ -14,7 +15,16 @@ type QuotaProps = { quota: number | null; used: number; hasPendingRequest: boole
 
 type Props = {
   quota: QuotaProps;
-  billing: { status: BillingStatus; subscribed: boolean };
+  billing: {
+    status: BillingStatus;
+    subscribed: boolean;
+    /** 無料体験の残り日数と終わりの日（体験中だけ） */
+    trial: { daysLeft: number; endLabel: string } | null;
+    /** 解約の予約日（「○月○日」）。予約していなければ null */
+    cancelLabel: string | null;
+  };
+  /** Stripe から戻ったときの知らせ（?confirm=paid&reason=… ／ ?card=error） */
+  notice?: { confirmPaid: "place" | "card" | "email" | null; cardError: boolean };
   /** Stripe の鍵が揃っているか。揃っていなければ課金の導線を出さない（docs/specs/billing.md 7章） */
   stripeEnabled: boolean;
   card: BillingCard | null;
@@ -41,8 +51,16 @@ type Props = {
  *
  * 金額は lib/admin/constants.ts の BILLING を参照する。**画面に金額を直書きしない。**
  */
-export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoices, lookupFailed, pilot }: Props) {
+export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoices, lookupFailed, notice, pilot }: Props) {
   const router = useRouter();
+  // カードの関門（無料体験 A案）。申し込みから来てカードがまだ無い・お休みのときは、登録をここから始める
+  const gate = useCardGate();
+  // カードで対象外だった（Stripe から戻った直後）。「有料で始める」の確認を出す（黙って請求しない。§3-4）
+  useEffect(() => {
+    if (notice?.confirmPaid) gate.openPaidConfirmation(notice.confirmPaid);
+    // 戻ってきた1回だけ出す
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [confirming, setConfirming] = useState(false);
   const [done, setDone] = useState(false);
   // 変更後の店舗枠（ステッパーで選ぶ。2026-08-25 天真の指示で申し込みページと同じ器に）
@@ -146,15 +164,48 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
         <SettingsCardTitle icon={<BillingIcon />}>お支払い</SettingsCardTitle>
 
         {/* お支払いが止まっているときの断り。Figma には無い要素（2026-08-24 追加、天真確認中） */}
-        {(billing.status === "past_due" || billing.status === "canceled") && (
+        {/* 無料体験 A案（Figma App Design Master `12 無料体験 / Trial` の「設定（お支払い・…）」） */}
+        {gate.paused ? (
+          <div className="flex w-full flex-col items-start gap-2 rounded-lg px-4 py-3" style={{ backgroundColor: "var(--product-color-status-error-subtle)" }}>
+            <p className="text-[13px] font-bold" style={{ color: "var(--product-color-status-error)" }}>
+              アンケートはお休み中です。
+            </p>
+            <p className="text-xs leading-[1.6]" style={{ color: "var(--product-color-text-secondary)" }}>
+              カードを登録すると再開できます。これまでのデータは、そのまま残っています。
+            </p>
+            <ReviewButton variant="primary" onClick={gate.startRegistration}>
+              カードを登録する
+            </ReviewButton>
+          </div>
+        ) : billing.cancelLabel ? (
+          <div className="flex w-full flex-col items-start gap-1 rounded-lg px-4 py-3" style={{ backgroundColor: "var(--product-color-bg-secondary)" }}>
+            <p className="text-[13px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+              解約の手続きが済んでいます。{billing.cancelLabel}までお使いいただけます。
+            </p>
+          </div>
+        ) : billing.trial ? (
+          <div className="flex w-full flex-col items-start gap-1 rounded-lg px-4 py-3" style={{ backgroundColor: "var(--review-accent-wash)" }}>
+            <p className="text-[13px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
+              無料体験 残り{billing.trial.daysLeft}日（{billing.trial.endLabel}まで）
+            </p>
+            <p className="text-xs leading-[1.6]" style={{ color: "var(--product-color-text-secondary)" }}>
+              {billing.trial.endLabel}から、月額{monthlyTotal === null ? "—" : formatYen(monthlyTotal)}（税込）のお支払いが始まります。体験中に解約すれば、料金はかかりません。
+            </p>
+          </div>
+        ) : null}
+        {notice?.cardError && (
+          <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-status-error)" }}>
+            カードの登録を確かめられませんでした。時間をおいてもう一度お試しください。
+          </p>
+        )}
+
+        {billing.status === "past_due" && (
           <div className="flex w-full flex-col items-start gap-1 rounded-xl p-4" style={{ backgroundColor: "var(--review-accent-wash)" }}>
             <p className="text-[13px] font-bold" style={{ color: "var(--product-color-status-warning)" }}>
-              {billing.status === "past_due" ? "お支払いを確認できていません" : "ご契約が終了しています"}
+              お支払いを確認できていません
             </p>
             <p className="text-[12.5px] font-medium" style={{ color: "var(--product-color-text-secondary)" }}>
-              {billing.status === "past_due"
-                ? "カードのお支払いが通りませんでした。お支払い方法をご確認ください。サービスは引き続きご利用いただけます"
-                : "サービスは引き続きご利用いただけます。再開をご希望の場合はお支払い方法を登録してください"}
+              カードのお支払いが通りませんでした。お支払い方法をご確認ください。サービスは引き続きご利用いただけます
             </p>
           </div>
         )}
@@ -171,7 +222,7 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
                 : `${BILLING.planLabel}（月額 ${formatYen(BILLING.planMonthlyYen)}・${BILLING.includedStores}店舗まで）`}
             </p>
           </div>
-          {canPay && <StripeLink path="/api/admin/billing/portal">プランを変更</StripeLink>}
+          {/* 「プランを変更」は置かない（2026-10-05 天真。プランは1つだけで、店舗数は下の店舗枠で変える） */}
         </div>
 
         <div className="flex w-full items-start justify-between gap-3 py-2 md:h-12 md:items-center md:py-0">
@@ -187,9 +238,13 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
         </div>
 
         {/* 未契約のとき、登録の入口をここに出す（Stripeの鍵が揃っている場合だけ。試験導入中は出さない） */}
-        {stripeEnabled && !billing.subscribed && !pilot && (
-          <ReviewButton variant="primary" disabled={navigating} onClick={() => openStripe("/api/admin/billing/checkout")}>
-            {navigating ? "開いています..." : "お支払い方法を登録する"}
+        {stripeEnabled && !billing.subscribed && !gate.paused && !pilot && (
+          <ReviewButton
+            variant="primary"
+            disabled={navigating}
+            onClick={() => (gate.needsCard ? gate.startRegistration() : openStripe("/api/admin/billing/checkout"))}
+          >
+            {navigating ? "開いています..." : gate.needsCard ? "カードを登録する" : "お支払い方法を登録する"}
           </ReviewButton>
         )}
 
@@ -250,7 +305,7 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
         {!pilot && (
           <div className="flex w-full items-center justify-between border-b py-3" style={{ borderColor: "var(--product-color-border-divider)" }}>
             <p className="text-[12.5px]" style={{ color: "var(--product-color-text-secondary)" }}>
-              現在の月額
+              現在の月額（税込）
             </p>
             <p className="text-[13.5px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
               {monthlyTotal === null ? "—" : formatYen(monthlyTotal)}
@@ -279,7 +334,7 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
                 storeCount={desired}
                 onChange={(n) => setDesiredQuota(n)}
                 countLabel="店舗枠"
-                totalLabel="変更後の月額"
+                totalLabel="変更後の月額（税込）"
                 min={minQuota}
                 showPrice={!pilot}
               />
@@ -291,7 +346,7 @@ export function SettingsBillingView({ quota, billing, stripeEnabled, card, invoi
                 variant="primary"
                 // Stripe の遷移中に連動させない（2026-08-24 天真の指摘）。押しても開かないだけ
                 disabled={!changed}
-                onClick={() => !navigating && setConfirming(true)}
+                onClick={() => !navigating && (gate.needsCard ? gate.requireCard() : setConfirming(true))}
               >
                 この内容で変更する
               </ReviewButton>

@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getBillingState } from "@/lib/billing/state";
 import { PopSheet } from "@/components/admin/PopSheet";
 import { resolvePop } from "@/lib/admin/pop";
 import { generateQrSvg } from "@/lib/qr-code";
@@ -24,6 +25,10 @@ type PopRow = {
 };
 
 export default async function PopPrintPage({ params }: { params: { storeId: string } }) {
+  // 卓上POPの発行はカードを登録してから（docs/specs/billing.md §3-2）。URL を直接開かれても印刷させない
+  const billing = await getBillingState();
+  if (!billing.access.canUseStoreFeatures) redirect("/admin/settings/pop");
+
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("stores")

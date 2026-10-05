@@ -21,7 +21,7 @@ import { normalizeInviteCode } from "@/lib/signup/invite-code";
 
 const TITLE = "料金とお申し込み | GOOD REVIEW";
 const DESCRIPTION =
-  "GOOD REVIEW の料金とお申し込み。プランは1つだけ、店舗数で月額が決まります。14日間の無料でお試しいただけます（カードの登録は不要）。株式会社UTUTU";
+  "GOOD REVIEW の料金とお申し込み。プランは1つだけ、店舗数で月額が決まります。14日間の無料体験は、カードを登録した日から始まります。株式会社UTUTU";
 
 export const metadata: Metadata = {
   metadataBase: new URL(PUBLIC_APP_URL),

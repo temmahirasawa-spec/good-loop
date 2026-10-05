@@ -1,7 +1,8 @@
 "use client";
 
 import { ReviewButton } from "@/components/rating-flow/Button";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCardGate } from "@/components/admin/billing/CardGate";
 
 /**
  * 実際のQRコード（launch-plan.md D-7、2026-08-06実装）。
@@ -19,8 +20,28 @@ function QrImage({ svg }: { svg: string }) {
   );
 }
 
+/**
+ * カードを登録するまで二次元コードを出さない（無料体験 A案。docs/specs/billing.md §3-2）。
+ * 鍵の絵だけを置き、押された操作はカードの関門（モーダル）へつなぐ。サーバーも SVG を渡してこない。
+ */
+function LockedQr() {
+  return (
+    <div
+      className="grid size-[120px] shrink-0 place-items-center rounded-xl"
+      style={{ backgroundColor: "var(--product-color-bg-tertiary)", color: "var(--product-color-text-tertiary)" }}
+      aria-label="カードを登録すると表示されます"
+      role="img"
+    >
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
+        <path d="M9 13V9a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+        <rect x="5" y="12" width="18" height="13" rx="3" fill="currentColor" />
+      </svg>
+    </div>
+  );
+}
+
 /** SVG文字列をPNGに変換してダウンロードする（Canvas経由。印刷・貼り付けに使いやすい形式） */
-function downloadQr(svg: string, slug: string) {
+export function downloadQr(svg: string, slug: string) {
   const svgBlob = new Blob([svg], { type: "image/svg+xml" });
   const svgUrl = URL.createObjectURL(svgBlob);
   const image = new Image();
@@ -57,26 +78,34 @@ export function QrCard({
 }: {
   storeName: string;
   slug: string;
-  qrSvg: string;
+  /** カードを登録する前・お休みのあいだは null（サーバーが渡さない） */
+  qrSvg: string | null;
 }) {
+  const gate = useCardGate();
+  const router = useRouter();
   return (
     <div
       className="hidden w-[371px] shrink-0 flex-col items-center gap-3 rounded-2xl p-6 md:flex"
       style={{ backgroundColor: "var(--product-color-surface-white)" }}
     >
-      <QrImage svg={qrSvg} />
+      {qrSvg ? <QrImage svg={qrSvg} /> : <LockedQr />}
       <p className="whitespace-nowrap text-[15px] font-bold" style={{ color: "var(--product-color-text-primary)" }}>
         {storeName}
       </p>
       <div className="w-full">
-        <ReviewButton variant="outline" onClick={() => downloadQr(qrSvg, slug)}>
+        <ReviewButton variant="outline" onClick={() => (qrSvg ? downloadQr(qrSvg, slug) : gate.requireCard())}>
           画像をダウンロード
         </ReviewButton>
       </div>
       {/* 2026-08-22、卓上POPの編集画面につないだ（それまでは押しても何も起きなかった） */}
-      <Link href="/admin/settings/pop" className="whitespace-nowrap text-[12.5px] font-medium" style={{ color: "var(--review-accent-primary)" }}>
+      <button
+        type="button"
+        onClick={() => gate.requireCard(() => router.push("/admin/settings/pop"))}
+        className="whitespace-nowrap text-[12.5px] font-medium"
+        style={{ color: "var(--review-accent-primary)" }}
+      >
         印刷用POPを作る
-      </Link>
+      </button>
     </div>
   );
 }
@@ -89,23 +118,28 @@ export function QrCardMobile({
 }: {
   storeName: string;
   slug: string;
-  qrSvg: string;
+  /** カードを登録する前・お休みのあいだは null（サーバーが渡さない） */
+  qrSvg: string | null;
 }) {
+  const gate = useCardGate();
+  const router = useRouter();
   return (
     <div
       className="flex w-full items-center gap-4 rounded-2xl p-4 md:hidden"
       style={{ backgroundColor: "var(--product-color-surface-white)" }}
     >
-      <QrImage svg={qrSvg} />
+      {qrSvg ? <QrImage svg={qrSvg} /> : <LockedQr />}
       <div className="flex flex-1 flex-col items-start gap-2">
         <p className="text-sm font-bold" style={{ color: "var(--product-color-text-primary)" }}>
           {storeName}
         </p>
         <div className="flex items-start gap-4 text-[12.5px] font-medium" style={{ color: "var(--review-accent-primary)" }}>
-          <button type="button" onClick={() => downloadQr(qrSvg, slug)}>
+          <button type="button" onClick={() => (qrSvg ? downloadQr(qrSvg, slug) : gate.requireCard())}>
             ダウンロード
           </button>
-          <Link href="/admin/settings/pop">印刷用POP</Link>
+          <button type="button" onClick={() => gate.requireCard(() => router.push("/admin/settings/pop"))}>
+            印刷用POP
+          </button>
         </div>
       </div>
     </div>
