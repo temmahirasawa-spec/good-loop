@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  * 設定（卓上POPを作る）。Figma App Design Master「13 卓上POP / 名刺サイズ（案3 ステップ）」。
  *
  * 2026-09-29、A6 の3デザインから名刺サイズ（91×55mm・縦横・デザイン6種・9色・ロゴ2つのオン/オフ）に
- * 作り直した（supabase/0018）。天真が3案から「案3（ステップで進める）」を選んだ。
+ * 作り直した（supabase/0020）。天真が3案から「案3（ステップで進める）」を選んだ。
  */
 export default async function SettingsPopPage({ searchParams }: { searchParams: { store?: string } }) {
   const stores = await getSettingsStores();

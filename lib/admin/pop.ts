@@ -1,7 +1,7 @@
 import { INDUSTRY_THEMES } from "@/lib/admin/constants";
 
 /**
- * 卓上POP（名刺サイズ 91×55mm）の設定（supabase/0012・0018）。
+ * 卓上POP（名刺サイズ 91×55mm）の設定（supabase/0012・0020）。
  *
  * 2026-09-29、天真「A6だと大きいと思うので名刺サイズがいい」で作り直した。
  * Figma：テンプレートは Components「08 卓上POP / 名刺サイズ」（1566:25902。1mm＝4px）、

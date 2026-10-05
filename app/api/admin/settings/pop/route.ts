@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isPopColor, isPopDesign, isPopOrientation, isPopQrSize, POP_MAX_HEADING, POP_MAX_NOTE } from "@/lib/admin/pop";
 
 /**
- * 卓上POPの設定の保存先（supabase/0012・0018。2026-09-29 名刺サイズに作り直した）。
+ * 卓上POPの設定の保存先（supabase/0012・0020。2026-09-29 名刺サイズに作り直した）。
  *
  * ログイン中ユーザーのセッションで stores を更新する。RLS（supabase/0002）が
  * 他テナントの店舗を書き換えられないことを保証するので、admin client は使わない。
