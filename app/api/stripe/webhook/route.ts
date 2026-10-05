@@ -139,10 +139,14 @@ async function onSubscriptionChanged(received: Stripe.Subscription) {
   // **Stripe から最新の契約を取り直してから写す**（2026-09-29 の点検で追加）
   const subscription = await getStripe().subscriptions.retrieve(received.id);
 
-  // 古い契約の知らせで、新しい契約の状態を上書きしない（解約後にもう一度登録した契約先など）
-  const current = await currentSubscriptionId(tenantId);
+  // **終わった契約は、ここでは写さない**（お休みにするのは deleted の処理だけ）。
+  // 2026-10-05 の Test Clock の検証で、知らせは同じ瞬間に届いて並んで処理されることが分かった。
+  // ここで終わった契約を写すと、deleted が空にした契約IDを書き戻し、お休み中に「カードを登録する」が
+  // 出なくなる。解約後にもう一度登録した契約先の、新しい契約を古い知らせで上書きしないのもこれで守る
   const ended = subscription.status === "canceled" || subscription.status === "incomplete_expired";
-  if (current && current !== subscription.id && ended) return;
+  if (ended) return;
+  const current = await currentSubscriptionId(tenantId);
+  if (current && current !== subscription.id) return;
 
   await syncTenantFromSubscription(createSupabaseAdminClient(), tenantId, subscription);
   await recordCancellation(tenantId, subscription);
@@ -234,12 +238,22 @@ async function onInvoicePaid(invoice: Stripe.Invoice) {
 async function onPaymentFailed(invoice: Stripe.Invoice) {
   const tenantId = await resolveTenantId(idOf(invoice.customer), invoice.metadata);
   if (!tenantId) return;
-  // 今の契約の請求のときだけ（古い契約の請求の失敗で、新しい契約を未払いにしない）
   const subscriptionId = idOf(invoice.parent?.subscription_details?.subscription ?? null);
-  const current = await currentSubscriptionId(tenantId);
-  if (subscriptionId && current && subscriptionId !== current) return;
+  if (!subscriptionId) return;
 
-  // 未払い。**止めない**（§3-8）。再請求が尽きたら Stripe が契約を終わらせ、deleted でお休みになる
+  // 未払い。**止めない**（§3-8）。再請求が尽きたら Stripe が契約を終わらせ、deleted でお休みになる。
+  //
+  // **「今の契約がこの請求の契約のままなら」を同じ1回の更新の条件にする。**
+  // 2026-10-05 の Test Clock の検証で、再請求が尽きたとき Stripe は deleted と最後の payment_failed を
+  // 同じ瞬間に送ってきて、2つの処理が並んで走り、deleted の後に書いた failed がお休みを「未払い」に
+  // 上書きした（お休みにならず、アンケートも止まらない）。先に読んで確かめてから書く形だと、その間に
+  // deleted が入り込めるので、条件つきの更新で「契約IDが空になった後」には何も書かないようにする。
+  // あわせて、古い契約の請求の失敗で新しい契約を未払いにしないことも、この条件で守られる
   const admin = createSupabaseAdminClient();
-  await admin.from("tenants").update({ billing_status: "past_due" satisfies BillingStatus }).eq("id", tenantId);
+  await admin
+    .from("tenants")
+    .update({ billing_status: "past_due" satisfies BillingStatus })
+    .eq("id", tenantId)
+    .eq("stripe_subscription_id", subscriptionId)
+    .neq("billing_status", "canceled");
 }
