@@ -375,7 +375,8 @@ function Pricing({
 
       <p className="text-center text-[11.5px]" style={{ color: "var(--product-color-text-muted)" }}>
         株式会社UTUTU　|　<a href="/terms" className="underline">利用規約</a>　|
-        <a href="/privacy" className="underline">プライバシーポリシー</a>
+        <a href="/privacy" className="underline">プライバシーポリシー</a>　|
+        <a href="/tokushoho" className="underline">特定商取引法に基づく表記</a>
       </p>
     </>
   );
