@@ -112,6 +112,9 @@ export async function POST(req: Request) {
           success_url: `${origin}/api/admin/billing/return?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${origin}${returnPath}`,
           locale: "ja",
+          // setup モードでも明示的に切る（2026-10-05、サンドボックスで「Invalid mode: setup. Managed Payments ...
+          // only supports mode: subscription or mode: payment」で開けなかった。アカウントの既定に左右されないように）
+          managed_payments: { enabled: false },
         });
 
     if (!session.url) throw new Error("Checkout セッションのURLが返らなかった");
