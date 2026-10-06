@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { siteLock } from "./lib/site-lock";
+
 /**
  * Supabase Authのセッションをリクエストごとにリフレッシュする（Supabase公式のSSRパターン）。
  * あわせて `/admin` 配下（ログイン画面自身を除く）を未ログイン時 `/admin/login` へリダイレクトする。
@@ -9,6 +11,14 @@ import { NextResponse, type NextRequest } from "next/server";
  * セッションの更新（refresh tokenのローテーション）はここでしか行えない。
  */
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  // サイト全体のパスワード（lib/site-lock.ts）。Stripe の Webhook と定期実行（cron）は外から呼ばれ、それぞれ自前の鍵で守っているので通す
+  if (!pathname.startsWith("/api/stripe/") && !pathname.startsWith("/api/cron/")) {
+    const locked = siteLock(request);
+    if (locked) return locked;
+  }
+  if (!pathname.startsWith("/admin")) return NextResponse.next();
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
@@ -28,7 +38,6 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
   // reset-password/confirm はメールのリンクから来た「パスワード再設定用の一時セッション」を
   // 使う画面のため、ログイン中と同じ扱いで弾いてはいけない（下の「ログイン中は/adminへ」からも除外する）
   const isPublicAuthRoute = pathname === "/admin/login" || pathname === "/admin/reset-password" || pathname === "/admin/reset-password/confirm";
@@ -47,5 +56,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  // サイト全体のパスワードのため、全ページで動かす（Next.js が配る JS・CSS と画像の変換だけは外す）。Supabase のセッション更新は /admin だけ
+  matcher: ["/((?!_next/static|_next/image).*)"],
 };
